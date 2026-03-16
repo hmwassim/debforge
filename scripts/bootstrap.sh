@@ -93,7 +93,14 @@ get_latest_release() {
     fi
 
     LATEST_VERSION=$(echo "$release_info" | jq -r '.tag_name')
+    
+    # Try to get source tarball URL first (more reliable than tarball_url)
     LATEST_TARBALL=$(echo "$release_info" | jq -r '.tarball_url')
+    
+    # Fallback to zipball if tarball fails
+    if [[ "$LATEST_TARBALL" == "null" ]] || [[ -z "$LATEST_TARBALL" ]]; then
+        LATEST_TARBALL=$(echo "$release_info" | jq -r '.zipball_url')
+    fi
 
     if [[ "$LATEST_VERSION" == "null" ]] || [[ -z "$LATEST_VERSION" ]]; then
         log_error "No releases found"
@@ -126,7 +133,11 @@ download_release() {
     # Extract to install directory
     log_info "Installing to $INSTALL_DIR..."
 
+    # Create install directory
     sudo mkdir -p "$INSTALL_DIR"
+    
+    # Extract and strip the first directory level (repo name-commit hash)
+    # GitHub tarballs have format: repo-name-commit/
     sudo tar -xzf "$tarball" -C "$INSTALL_DIR" --strip-components=1
 
     log_success "Extracted to $INSTALL_DIR"
@@ -136,21 +147,21 @@ download_release() {
 create_symlink() {
     log_info "Creating symlink: $BIN_LINK..."
 
-    # Remove existing symlink if it points to old debforge
+    # Remove existing symlink/file if it exists
     if [[ -L "$BIN_LINK" ]]; then
-        local target
-        target=$(readlink "$BIN_LINK")
-        if [[ "$target" == "/opt/debforge"* ]] || [[ "$target" == *"/debforge/scripts/debforge"* ]]; then
-            sudo rm -f "$BIN_LINK"
-        fi
+        sudo rm -f "$BIN_LINK"
+    elif [[ -f "$BIN_LINK" ]]; then
+        # Backup existing file if it's not a symlink
+        log_warn "Existing file at $BIN_LINK, backing up..."
+        sudo mv "$BIN_LINK" "${BIN_LINK}.bak.$(date +%Y%m%d-%H%M%S)"
     fi
 
     # Create new symlink
-    if [[ ! -L "$BIN_LINK" ]]; then
-        sudo ln -s "$INSTALL_DIR/scripts/debforge" "$BIN_LINK"
+    if sudo ln -s "$INSTALL_DIR/scripts/debforge" "$BIN_LINK"; then
         log_success "Created symlink: $BIN_LINK"
     else
-        log_warn "Symlink already exists: $BIN_LINK"
+        log_error "Failed to create symlink"
+        return 1
     fi
 }
 
@@ -162,8 +173,53 @@ set_permissions() {
     sudo chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
     sudo chmod +x "$INSTALL_DIR/bin/"* 2>/dev/null || true
     sudo chmod +x "$INSTALL_DIR/scripts/lib/"*.sh 2>/dev/null || true
+    sudo chmod +x "$INSTALL_DIR/scripts/debforge" 2>/dev/null || true
 
     log_success "Permissions set"
+}
+
+# Verify installation
+verify_installation() {
+    log_info "Verifying installation..."
+
+    local errors=0
+
+    # Check install directory
+    if [[ ! -d "$INSTALL_DIR" ]]; then
+        log_error "Install directory missing: $INSTALL_DIR"
+        ((errors++))
+    fi
+
+    # Check key files
+    if [[ ! -f "$INSTALL_DIR/scripts/install.sh" ]]; then
+        log_error "Install script missing"
+        ((errors++))
+    fi
+
+    if [[ ! -f "$INSTALL_DIR/scripts/debforge" ]]; then
+        log_error "CLI wrapper missing"
+        ((errors++))
+    fi
+
+    # Check symlink
+    if [[ ! -L "$BIN_LINK" ]]; then
+        log_error "Symlink not created: $BIN_LINK"
+        ((errors++))
+    fi
+
+    # Test CLI wrapper
+    if ! command -v debforge &>/dev/null; then
+        log_error "debforge command not found"
+        ((errors++))
+    fi
+
+    if [[ $errors -gt 0 ]]; then
+        log_error "Verification failed with $errors error(s)"
+        return 1
+    fi
+
+    log_success "Installation verified successfully"
+    return 0
 }
 
 # Print success message
@@ -195,6 +251,7 @@ main() {
     download_release
     create_symlink
     set_permissions
+    verify_installation
 
     print_success
 }
