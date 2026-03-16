@@ -1,0 +1,22 @@
+# Runtime state (stored in user's home directory)
+~/.local/share/debforge/
+
+# Legacy state files
+~/.local/.debforge.state
+~/.local/.debforge.manifest
+
+# Backup files
+*.bak
+*.debforge.bak
+
+# Logs
+*.log
+
+# Editor files
+*~
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

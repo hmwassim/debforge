@@ -1,0 +1,5 @@
+# Always disable power saving for snd_hda_intel on desktop systems.
+# Prevents audio pops and cracks that occur when the codec enters power-save.
+# Source: CachyOS-Settings (simplified — no battery logic needed on desktop)
+ACTION=="add", SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd_hda_intel", \
+    RUN+="/bin/sh -c 'echo 0 > /sys/module/snd_hda_intel/parameters/power_save'"

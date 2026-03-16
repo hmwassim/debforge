@@ -1,0 +1,3 @@
+# Allow audio group to access cpu_dma_latency for low-latency audio.
+# Source: CachyOS-Settings
+DEVPATH=="/devices/virtual/misc/cpu_dma_latency", OWNER="root", GROUP="audio", MODE="0660"

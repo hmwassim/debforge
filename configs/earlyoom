@@ -1,0 +1,9 @@
+# EarlyOOM — kill memory hogs before the kernel OOM-kills critical processes.
+# Adapted from Fedora defaults + CachyOS, tuned for KDE Plasma.
+#
+# -r 0      : no periodic memory report (less log noise)
+# -m 2      : trigger when available RAM drops below 2 % (~640 MB on 32 GB)
+# -M 256000 : or below 256 MB absolute
+# --prefer  : target browser content processes first (biggest memory consumers)
+# --avoid   : never kill display server, Plasma shell, or package managers
+EARLYOOM_ARGS="-r 0 -m 2 -M 256000 --prefer '^(Web Content|Isolated Web Co)$' --avoid '^(apt|dpkg|sddm|sddm-helper|Xorg|Xwayland|systemd|systemd-logind|dbus-daemon|dbus-broker|kwin_x11|kwin_wayland|plasmashell|ksmserver|plasma_session|startplasma-way|cryptsetup)$'"

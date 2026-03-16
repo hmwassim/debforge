@@ -1,0 +1,4 @@
+# Allow audio group access to high-precision timers.
+# Source: CachyOS-Settings
+KERNEL=="rtc0", GROUP="audio"
+KERNEL=="hpet", GROUP="audio"

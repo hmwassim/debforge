@@ -1,0 +1,8 @@
+# Baloo file indexing configuration
+# Source: DebForge - disables indexing for better performance
+
+[Basic Settings]
+Indexing-Enabled=false
+
+[General]
+exclude filters=build,node_modules,.git,target,__pycache__,*.log,*.tmp

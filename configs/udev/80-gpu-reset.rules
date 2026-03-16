@@ -1,0 +1,4 @@
+# GPU crash recovery — kill the offending process and restart SDDM.
+# Source: ublue-os/bazzite (adapted for KDE/SDDM)
+ACTION=="change", ENV{DEVNAME}=="/dev/dri/card[0-9]", ENV{RESET}=="1", ENV{PID}!="0", RUN+="/sbin/kill -9 %E{PID}"
+ACTION=="change", ENV{DEVNAME}=="/dev/dri/card[0-9]", ENV{RESET}=="1", ENV{FLAGS}=="1", RUN+="/usr/sbin/systemctl restart sddm"

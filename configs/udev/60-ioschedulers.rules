@@ -1,0 +1,14 @@
+# I/O scheduler assignment by storage type.
+# Source: CachyOS-Settings
+
+# NVMe — none (noop); the NVMe controller has its own internal scheduler.
+ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/rotational}=="0", \
+    ATTR{queue/scheduler}="none"
+
+# SATA/USB SSD — mq-deadline keeps latency low on flash storage.
+ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", \
+    ATTR{queue/scheduler}="mq-deadline"
+
+# HDD — BFQ provides fair queuing for rotational media (for USB HDDs etc.).
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", \
+    ATTR{queue/scheduler}="bfq"

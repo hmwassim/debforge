@@ -1,0 +1,13 @@
+# NVIDIA runtime power management.
+# Source: CachyOS-Settings
+#
+# On a desktop with the GPU driving the display, runtime PM won't actually
+# suspend the GPU — the active display output keeps it awake.  The rule is
+# still correct and will help in compute-only or multi-GPU scenarios.
+ACTION=="add|bind", SUBSYSTEM=="pci", DRIVERS=="nvidia", \
+    ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", \
+    TEST=="power/control", ATTR{power/control}="auto"
+
+ACTION=="remove|unbind", SUBSYSTEM=="pci", DRIVERS=="nvidia", \
+    ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", \
+    TEST=="power/control", ATTR{power/control}="on"

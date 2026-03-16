@@ -1,0 +1,18 @@
+# KWin compositor settings
+# Source: DebForge
+
+[Compositor]
+# Enable compositing
+Enabled=true
+# Use OpenGL 3.1 for better performance
+GLPlatform=gl
+# VSync mode
+GLVSync=0
+# Animation speed (0.5 = 2x faster)
+AnimationSpeed=50
+
+[Desktop-Effects]
+# Enable blur for translucent windows
+Blur=true
+# Disable wobbly windows (performance)
+WobblyWindows=false

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Usage:  game-performance ./my-game --arg1 --arg2
+#   or set as Steam launch option:  game-performance %command%
+
+if ! command -v powerprofilesctl &>/dev/null; then
+    echo "Error: powerprofilesctl not found (install power-profiles-daemon)" >&2
+    exit 1
+fi
+
+# If the CPU driver doesn't support a performance profile, just run directly.
+if ! powerprofilesctl list | grep -q 'performance:'; then
+    exec "$@"
+fi
+
+# Set performance profile for the lifetime of the game and block screensaver.
+exec systemd-inhibit --why "debian-cachy game-performance is running" \
+    powerprofilesctl launch -p performance \
+    -r "Launched via debian-cachy game-performance" -- "$@"

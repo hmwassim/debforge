@@ -1,0 +1,9 @@
+# When ZRAM is initialized, optimize the kernel for compressed-RAM swap.
+# Source: CachyOS-Settings
+#
+# swappiness=150: strongly prefer compressing pages in ZRAM (fast, ~1 μs)
+#   over evicting file cache (re-reading from disk later, ~100 μs on SSD).
+#   Values above 100 are supported since Linux 5.8.
+# zswap disabled: zswap and ZRAM conflict — only one should be active.
+KERNEL=="zram0", SUBSYSTEM=="block", ACTION=="add", RUN+="/usr/sbin/sysctl vm.swappiness=150"
+KERNEL=="zram0", SUBSYSTEM=="block", ACTION=="add", RUN+="/bin/sh -c 'echo N > /sys/module/zswap/parameters/enabled 2>/dev/null || true'"

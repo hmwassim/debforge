@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+# debforge - DebForge CLI wrapper
+# Self-contained entry point for DebForge management
+#
+# Usage:
+#   debforge install    # Run installation
+#   debforge uninstall  # Run uninstallation
+#   debforge status     # Show status
+#   debforge verify     # Verify installation
+#   debforge help       # Show help
+#   debforge update     # Update to latest version
+
+set -euo pipefail
+
+# Determine script location
+# If symlinked from /usr/local/bin, find the actual install location
+get_script_dir() {
+    local script_path="$0"
+    
+    # Resolve symlinks
+    while [[ -L "$script_path" ]]; do
+        script_path=$(readlink "$script_path")
+    done
+    
+    dirname "$(realpath "$script_path")"
+}
+
+# Try to find the scripts directory
+find_scripts_dir() {
+    # Check if we're in the installed location
+    if [[ -f "/opt/debforge/scripts/install.sh" ]]; then
+        echo "/opt/debforge/scripts"
+        return 0
+    fi
+    
+    # Check if script is in a local repo clone
+    local script_dir
+    script_dir=$(get_script_dir)
+    if [[ -f "$script_dir/install.sh" ]]; then
+        echo "$script_dir"
+        return 0
+    fi
+    
+    # Check relative to script (if in bin/ subdirectory)
+    if [[ -f "$script_dir/../scripts/install.sh" ]]; then
+        echo "$script_dir/../scripts"
+        return 0
+    fi
+    
+    return 1
+}
+
+# Get scripts directory
+SCRIPTS_DIR=""
+if SCRIPTS_DIR=$(find_scripts_dir); then
+    REPO_DIR="$(cd "$SCRIPTS_DIR/.." && pwd)"
+else
+    echo "✗ Error: Could not find DebForge installation" >&2
+    echo "" >&2
+    echo "DebForge scripts not found. Possible issues:" >&2
+    echo "  1. Installation incomplete - run bootstrap installer" >&2
+    echo "  2. Moved from /opt/debforge" >&2
+    echo "  3. Deleted repository" >&2
+    echo "" >&2
+    echo "To reinstall:" >&2
+    echo "  curl -fsSL https://raw.githubusercontent.com/hmwassim/debforge/main/scripts/bootstrap.sh | bash" >&2
+    exit 1
+fi
+
+# Source the actual scripts
+INSTALL_SCRIPT="$SCRIPTS_DIR/install.sh"
+UNINSTALL_SCRIPT="$SCRIPTS_DIR/uninstall.sh"
+STATUS_SCRIPT="$SCRIPTS_DIR/status.sh"
+
+# Show help
+show_help() {
+    cat << EOF
+DebForge - System Optimization for Debian
+
+Usage: debforge <command> [options]
+
+Commands:
+  install     Install DebForge configurations
+  uninstall   Uninstall DebForge configurations
+  status      Show installation status
+  verify      Verify installed files
+  update      Update to latest version
+  help        Show this help message
+
+Install Options:
+  --skip-scripts     Skip setup scripts, only deploy configs
+  --scripts-only     Run setup scripts only, skip configs
+  --dry-run          Preview changes without applying
+  --force            Force re-installation
+  --kernel TYPE      Kernel choice: backports|liquorix
+  --nvidia VARIANT   NVIDIA driver: nvidia-open|cuda-drivers
+  --quiet, -q        Suppress output
+  --verbose, -v      Enable debug output
+
+Uninstall Options:
+  --debforge-only    Remove DebForge only, keep all configs
+  --system           Remove DebForge + system configs (default)
+  --full             Remove everything (system + home configs)
+  --dry-run          Preview changes
+  --keep-backups     Keep backup files
+
+Examples:
+  debforge install                           # Full installation
+  debforge install --skip-scripts            # Configs only
+  debforge install --kernel backports        # With backports kernel
+  debforge uninstall                         # Interactive uninstall
+  debforge uninstall --full                  # Remove everything
+  debforge status --verify                   # Verify installation
+  debforge update                            # Update to latest version
+
+Documentation: https://github.com/hmwassim/debforge
+EOF
+}
+
+# Run installation
+cmd_install() {
+    if [[ ! -f "$INSTALL_SCRIPT" ]]; then
+        echo "✗ Error: Install script not found: $INSTALL_SCRIPT" >&2
+        exit 1
+    fi
+    exec bash "$INSTALL_SCRIPT" "$@"
+}
+
+# Run uninstallation
+cmd_uninstall() {
+    if [[ ! -f "$UNINSTALL_SCRIPT" ]]; then
+        echo "✗ Error: Uninstall script not found: $UNINSTALL_SCRIPT" >&2
+        exit 1
+    fi
+    exec bash "$UNINSTALL_SCRIPT" "$@"
+}
+
+# Show status
+cmd_status() {
+    if [[ ! -f "$STATUS_SCRIPT" ]]; then
+        echo "✗ Error: Status script not found: $STATUS_SCRIPT" >&2
+        exit 1
+    fi
+    exec bash "$STATUS_SCRIPT" "$@"
+}
+
+# Verify installation
+cmd_verify() {
+    if [[ ! -f "$STATUS_SCRIPT" ]]; then
+        echo "✗ Error: Status script not found: $STATUS_SCRIPT" >&2
+        exit 1
+    fi
+    exec bash "$STATUS_SCRIPT" --verify "$@"
+}
+
+# Update DebForge
+cmd_update() {
+    echo "ℹ Checking for updates..."
+    
+    # Check if installed in /opt/debforge
+    if [[ ! -d "/opt/debforge" ]]; then
+        echo "✗ Error: DebForge not found in /opt/debforge" >&2
+        echo "  This update command only works for bootstrap installations" >&2
+        exit 1
+    fi
+    
+    # Check if git is available
+    if ! command -v git &>/dev/null; then
+        echo "✗ Error: git is required for updates" >&2
+        echo "  Install with: sudo apt install git" >&2
+        exit 1
+    fi
+    
+    # Check if it's a git repo
+    if [[ ! -d "/opt/debforge/.git" ]]; then
+        echo "✗ Error: /opt/debforge is not a git repository" >&2
+        echo "  Please reinstall using bootstrap installer" >&2
+        exit 1
+    fi
+    
+    cd /opt/debforge
+    
+    echo "ℹ Fetching latest changes..."
+    git fetch origin
+    
+    local current_branch
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    
+    local local_commit remote_commit
+    local_commit=$(git rev-parse HEAD)
+    remote_commit=$(git rev-parse "origin/$current_branch" 2>/dev/null || echo "")
+    
+    if [[ -z "$remote_commit" ]]; then
+        echo "✗ Error: Could not fetch remote commit" >&2
+        exit 1
+    fi
+    
+    if [[ "$local_commit" == "$remote_commit" ]]; then
+        echo "✓ DebForge is up to date"
+        exit 0
+    fi
+    
+    echo "ℹ Updating from $current_branch..."
+    git pull --rebase
+    
+    echo "✓ Updated successfully"
+    echo ""
+    echo "ℹ Run 'debforge install --force --skip-scripts' to apply any new configs"
+}
+
+# Main command dispatcher
+main() {
+    local cmd="${1:-help}"
+    shift || true
+    
+    case "$cmd" in
+        install)
+            cmd_install "$@"
+            ;;
+        uninstall)
+            cmd_uninstall "$@"
+            ;;
+        status)
+            cmd_status "$@"
+            ;;
+        verify)
+            cmd_verify "$@"
+            ;;
+        update)
+            cmd_update "$@"
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            echo "✗ Unknown command: $cmd" >&2
+            echo "" >&2
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

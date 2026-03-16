@@ -1,0 +1,6 @@
+# SATA Active Link Power Management — max_performance for SATA SSDs.
+# Prevents potential spin-down/latency issues on the 1 TB and 512 GB SATA SSDs.
+# Source: CachyOS-Settings
+ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", \
+    ATTR{link_power_management_policy}=="*", \
+    ATTR{link_power_management_policy}="max_performance"
