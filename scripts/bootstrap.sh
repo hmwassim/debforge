@@ -2,6 +2,7 @@
 # bootstrap.sh - Download and install DebForge from GitHub
 # This script downloads the latest release and sets up DebForge
 #
+#
 # Usage: curl -fsSL https://github.com/.../bootstrap.sh | bash
 # Or:    wget -O- https://github.com/.../bootstrap.sh | bash
 
