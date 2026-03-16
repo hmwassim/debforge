@@ -169,11 +169,10 @@ create_symlink() {
 set_permissions() {
     log_info "Setting permissions..."
 
-    # Make scripts executable
-    sudo chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
+    # Make all scripts executable recursively
+    sudo find "$INSTALL_DIR/scripts" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+    sudo find "$INSTALL_DIR/scripts" -name "debforge" -exec chmod +x {} \; 2>/dev/null || true
     sudo chmod +x "$INSTALL_DIR/bin/"* 2>/dev/null || true
-    sudo chmod +x "$INSTALL_DIR/scripts/lib/"*.sh 2>/dev/null || true
-    sudo chmod +x "$INSTALL_DIR/scripts/debforge" 2>/dev/null || true
 
     log_success "Permissions set"
 }

@@ -72,8 +72,13 @@ _log_timestamp() {
 _log_file() {
     local level="$1"
     local msg="$2"
-    if [[ -n "$LOG_FILE" ]] && [[ -f "$LOG_FILE" ]]; then
-        echo "[$(_log_timestamp)] [$level] $msg" >> "$LOG_FILE"
+    # Only log to file if LOG_FILE is set AND the file or its directory exists
+    if [[ -n "$LOG_FILE" ]]; then
+        local log_dir
+        log_dir=$(dirname "$LOG_FILE" 2>/dev/null || echo "")
+        if [[ -n "$log_dir" ]] && [[ -d "$log_dir" ]]; then
+            echo "[$(_log_timestamp)] [$level] $msg" >> "$LOG_FILE" 2>/dev/null || true
+        fi
     fi
 }
 
