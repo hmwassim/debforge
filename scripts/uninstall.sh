@@ -263,6 +263,8 @@ remove_home_configs() {
 }
 
 # Remove home state directory
+# For full mode: removes entire STATE_DIR (including logs)
+# For other modes: only removes legacy files outside STATE_DIR
 remove_home_state() {
     log_section "Removing Home State Directory"
 
@@ -271,18 +273,35 @@ remove_home_state() {
         return 0
     fi
 
-    if [[ -d "$STATE_DIR" ]]; then
-        rm -rf "$STATE_DIR"
-        log_progress "Removed: $STATE_DIR"
-    fi
-
-    # Remove legacy state files
-    for legacy_file in "$HOME/.local/.debforge.state" "$HOME/.local/.debforge.manifest"; do
-        if [[ -f "$legacy_file" ]]; then
-            rm -f "$legacy_file"
-            log_progress "Removed legacy: $legacy_file"
+    if [[ "$UNINSTALL_MODE" == "full" ]]; then
+        # Full mode: remove entire state directory
+        if [[ -d "$STATE_DIR" ]]; then
+            rm -rf "$STATE_DIR"
+            log_progress "Removed: $STATE_DIR"
         fi
-    done
+        # Clear LOG_FILE to prevent further writes
+        LOG_FILE=""
+    else
+        # Other modes: only remove legacy files outside STATE_DIR
+        for legacy_file in "$HOME/.local/.debforge.state" "$HOME/.local/.debforge.manifest"; do
+            if [[ -f "$legacy_file" ]]; then
+                rm -f "$legacy_file"
+                log_progress "Removed legacy: $legacy_file"
+            fi
+        done
+    fi
+}
+
+# Final cleanup - ensure logging stops cleanly
+# This should be the LAST function called before print_summary
+cleanup_final() {
+    # For non-full modes, just remove the state marker
+    if [[ "$UNINSTALL_MODE" == "system" ]] || [[ "$UNINSTALL_MODE" == "debforge-only" ]]; then
+        if [[ -f "$STATE_DIR/installed" ]]; then
+            rm -f "$STATE_DIR/installed"
+        fi
+    fi
+    # For full mode, LOG_FILE was already cleared in remove_home_state
 }
 
 # Stop and disable services (requires sudo)
@@ -462,8 +481,14 @@ reload_system() {
     log_progress "Reloading udev rules"
     sudo udevadm control --reload-rules 2>/dev/null || log_warn "Failed to reload udev"
 
-    log_progress "Applying sysctl settings"
-    sudo sysctl --system 2>/dev/null || log_warn "Failed to apply sysctl"
+    # Only apply sysctl if we restored a backup
+    # Otherwise, just remove our config and let defaults take over
+    if [[ -f /etc/sysctl.d/99-debforge.conf ]]; then
+        log_progress "Applying sysctl settings (from restored backup)"
+        sudo sysctl --system 2>/dev/null || log_warn "Failed to apply sysctl"
+    else
+        log_progress "Sysctl config removed - defaults will apply on next boot"
+    fi
 }
 
 # Cleanup state files (user-level operation)
@@ -559,7 +584,7 @@ main() {
     # Remove home configs and state based on mode
     if [[ "$UNINSTALL_MODE" == "full" ]]; then
         remove_home_configs
-        remove_home_state
+        remove_home_state  # This clears LOG_FILE internally
     fi
 
     # Clean backups (unless kept)
@@ -567,14 +592,16 @@ main() {
         clean_backups
     fi
 
-    # Always cleanup state marker
-    if [[ -f "$STATE_DIR/installed" ]]; then
-        rm -f "$STATE_DIR/installed"
-    fi
+    # Final cleanup (state marker for non-full modes)
+    cleanup_final
 
+    # Print summary (after cleanup to avoid log file issues in full mode)
     print_summary
 
-    log_success "Uninstall completed successfully"
+    # Log success only if LOG_FILE is still set and exists
+    if [[ -n "$LOG_FILE" ]] && [[ -f "$LOG_FILE" ]]; then
+        log_success "Uninstall completed successfully"
+    fi
 }
 
 main "$@"

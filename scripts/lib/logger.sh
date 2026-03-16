@@ -39,24 +39,27 @@ fi
 # Initialize logging - call this at script start
 log_init() {
     local script_name="${1:-script}"
-    
+
     # Ensure STATE_DIR and LOG_DIR are set
     STATE_DIR="${STATE_DIR:-$HOME/.local/share/debforge}"
     LOG_DIR="${LOG_DIR:-$STATE_DIR/logs}"
-    
-    # Create directories
+
+    # Create directories (ignore errors if directory is being removed)
     mkdir -p "$STATE_DIR" "$LOG_DIR" 2>/dev/null || true
-    
+
     # Set LOG_FILE
     LOG_FILE="$LOG_DIR/${script_name}-$(date +%Y%m%d-%H%M%S).log"
-    touch "$LOG_FILE" 2>/dev/null || {
-        # If we can't create the log file, set a fallback
-        LOG_FILE="/tmp/debforge-${script_name}-$(date +%Y%m%d-%H%M%S).log"
-        touch "$LOG_FILE" 2>/dev/null || LOG_FILE=""
-    }
-    
-    if [[ -n "$LOG_FILE" ]]; then
+    if touch "$LOG_FILE" 2>/dev/null; then
         log_info "Logging started: $LOG_FILE"
+    else
+        # If we can't create the log file, use /tmp as fallback
+        LOG_FILE="/tmp/debforge-${script_name}-$(date +%Y%m%d-%H%M%S).log"
+        if touch "$LOG_FILE" 2>/dev/null; then
+            log_info "Logging started (fallback): $LOG_FILE"
+        else
+            # Last resort: no file logging
+            LOG_FILE=""
+        fi
     fi
 }
 
@@ -69,7 +72,7 @@ _log_timestamp() {
 _log_file() {
     local level="$1"
     local msg="$2"
-    if [[ -n "$LOG_FILE" ]]; then
+    if [[ -n "$LOG_FILE" ]] && [[ -f "$LOG_FILE" ]]; then
         echo "[$(_log_timestamp)] [$level] $msg" >> "$LOG_FILE"
     fi
 }
