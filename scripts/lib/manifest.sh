@@ -240,12 +240,12 @@ manifest_get_by_status() {
 # Get file count by status
 manifest_count_status() {
     local status="$1"
-    manifest_get "[.files[] | select(.status == \"$status\")] | length"
+    manifest_get "([.files[] | select(.status == \"$status\")] | length) + ([.home_configs[] | select(.status == \"$status\")] | length)"
 }
 
 # Get total file count
 manifest_count() {
-    manifest_get ".files | length"
+    manifest_get "(.files | length) + (.home_configs | length)"
 }
 
 # Validate manifest JSON
