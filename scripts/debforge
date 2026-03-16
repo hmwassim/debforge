@@ -164,46 +164,59 @@ cmd_update() {
         exit 1
     fi
     
-    # Check if git is available
-    if ! command -v git &>/dev/null; then
-        echo "✗ Error: git is required for updates" >&2
-        echo "  Install with: sudo apt install git" >&2
-        exit 1
-    fi
-    
-    # Check if it's a git repo
-    if [[ ! -d "/opt/debforge/.git" ]]; then
-        echo "✗ Error: /opt/debforge is not a git repository" >&2
-        echo "  Please reinstall using bootstrap installer" >&2
-        exit 1
-    fi
-    
     cd /opt/debforge
-    
-    echo "ℹ Fetching latest changes..."
-    git fetch origin
-    
-    local current_branch
-    current_branch=$(git rev-parse --abbrev-ref HEAD)
-    
-    local local_commit remote_commit
-    local_commit=$(git rev-parse HEAD)
-    remote_commit=$(git rev-parse "origin/$current_branch" 2>/dev/null || echo "")
-    
-    if [[ -z "$remote_commit" ]]; then
-        echo "✗ Error: Could not fetch remote commit" >&2
-        exit 1
+
+    # Check if it's a git repo or tarball installation
+    if [[ -d "/opt/debforge/.git" ]]; then
+        # Git installation - update via git
+        if ! command -v git &>/dev/null; then
+            echo "✗ Error: git is required for updates" >&2
+            echo "  Install with: sudo apt install git" >&2
+            exit 1
+        fi
+
+        echo "ℹ Fetching latest changes..."
+        git fetch origin
+
+        local current_branch remote_commit local_commit
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        local_commit=$(git rev-parse HEAD)
+        remote_commit=$(git rev-parse "origin/$current_branch" 2>/dev/null || echo "")
+
+        if [[ -z "$remote_commit" ]]; then
+            echo "✗ Error: Could not fetch remote commit" >&2
+            exit 1
+        fi
+
+        if [[ "$local_commit" == "$remote_commit" ]]; then
+            echo "✓ DebForge is up to date"
+            exit 0
+        fi
+
+        echo "ℹ Updating from $current_branch..."
+        git pull --rebase
+
+        echo "✓ Updated successfully"
+    else
+        # Tarball installation - re-run bootstrap to update
+        echo "ℹ Tarball installation detected, re-running bootstrap to update..."
+        echo ""
+        
+        if command -v curl &>/dev/null || command -v wget &>/dev/null; then
+            echo "ℹ Downloading and running latest bootstrap..."
+            if command -v curl &>/dev/null; then
+                curl -fsSL "https://raw.githubusercontent.com/hmwassim/debforge/main/scripts/bootstrap.sh" | bash
+            else
+                wget -qO- "https://raw.githubusercontent.com/hmwassim/debforge/main/scripts/bootstrap.sh" | bash
+            fi
+            echo "✓ Updated successfully"
+        else
+            echo "✗ Error: curl or wget required for tarball updates" >&2
+            echo "  Install with: sudo apt install curl" >&2
+            exit 1
+        fi
     fi
     
-    if [[ "$local_commit" == "$remote_commit" ]]; then
-        echo "✓ DebForge is up to date"
-        exit 0
-    fi
-    
-    echo "ℹ Updating from $current_branch..."
-    git pull --rebase
-    
-    echo "✓ Updated successfully"
     echo ""
     echo "ℹ Run 'debforge install --force --skip-scripts' to apply any new configs"
 }

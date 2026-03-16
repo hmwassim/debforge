@@ -133,13 +133,28 @@ check_not_root() {
 # Check if manifest exists
 check_manifest() {
     if ! manifest_exists; then
-        log_error "No manifest found at $MANIFEST_FILE"
-        log_info "Cannot uninstall without manifest - it tracks what was installed"
-        echo ""
-        echo "Options:"
-        echo "  1. Use --force to attempt removal without manifest"
-        echo "  2. Re-run install.sh to recreate manifest, then uninstall"
-        echo "  3. Manually remove configurations"
+        log_warn "No manifest found at $MANIFEST_FILE"
+        
+        # Check if /opt/debforge exists
+        if [[ -d "/opt/debforge" ]]; then
+            log_info "DebForge installation detected but manifest is missing"
+            log_info "This can happen if the installation was incomplete or corrupted"
+            echo ""
+            echo "Options:"
+            echo "  1. Use --force to remove /opt/debforge and /usr/local/bin/debforge"
+            echo "  2. Re-run install.sh to recreate manifest, then uninstall"
+            echo "  3. Manually remove: sudo rm -rf /opt/debforge /usr/local/bin/debforge"
+            echo ""
+            log_info "Note: Without manifest, system config restoration may be incomplete"
+        else
+            log_error "No manifest found at $MANIFEST_FILE"
+            log_info "Cannot uninstall without manifest - it tracks what was installed"
+            echo ""
+            echo "Options:"
+            echo "  1. Use --force to attempt removal without manifest"
+            echo "  2. Re-run install.sh to recreate manifest, then uninstall"
+            echo "  3. Manually remove configurations"
+        fi
         exit 1
     fi
 }

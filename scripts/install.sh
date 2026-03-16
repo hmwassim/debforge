@@ -255,8 +255,10 @@ phase_setup_scripts() {
             log_progress "Running: $script_name"
             echo ""
 
-            # Make sure script is executable
-            chmod +x "$script"
+            # Make sure script is executable (use sudo if needed for system-owned files)
+            if [ ! -x "$script" ]; then
+                chmod +x "$script" 2>/dev/null || sudo chmod +x "$script" 2>/dev/null || true
+            fi
 
             # Build arguments for specific scripts
             local script_args=()
