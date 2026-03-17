@@ -115,3 +115,30 @@ else
 fi
 
 echo "==> NVIDIA driver installation complete: $NVIDIA_VARIANT"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Install NVFlux (NVIDIA GPU clock manager)
+# ──────────────────────────────────────────────────────────────────────────────
+echo
+echo "==> Installing NVFlux..."
+
+# Create temporary directory for NVFlux clone
+NVFLUX_TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$NVFLUX_TEMP_DIR"' EXIT
+
+echo "    Cloning NVFlux repository..."
+if ! git clone --quiet https://github.com/hmwassim/NvFlux.git "$NVFLUX_TEMP_DIR"; then
+    echo "    WARNING: Failed to clone NVFlux repository"
+    echo "    Skipping NVFlux installation"
+else
+    echo "    Building and installing NVFlux..."
+    if (cd "$NVFLUX_TEMP_DIR" && sudo ./install.sh); then
+        echo "    NVFlux installed successfully"
+        echo "    You can now use: nvflux powersave (recommended for audio fix)"
+    else
+        echo "    WARNING: NVFlux installation failed"
+        echo "    You can install it manually later from https://github.com/hmwassim/NvFlux"
+    fi
+fi
+
+echo "    NVFlux repository cleaned up"
