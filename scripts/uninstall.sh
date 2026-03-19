@@ -263,6 +263,17 @@ phase_remove_configs() {
         fi
     done
 
+    # Remove earlyoom config
+    if [[ -f /etc/default/earlyoom ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[DRY-RUN] Would remove: /etc/default/earlyoom"
+        else
+            log_progress "Removing: /etc/default/earlyoom"
+            sudo rm -f /etc/default/earlyoom
+            ((removed++))
+        fi
+    fi
+
     echo ""
     log_info "Configs restored: $restored"
     log_info "Configs removed: $removed"
@@ -282,6 +293,10 @@ phase_reload_systemd() {
 
     log_progress "Reloading systemd"
     sudo systemctl daemon-reload || log_warn "systemd reload failed"
+
+    log_progress "Stopping earlyoom service"
+    sudo systemctl stop earlyoom.service 2>/dev/null || true
+    sudo systemctl disable earlyoom.service 2>/dev/null || true
 
     log_progress "Restarting systemd-journald"
     sudo systemctl restart systemd-journald 2>/dev/null || true

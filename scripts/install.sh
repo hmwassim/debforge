@@ -431,7 +431,7 @@ Before=sysinit.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c "sysctl -w vm.min_free_kbytes=$(awk '/MemTotal/ {printf "%%.0f", $2 * 0.01}' /proc/meminfo)"
+ExecStart=/bin/sh -c "sysctl -w vm.min_free_kbytes=$(awk '/MemTotal/ {print int($2 * 0.01)}' /proc/meminfo)"
 
 [Install]
 WantedBy=sysinit.target
@@ -440,7 +440,24 @@ EOF
         INSTALLED_FILES+=("/etc/systemd/system/set-min-free-mem.service")
     fi
 
-    # 10. Environment (PROTON_ENABLE_WAYLAND, shader caches, etc.)
+    # 10. ZRAM generator (compressed swap)
+    step=$((step + 1))
+    log_step "$step" "$total" "ZRAM generator (compressed swap)"
+    if [[ -f "$CONFIGS_DIR/systemd/zram-generator.conf" ]]; then
+        install_file "$CONFIGS_DIR/systemd/zram-generator.conf" \
+            /etc/systemd/zram-generator.conf 0644 "zram-generator" || true
+    fi
+
+    # 11. EarlyOOM (early OOM killer)
+    step=$((step + 1))
+    log_step "$step" "$total" "EarlyOOM configuration"
+    if [[ -f "$CONFIGS_DIR/earlyoom" ]]; then
+        sudo mkdir -p /etc/default
+        install_file "$CONFIGS_DIR/earlyoom" \
+            /etc/default/earlyoom 0644 "earlyoom" || true
+    fi
+
+    # 12. Environment (PROTON_ENABLE_WAYLAND, shader caches, etc.)
     step=$((step + 1))
     log_step "$step" "$total" "Environment configuration"
     if [[ "$DRY_RUN" != "true" ]]; then
@@ -492,12 +509,14 @@ phase_apply() {
     log_progress "Enabling services"
     sudo systemctl enable pci-latency.service 2>/dev/null || true
     sudo systemctl enable set-min-free-mem.service 2>/dev/null || true
+    sudo systemctl enable earlyoom.service 2>/dev/null || true
 
     # Restart services
     log_progress "Restarting services"
     sudo systemctl restart systemd-journald 2>/dev/null || true
     sudo systemctl restart systemd-timesyncd 2>/dev/null || true
     sudo systemctl restart systemd-resolved 2>/dev/null || true
+    sudo systemctl restart earlyoom.service 2>/dev/null || true
 
     echo ""
     log_success "Changes applied"
