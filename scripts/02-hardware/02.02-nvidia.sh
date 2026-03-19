@@ -1,144 +1,159 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! command -v extrepo &>/dev/null; then
-    echo "ERROR: extrepo not found. Run base/system.sh first."
-    exit 1
-fi
+# ─────────────────────────────────────────────────────────────
+# Requirements check
+# ─────────────────────────────────────────────────────────────
+for cmd in extrepo git; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "ERROR: $cmd not found. Install it first."
+        exit 1
+    fi
+done
 
+# ─────────────────────────────────────────────────────────────
 # Parse arguments
+# ─────────────────────────────────────────────────────────────
 NVIDIA_VARIANT=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --variant)
+        --variant|-v)
+            [[ $# -lt 2 ]] && { echo "ERROR: --variant requires a value"; exit 1; }
             NVIDIA_VARIANT="$2"
             shift 2
             ;;
-        --open)
+        --open|-o)
             NVIDIA_VARIANT="nvidia-open"
             shift
             ;;
-        --proprietary)
+        --proprietary|-p)
             NVIDIA_VARIANT="cuda-drivers"
             shift
             ;;
         --help|-h)
             echo "Usage: $0 [--variant nvidia-open|cuda-drivers]"
-            echo ""
-            echo "Options:"
-            echo "  --variant, -v nvidia-open|cuda-drivers  Choose driver variant"
-            echo "  --open, -o                              Use nvidia-open (recommended for RTX 3060)"
-            echo "  --proprietary, -p                       Use cuda-drivers (proprietary, full CUDA)"
-            echo "  --help, -h                              Show this help"
-            echo ""
-            echo "Examples:"
-            echo "  $0 --variant nvidia-open    # Non-interactive, open drivers"
-            echo "  $0 --open                   # Non-interactive, open drivers"
-            echo "  $0 --proprietary            # Non-interactive, proprietary drivers"
-            echo "  $0                          # Interactive mode"
             exit 0
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Use --help for usage information"
             exit 1
             ;;
     esac
 done
 
-echo "==> Enabling NVIDIA CUDA repository via extrepo..."
-sudo extrepo enable nvidia-cuda
-sudo apt update
-sudo apt upgrade -y
-
-# If no variant provided, use interactive mode
-if [[ -z "$NVIDIA_VARIANT" ]]; then
-    echo
-    echo "Choose NVIDIA driver variant:"
-    echo "  1) nvidia-open   — open kernel modules (recommended for RTX 3060)"
-    echo "  2) cuda-drivers  — proprietary, full CUDA stack"
-    echo
-    read -rp "Choice [1/2]: " choice
-
-    case "$choice" in
-        1) NVIDIA_VARIANT="nvidia-open" ;;
-        2) NVIDIA_VARIANT="cuda-drivers" ;;
+# Validate variant
+if [[ -n "$NVIDIA_VARIANT" ]]; then
+    case "$NVIDIA_VARIANT" in
+        nvidia-open|cuda-drivers) ;;
         *)
-            echo "Invalid choice. Exiting."
+            echo "ERROR: Invalid variant: $NVIDIA_VARIANT"
             exit 1
             ;;
     esac
 fi
 
+# ─────────────────────────────────────────────────────────────
+# Enable repo
+# ─────────────────────────────────────────────────────────────
+echo "==> Enabling NVIDIA CUDA repository..."
+sudo extrepo enable nvidia-cuda
+sudo apt update
+sudo apt upgrade -y
+
+# ─────────────────────────────────────────────────────────────
+# Interactive selection
+# ─────────────────────────────────────────────────────────────
+if [[ -z "$NVIDIA_VARIANT" ]]; then
+    echo
+    echo "Choose NVIDIA driver variant:"
+    echo "  1) nvidia-open   (recommended for RTX 3060)"
+    echo "  2) cuda-drivers  (full proprietary stack)"
+    echo
+
+    read -rp "Choice [1/2]: " choice
+
+    case "$choice" in
+        1) NVIDIA_VARIANT="nvidia-open" ;;
+        2) NVIDIA_VARIANT="cuda-drivers" ;;
+        *) echo "Invalid choice"; exit 1 ;;
+    esac
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Install packages
+# ─────────────────────────────────────────────────────────────
 echo "==> Installing $NVIDIA_VARIANT + nvtop..."
 sudo apt install -y "$NVIDIA_VARIANT" nvtop
 
+# ─────────────────────────────────────────────────────────────
+# Kernel parameter
+# ─────────────────────────────────────────────────────────────
 echo
-echo "==> Adding nvidia-drm.modeset=1 kernel parameter..."
+echo "==> Configuring nvidia-drm.modeset=1..."
 
 add_modeset_grub() {
     local cfg=/etc/default/grub
+
     if grep -q "nvidia-drm.modeset=1" "$cfg"; then
-        echo "    Already present in $cfg, skipping."
+        echo "    Already set (GRUB)"
         return
     fi
-    sudo sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/"$/ nvidia-drm.modeset=1"/' "$cfg"
+
+    sudo sed -i \
+        's/^GRUB_CMDLINE_LINUX_DEFAULT="\([^"]*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 nvidia-drm.modeset=1"/' \
+        "$cfg"
+
     sudo update-grub
-    echo "    Written to $cfg and GRUB updated."
+    echo "    Applied to GRUB"
 }
 
 add_modeset_systemd_boot() {
-    local entry
-    for mp in /efi /boot/efi /boot; do
-        entry=$(sudo find "$mp/loader/entries" -maxdepth 1 -name "*.conf" 2>/dev/null | sort | head -1)
-        [[ -n "$entry" ]] && break
+    local entries
+    entries=$(find /boot /efi /boot/efi -type f -path "*/loader/entries/*.conf" 2>/dev/null || true)
+
+    if [[ -z "$entries" ]]; then
+        echo "    WARNING: No systemd-boot entries found"
+        return
+    fi
+
+    for entry in $entries; do
+        if grep -q "nvidia-drm.modeset=1" "$entry"; then
+            echo "    Already set in $entry"
+            continue
+        fi
+
+        sudo sed -i '/^options / s/$/ nvidia-drm.modeset=1/' "$entry"
+        echo "    Patched $entry"
     done
-    if [[ -z "$entry" ]]; then
-        echo "    WARNING: No systemd-boot entry found. Add nvidia-drm.modeset=1 manually."
-        return
-    fi
-    if grep -q "nvidia-drm.modeset=1" "$entry"; then
-        echo "    Already present in $entry, skipping."
-        return
-    fi
-    sudo sed -i '/^options / s/$/ nvidia-drm.modeset=1/' "$entry"
-    echo "    Written to $entry."
 }
 
-if sudo bootctl is-installed 2>/dev/null; then
+if [[ -d /boot/loader ]]; then
     add_modeset_systemd_boot
 elif [[ -f /etc/default/grub ]]; then
     add_modeset_grub
 else
-    echo "    WARNING: Could not detect bootloader. Add nvidia-drm.modeset=1 manually."
+    echo "WARNING: Bootloader not detected"
 fi
 
-echo "==> NVIDIA driver installation complete: $NVIDIA_VARIANT"
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Install NVFlux (NVIDIA GPU clock manager)
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# NVFlux
+# ─────────────────────────────────────────────────────────────
 echo
 echo "==> Installing NVFlux..."
 
-# Create temporary directory for NVFlux clone
 NVFLUX_TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$NVFLUX_TEMP_DIR"' EXIT
 
-echo "    Cloning NVFlux repository..."
-if ! git clone --quiet https://github.com/hmwassim/NvFlux.git "$NVFLUX_TEMP_DIR"; then
-    echo "    WARNING: Failed to clone NVFlux repository"
-    echo "    Skipping NVFlux installation"
-else
-    echo "    Building and installing NVFlux..."
+if git clone --quiet https://github.com/hmwassim/NvFlux.git "$NVFLUX_TEMP_DIR"; then
     if (cd "$NVFLUX_TEMP_DIR" && sudo ./install.sh); then
-        echo "    NVFlux installed successfully"
-        echo "    You can now use: nvflux powersave (recommended for audio fix)"
+        echo "    NVFlux installed"
     else
-        echo "    WARNING: NVFlux installation failed"
-        echo "    You can install it manually later from https://github.com/hmwassim/NvFlux"
+        echo "    WARNING: NVFlux install failed"
     fi
+else
+    echo "    WARNING: Clone failed"
 fi
 
-echo "    NVFlux repository cleaned up"
+echo
+echo "==> Done: $NVIDIA_VARIANT"
