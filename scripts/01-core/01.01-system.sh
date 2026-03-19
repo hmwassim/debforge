@@ -55,7 +55,7 @@ sudo apt install -t trixie-backports -y \
     hunspell-fr \
     ddcutil \
     earlyoom \
-    zram-generator
+    systemd-zram-generator
 
 echo "==> Adding $USER to hardware groups..."
 sudo usermod -aG audio,video,render,i2c "$USER"
