@@ -191,7 +191,7 @@ verify_installation() {
 
     # Check key files
     if [[ ! -f "$INSTALL_DIR/scripts/install.sh" ]]; then
-        log_error "Install script missing"
+        log_error "Setup script missing"
         ((errors++))
     fi
 
@@ -227,9 +227,9 @@ print_success() {
     echo -e "${GREEN}${BOLD}DebForge installed successfully!${NC}"
     echo ""
     echo "What's next:"
-    echo "  1. Run: debforge install    # Install all configurations"
-    echo "  2. Run: debforge status     # Check installation status"
-    echo "  3. Run: debforge help       # Show all commands"
+    echo "  1. Run: debforge install    # Setup and install configurations"
+    echo "  2. Run: debforge status   # Check installation status"
+    echo "  3. Run: debforge help     # Show all commands"
     echo ""
     echo "To uninstall:"
     echo "  debforge uninstall"

@@ -68,8 +68,8 @@ else
 fi
 
 # Source the actual scripts
-INSTALL_SCRIPT="$SCRIPTS_DIR/install.sh"
-UNINSTALL_SCRIPT="$SCRIPTS_DIR/uninstall.sh"
+SETUP_SCRIPT="$SCRIPTS_DIR/install.sh"
+UNDO_SCRIPT="$SCRIPTS_DIR/uninstall.sh"
 STATUS_SCRIPT="$SCRIPTS_DIR/status.sh"
 
 # Show help
@@ -80,16 +80,16 @@ DebForge - System Optimization for Debian
 Usage: debforge <command> [options]
 
 Commands:
-  install     Install DebForge configurations
+  install     Setup and install DebForge configurations
   uninstall   Uninstall DebForge configurations
   status      Show installation status
   verify      Verify installed files
   update      Update to latest version
   help        Show this help message
 
-Install Options:
+Setup Options:
   --skip-scripts     Skip setup scripts, only deploy configs
-  --scripts-only     Run setup scripts only, skip configs
+  --skip-configs     Skip config deployment, only run setup scripts
   --dry-run          Preview changes without applying
   --force            Force re-installation
   --kernel TYPE      Kernel choice: backports|liquorix
@@ -97,42 +97,41 @@ Install Options:
   --quiet, -q        Suppress output
   --verbose, -v      Enable debug output
 
-Uninstall Options:
-  --debforge-only    Remove DebForge only, keep all configs
-  --system           Remove DebForge + system configs (default)
-  --full             Remove everything (system + home configs)
+Undo (Uninstall) Options:
+  --configs-only     Remove configs only, keep state and backups
+  --full             Full cleanup (remove everything)
   --dry-run          Preview changes
   --keep-backups     Keep backup files
 
 Examples:
-  debforge install                           # Full installation
-  debforge install --skip-scripts            # Configs only
-  debforge install --kernel backports        # With backports kernel
-  debforge uninstall                         # Interactive uninstall
-  debforge uninstall --full                  # Remove everything
-  debforge status --verify                   # Verify installation
-  debforge update                            # Update to latest version
+  debforge install                          # Full setup and installation
+  debforge install --skip-scripts           # Configs only
+  debforge install --kernel backports       # With backports kernel
+  debforge uninstall                        # Interactive uninstall
+  debforge uninstall --full                 # Full cleanup
+  debforge status --verify                  # Verify installation
+  debforge update                           # Update to latest version
 
 Documentation: https://github.com/hmwassim/debforge
 EOF
 }
 
-# Run installation
+# Run install
 cmd_install() {
-    if [[ ! -f "$INSTALL_SCRIPT" ]]; then
-        echo "✗ Error: Install script not found: $INSTALL_SCRIPT" >&2
+    if [[ ! -f "$SETUP_SCRIPT" ]]; then
+        echo "✗ Error: Setup script not found: $SETUP_SCRIPT" >&2
         exit 1
     fi
-    exec bash "$INSTALL_SCRIPT" "$@"
+    exec bash "$SETUP_SCRIPT" "$@"
 }
 
-# Run uninstallation
+# Run uninstall
 cmd_uninstall() {
-    if [[ ! -f "$UNINSTALL_SCRIPT" ]]; then
-        echo "✗ Error: Uninstall script not found: $UNINSTALL_SCRIPT" >&2
+    if [[ ! -f "$UNDO_SCRIPT" ]]; then
+        echo "✗ Error: Undo script not found: $UNDO_SCRIPT" >&2
         exit 1
     fi
-    exec bash "$UNINSTALL_SCRIPT" "$@"
+    exec bash "$UNDO_SCRIPT" "$@"
 }
 
 # Show status

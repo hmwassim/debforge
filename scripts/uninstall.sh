@@ -1,68 +1,65 @@
 #!/usr/bin/env bash
-# uninstall.sh - Clean removal for DebForge
-# Restores backed up files and removes installed configurations
+# uninstall.sh - DebForge uninstaller
+# Removes DebForge configurations with optional cleanup levels
 #
 # Usage: ./uninstall.sh [OPTIONS]
 # Note: Script handles sudo internally - do NOT run with sudo prefix
 
 set -euo pipefail
 
-# Script directory and project root
+# ─────────────────────────────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# State directory in user's home (matches install.sh)
 STATE_DIR="$HOME/.local/share/debforge"
 MANIFEST_FILE="$STATE_DIR/manifest.json"
 BACKUP_DIR="$STATE_DIR/backups"
-LOG_DIR="$STATE_DIR/logs"
 
+# ─────────────────────────────────────────────────────────────────────────────
 # Source libraries
-# shellcheck source=/dev/null
+# ─────────────────────────────────────────────────────────────────────────────
+
 source "$SCRIPT_DIR/lib/logger.sh"
-# shellcheck source=/dev/null
 source "$SCRIPT_DIR/lib/manifest.sh"
-# shellcheck source=/dev/null
 source "$SCRIPT_DIR/lib/backup.sh"
 
-# State
+# ─────────────────────────────────────────────────────────────────────────────
+# Global state
+# ─────────────────────────────────────────────────────────────────────────────
+
 DRY_RUN=false
 FORCE=false
+MODE="interactive"  # interactive, configs-only, full
 KEEP_BACKUPS=false
-UNINSTALL_MODE="interactive"  # interactive|debforge-only|system|full
 
-# Parse arguments
+# ─────────────────────────────────────────────────────────────────────────────
+# Argument parsing
+# ─────────────────────────────────────────────────────────────────────────────
+
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --dry-run|-n)
                 DRY_RUN=true
-                log_info "Dry-run mode enabled"
                 shift
                 ;;
             --force|-f)
                 FORCE=true
-                log_info "Force mode enabled"
                 shift
                 ;;
             --keep-backups)
                 KEEP_BACKUPS=true
-                log_info "Will keep backup files"
                 shift
                 ;;
-            --debforge-only)
-                UNINSTALL_MODE="debforge-only"
-                log_info "Mode: Remove DebForge only (keep all configs)"
-                shift
-                ;;
-            --system)
-                UNINSTALL_MODE="system"
-                log_info "Mode: Remove DebForge + system configs"
+            --configs-only)
+                MODE="configs-only"
                 shift
                 ;;
             --full)
-                UNINSTALL_MODE="full"
-                log_info "Mode: Full cleanup (remove everything)"
+                MODE="full"
                 shift
                 ;;
             --quiet|-q)
@@ -88,485 +85,290 @@ parse_args() {
 
 show_help() {
     cat << EOF
-DebForge Uninstaller - Clean Configuration Removal
+DebForge Uninstaller - Remove DebForge configurations
 
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
   --dry-run, -n       Preview changes without applying
-  --force, -f         Force removal even without manifest
+  --force, -f         Force removal without confirmation
   --keep-backups      Keep backup files after uninstall
-  --debforge-only     Remove DebForge but keep all configs
-  --system            Remove DebForge + system configs (default)
-  --full              Remove everything (system + home configs)
-  --quiet, -q         Suppress output (errors only)
+  --configs-only      Remove configs only (keep state, backups)
+  --full              Full cleanup (remove everything)
+  --quiet, -q         Suppress output
   --verbose, -v       Enable debug output
   --help, -h          Show this help message
 
 Uninstall Modes:
   interactive         Prompt for uninstall mode (default)
-  debforge-only       Keep all system and home configs
-  system              Remove system configs, keep home configs
-  full                Remove everything (system + home configs)
+  configs-only        Remove deployed configs, keep state and backups
+  full                Full cleanup (state directory, backups, everything)
 
 Examples:
-  $(basename "$0")                      # Interactive mode (prompts you)
-  $(basename "$0") --debforge-only      # Keep all configs
-  $(basename "$0") --system             # Remove system configs (default)
-  $(basename "$0") --full               # Remove everything
-  $(basename "$0") --dry-run            # Preview changes
+  $(basename "$0")                      # Interactive (prompts you)
+  $(basename "$0") --configs-only       # Remove configs only
+  $(basename "$0") --full               # Full cleanup
+  $(basename "$0") --dry-run --force    # Preview as non-interactive
 
 Note: This script handles sudo internally. Do NOT run with sudo prefix.
 EOF
 }
 
-# Check if running as root (we don't want that)
+# ─────────────────────────────────────────────────────────────────────────────
+# Utility functions
+# ─────────────────────────────────────────────────────────────────────────────
+
 check_not_root() {
     if [[ $EUID -eq 0 ]]; then
-        log_error "This script should NOT be run as root"
-        log_info "The script will use sudo internally where needed"
-        log_info "Run as: ./$(basename "$0")"
-        exit 1
+        log_fatal "Do not run this script as root - it handles sudo internally"
     fi
 }
 
-# Check if manifest exists
-check_manifest() {
-    if ! manifest_exists; then
-        log_warn "No manifest found at $MANIFEST_FILE"
-        
-        # Check if /opt/debforge exists
-        if [[ -d "/opt/debforge" ]]; then
-            log_info "DebForge installation detected but manifest is missing"
-            log_info "This can happen if the installation was incomplete or corrupted"
-            echo ""
-            echo "Options:"
-            echo "  1. Use --force to remove /opt/debforge and /usr/local/bin/debforge"
-            echo "  2. Re-run install.sh to recreate manifest, then uninstall"
-            echo "  3. Manually remove: sudo rm -rf /opt/debforge /usr/local/bin/debforge"
-            echo ""
-            log_info "Note: Without manifest, system config restoration may be incomplete"
-        else
-            log_error "No manifest found at $MANIFEST_FILE"
-            log_info "Cannot uninstall without manifest - it tracks what was installed"
-            echo ""
-            echo "Options:"
-            echo "  1. Use --force to attempt removal without manifest"
-            echo "  2. Re-run install.sh to recreate manifest, then uninstall"
-            echo "  3. Manually remove configurations"
-        fi
-        exit 1
-    fi
-}
-
-# Interactive mode selection
-prompt_uninstall_mode() {
-    if [[ "$UNINSTALL_MODE" != "interactive" ]]; then
+prompt_mode() {
+    if [[ "$MODE" != "interactive" ]]; then
         return 0
     fi
 
     if [[ "$DRY_RUN" == "true" ]] || [[ "$FORCE" == "true" ]]; then
-        UNINSTALL_MODE="system"
+        MODE="full"
         return 0
     fi
 
     echo ""
     echo "How do you want to uninstall DebForge?"
     echo ""
-    echo "  1) Remove DebForge only"
-    echo "     - Remove /usr/local/bin/debforge and /opt/debforge"
-    echo "     - Keep all system configs (recommended if you want to keep tweaks)"
+    echo "  1) Remove configs only"
+    echo "     → Remove deployed system configs"
+    echo "     → Restore from backups if available"
+    echo "     → Keep ~/. local/share/debforge (state, logs, backups)"
     echo ""
-    echo "  2) Remove DebForge + undo system configs"
-    echo "     - Everything in option 1"
-    echo "     - Restore /etc configs from backup"
-    echo "     - Remove systemd services, udev rules, etc."
-    echo "     - Keep home directory configs (~/.config)"
+    echo "  2) Full cleanup"
+    echo "     → Remove everything (configs + state directory)"
+    echo "     → Clear logs and manifest"
+    echo "     → Optionally keep backups\""
     echo ""
-    echo "  3) Full cleanup (remove everything)"
-    echo "     - Everything in option 2"
-    echo "     - Remove ~/.config/debforge, ~/.local/share/debforge"
-    echo "     - Remove all user-level configs"
-    echo ""
-    
+
     while true; do
-        read -rp "Select option (1-3): " choice
+        read -rp "Select option (1-2, or enter for #1): " choice
+        choice="${choice:-1}"
+
         case "$choice" in
             1)
-                UNINSTALL_MODE="debforge-only"
+                MODE="configs-only"
                 break
                 ;;
             2)
-                UNINSTALL_MODE="system"
-                break
-                ;;
-            3)
-                UNINSTALL_MODE="full"
+                MODE="full"
                 break
                 ;;
             *)
-                echo "Please enter 1, 2, or 3"
+                echo "Please enter 1 or 2"
                 ;;
         esac
     done
-    
-    echo ""
-    case "$UNINSTALL_MODE" in
-        debforge-only)
-            log_info "Selected: Remove DebForge only (keep all configs)"
-            ;;
-        system)
-            log_info "Selected: Remove DebForge + system configs"
-            ;;
-        full)
-            log_info "Selected: Full cleanup (remove everything)"
-            ;;
-    esac
-}
-
-# Remove home config files (no sudo needed)
-remove_home_configs() {
-    log_section "Removing Home Directory Configs"
-
-    if ! manifest_exists; then
-        log_warn "No manifest - skipping home config removal"
-        return 0
-    fi
-
-    local restored=0
-    local removed=0
-
-    while IFS= read -r config_json; do
-        [[ -z "$config_json" ]] && continue
-
-        local dest backup_path
-        dest=$(echo "$config_json" | jq -r '.dest')
-        backup_path=$(echo "$config_json" | jq -r '.backup // empty')
-
-        [[ -z "$dest" ]] && continue
-
-        if [[ "$DRY_RUN" == "true" ]]; then
-            if [[ -n "$backup_path" ]] && [[ -f "$backup_path" ]]; then
-                log_info "[DRY-RUN] Would restore: $dest (from backup)"
-            else
-                log_info "[DRY-RUN] Would remove: $dest (no backup)"
-            fi
-            continue
-        fi
-
-        # Restore or remove
-        if [[ -n "$backup_path" ]] && [[ -f "$backup_path" ]]; then
-            log_progress "Restoring: $dest"
-            if restore_home_config "$dest" "$backup_path"; then
-                ((restored++))
-            else
-                log_error "Failed to restore: $dest"
-            fi
-        elif [[ -f "$dest" ]]; then
-            log_progress "Removing: $dest"
-            if remove_home_config "$dest"; then
-                ((removed++))
-            else
-                log_error "Failed to remove: $dest"
-            fi
-        fi
-    done < <(manifest_get_home_configs)
 
     echo ""
-    log_info "Home configs restored: $restored"
-    log_info "Home configs removed: $removed"
-}
-
-# Remove home state directory
-# For full mode: removes entire STATE_DIR (including logs)
-# For other modes: only removes legacy files outside STATE_DIR
-remove_home_state() {
-    log_section "Removing Home State Directory"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would remove: $STATE_DIR"
-        return 0
-    fi
-
-    if [[ "$UNINSTALL_MODE" == "full" ]]; then
-        # Full mode: remove entire state directory
-        if [[ -d "$STATE_DIR" ]]; then
-            rm -rf "$STATE_DIR"
-            log_progress "Removed: $STATE_DIR"
-        fi
-        # Clear LOG_FILE to prevent further writes
-        LOG_FILE=""
+    if [[ "$MODE" == "configs-only" ]]; then
+        log_info "Selected: Remove configs only"
     else
-        # Other modes: only remove legacy files outside STATE_DIR
-        for legacy_file in "$HOME/.local/.debforge.state" "$HOME/.local/.debforge.manifest"; do
-            if [[ -f "$legacy_file" ]]; then
-                rm -f "$legacy_file"
-                log_progress "Removed legacy: $legacy_file"
-            fi
-        done
+        log_info "Selected: Full cleanup"
     fi
 }
 
-# Final cleanup - ensure logging stops cleanly
-# This should be the LAST function called before print_summary
-cleanup_final() {
-    # For non-full modes, just remove the state marker
-    if [[ "$UNINSTALL_MODE" == "system" ]] || [[ "$UNINSTALL_MODE" == "debforge-only" ]]; then
-        if [[ -f "$STATE_DIR/installed" ]]; then
-            rm -f "$STATE_DIR/installed"
-        fi
-    fi
-    # For full mode, LOG_FILE was already cleared in remove_home_state
-}
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 1: Check manifest
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Stop and disable services (requires sudo)
-stop_services() {
-    log_section "Stopping Services"
-
-    local services=(
-        "pci-latency.service"
-        "set-min-free-mem.service"
-        "earlyoom"
-    )
-
-    for service in "${services[@]}"; do
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log_info "[DRY-RUN] Would stop and disable: $service"
-            continue
-        fi
-
-        if sudo systemctl is-active "$service" &>/dev/null; then
-            log_progress "Stopping: $service"
-            sudo systemctl stop "$service" 2>/dev/null || log_warn "Failed to stop: $service"
-        fi
-
-        if sudo systemctl is-enabled "$service" &>/dev/null; then
-            log_progress "Disabling: $service"
-            sudo systemctl disable "$service" 2>/dev/null || log_warn "Failed to disable: $service"
-        fi
-    done
-}
-
-# Restore files from backup (requires sudo for system destinations)
-restore_files() {
-    log_section "Restoring Files"
+phase_check_manifest() {
+    log_section "Phase 1: Check Manifest"
 
     if ! manifest_exists; then
-        log_warn "No manifest - skipping file restoration"
+        if [[ "$FORCE" != "true" ]]; then
+            log_error "No manifest found at $MANIFEST_FILE"
+            log_info "Cannot uninstall without manifest - it tracks what was installed"
+            log_info "Use --force to attempt removal anyway"
+            exit 1
+        fi
+
+        log_warn "Manifest not found, proceeding with --force"
+        return 0
+    fi
+
+    log_success "Manifest found, installation tracked"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 2: Remove configs
+# ─────────────────────────────────────────────────────────────────────────────
+
+phase_remove_configs() {
+    log_section "Phase 2: Remove Deployed Configurations"
+
+    if ! manifest_exists; then
+        log_warn "No manifest, skipping config removal"
         return 0
     fi
 
     local restored=0
     local removed=0
-    local skipped=0
 
-    # Read files from manifest
+    # Get files from manifest
     while IFS= read -r file_json; do
         [[ -z "$file_json" ]] && continue
 
-        local dest backup_path file_type
-        dest=$(echo "$file_json" | jq -r '.dest')
-        backup_path=$(echo "$file_json" | jq -r '.backup // empty')
-        file_type=$(echo "$file_json" | jq -r '.type // "unknown"')
+        local dest backup
+        dest=$(echo "$file_json" | jq -r '.dest // empty')
+        backup=$(echo "$file_json" | jq -r '.backup // empty')
 
         [[ -z "$dest" ]] && continue
 
         if [[ "$DRY_RUN" == "true" ]]; then
-            if [[ -n "$backup_path" ]] && [[ -f "$backup_path" ]]; then
-                log_info "[DRY-RUN] Would restore: $dest (from backup)"
-            else
-                log_info "[DRY-RUN] Would remove: $dest (no backup)"
+            if [[ -n "$backup" ]] && [[ -f "$backup" ]]; then
+                log_info "[DRY-RUN] Would restore: $dest"
+            elif [[ -f "$dest" ]]; then
+                log_info "[DRY-RUN] Would remove: $dest"
             fi
             continue
         fi
 
-        # Restore or remove
-        if [[ -n "$backup_path" ]] && [[ -f "$backup_path" ]]; then
+        # Restore from backup or remove
+        if [[ -n "$backup" ]] && [[ -f "$backup" ]]; then
             log_progress "Restoring: $dest"
-            if sudo cp -p "$backup_path" "$dest"; then
+            sudo mkdir -p "$(dirname "$dest")"
+            if sudo cp -p "$backup" "$dest"; then
                 ((restored++))
             else
-                log_error "Failed to restore: $dest"
+                log_warn "Failed to restore: $dest"
             fi
         elif [[ -f "$dest" ]]; then
             log_progress "Removing: $dest"
             if sudo rm -f "$dest"; then
                 ((removed++))
             else
-                log_error "Failed to remove: $dest"
+                log_warn "Failed to remove: $dest"
             fi
-        else
-            log_debug "Already absent: $dest"
-            ((skipped++))
         fi
-    done < <(jq -c '.files[]' "$MANIFEST_FILE" 2>/dev/null)
+    done < <(jq -c '.files[]?' "$MANIFEST_FILE" 2>/dev/null || echo "")
+
+    # Remove systemd services
+    for service in /etc/systemd/system/{pci-latency,set-min-free-mem}.service; do
+        if [[ -f "$service" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log_info "[DRY-RUN] Would remove: $service"
+            else
+                log_progress "Removing service: $(basename "$service")"
+                sudo rm -f "$service"
+                ((removed++))
+            fi
+        fi
+    done
 
     echo ""
-    log_info "Files restored: $restored"
-    log_info "Files removed: $removed"
-    log_info "Files skipped: $skipped"
+    log_info "Configs restored: $restored"
+    log_info "Configs removed: $removed"
 }
 
-# Remove service files (requires sudo)
-remove_services() {
-    log_section "Removing Service Files"
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 3: Reload systemd
+# ─────────────────────────────────────────────────────────────────────────────
 
-    local service_files=(
-        "/etc/systemd/system/pci-latency.service"
-        "/etc/systemd/system/set-min-free-mem.service"
-    )
+phase_reload_systemd() {
+    log_section "Phase 3: Reload systemd"
 
-    for service_file in "${service_files[@]}"; do
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log_info "[DRY-RUN] Would remove: $service_file"
-            continue
-        fi
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would reload systemd"
+        return 0
+    fi
 
-        if [[ -f "$service_file" ]]; then
-            log_progress "Removing: $service_file"
-            sudo rm -f "$service_file"
+    log_progress "Reloading systemd"
+    sudo systemctl daemon-reload || log_warn "systemd reload failed"
+
+    log_progress "Restarting systemd-journald"
+    sudo systemctl restart systemd-journald 2>/dev/null || true
+
+    log_success "systemd reloaded"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4: Clean state (optional)
+# ─────────────────────────────────────────────────────────────────────────────
+
+phase_clean_state() {
+    if [[ "$MODE" != "full" ]]; then
+        log_section "Phase 4: Clean State (skipped)"
+        log_info "To remove state directory, use: --full"
+        return 0
+    fi
+
+    log_section "Phase 4: Clean State Directory"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would remove: $STATE_DIR"
+        return 0
+    fi
+
+    # Backups
+    if [[ "$KEEP_BACKUPS" != "true" ]] && [[ -d "$BACKUP_DIR" ]]; then
+        log_progress "Removing backups: $BACKUP_DIR"
+        rm -rf "$BACKUP_DIR"
+    fi
+
+    # State dir
+    if [[ -d "$STATE_DIR" ]]; then
+        log_progress "Removing state directory: $STATE_DIR"
+        rm -rf "$STATE_DIR"
+    fi
+
+    log_success "State cleaned"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 5: Summary
+# ─────────────────────────────────────────────────────────────────────────────
+
+phase_summary() {
+    log_section "Uninstall Summary"
+
+    local summary=()
+    summary+=("Mode: $MODE")
+    summary+=("Dry-run: $DRY_RUN")
+
+    if [[ "$MODE" == "configs-only" ]]; then
+        summary+=("State preserved: $STATE_DIR")
+        summary+=("Backups preserved: $BACKUP_DIR")
+    fi
+
+    if [[ "$MODE" == "full" ]]; then
+        if [[ "$KEEP_BACKUPS" == "true" ]]; then
+            summary+=("Backups preserved: $BACKUP_DIR")
         else
-            log_debug "Already absent: $service_file"
+            summary+=("Backups removed")
         fi
-    done
-}
+    fi
 
-# Remove binaries (requires sudo)
-remove_binaries() {
-    log_section "Removing Binaries"
+    log_summary "DebForge Uninstall" "${summary[@]}"
 
-    local binaries=(
-        "/usr/local/bin/ksmctl"
-        "/usr/local/bin/pci-latency"
-        "/usr/local/bin/game-performance"
-    )
-
-    for bin in "${binaries[@]}"; do
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log_info "[DRY-RUN] Would remove: $bin"
-            continue
-        fi
-
-        if [[ -f "$bin" ]]; then
-            log_progress "Removing: $bin"
-            sudo rm -f "$bin"
+    if [[ "$DRY_RUN" != "true" ]]; then
+        echo ""
+        if [[ "$MODE" == "configs-only" ]]; then
+            echo "Configs removed. Your system settings have been restored or cleaned."
+            echo ""
+            echo "To fully uninstall (including state): $SCRIPT_DIR/undo.sh --full"
         else
-            log_debug "Already absent: $bin"
+            echo "Full cleanup complete. DebForge has been completely removed."
         fi
-    done
-}
-
-# Clean backup files (user-level operation)
-clean_backups() {
-    if [[ "$KEEP_BACKUPS" == "true" ]]; then
-        log_info "Keeping backup files as requested"
-        return 0
-    fi
-
-    log_section "Cleaning Backups"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would remove backup files"
-        return 0
-    fi
-
-    local count=0
-    for backup in "$BACKUP_DIR"/*.bak; do
-        if [[ -f "$backup" ]]; then
-            rm -f "$backup"
-            ((count++))
-        fi
-    done
-
-    log_info "Cleaned $count backup files"
-}
-
-# Reload system services (requires sudo)
-reload_system() {
-    log_section "Reloading System"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would reload system services"
-        return 0
-    fi
-
-    log_progress "Reloading systemd daemon"
-    sudo systemctl daemon-reload 2>/dev/null || log_warn "Failed to reload systemd"
-
-    log_progress "Reloading udev rules"
-    sudo udevadm control --reload-rules 2>/dev/null || log_warn "Failed to reload udev"
-
-    # Only apply sysctl if we restored a backup
-    # Otherwise, just remove our config and let defaults take over
-    if [[ -f /etc/sysctl.d/99-debforge.conf ]]; then
-        log_progress "Applying sysctl settings (from restored backup)"
-        sudo sysctl --system 2>/dev/null || log_warn "Failed to apply sysctl"
-    else
-        log_progress "Sysctl config removed - defaults will apply on next boot"
     fi
 }
 
-# Cleanup state files (user-level operation)
-cleanup_state() {
-    log_section "Cleaning State Files"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would remove state files"
-        return 0
-    fi
-
-    # Remove manifest
-    if [[ -f "$MANIFEST_FILE" ]]; then
-        rm -f "$MANIFEST_FILE"
-        log_progress "Removed manifest"
-    fi
-
-    # Remove state marker
-    if [[ -f "$STATE_DIR/installed" ]]; then
-        rm -f "$STATE_DIR/installed"
-        log_progress "Removed state marker"
-    fi
-
-    # Remove old state file (from legacy install)
-    if [[ -f "$HOME/.local/.debforge.state" ]]; then
-        rm -f "$HOME/.local/.debforge.state"
-        log_progress "Removed legacy state file"
-    fi
-
-    # Remove legacy manifest
-    if [[ -f "$HOME/.local/.debforge.manifest" ]]; then
-        rm -f "$HOME/.local/.debforge.manifest"
-        log_progress "Removed legacy manifest"
-    fi
-}
-
-# Print summary
-print_summary() {
-    log_section "Uninstall Complete"
-
-    local summary_items=()
-    summary_items+=("DebForge configurations removed")
-
-    if [[ "$KEEP_BACKUPS" == "true" ]]; then
-        summary_items+=("Backups preserved in: $BACKUP_DIR")
-    else
-        summary_items+=("Backups cleaned")
-    fi
-
-    summary_items+=("A reboot is recommended")
-
-    log_summary "Summary" "${summary_items[@]}"
-}
-
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
+# ─────────────────────────────────────────────────────────────────────────────
+
 main() {
     parse_args "$@"
-
-    # Safety check: don't run as root
     check_not_root
 
-    # Initialize logging
-    mkdir -p "$LOG_DIR"
+    mkdir -p "$BACKUP_DIR"
     log_init "uninstall"
 
     log_section "DebForge Uninstaller"
@@ -575,48 +377,20 @@ main() {
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_warn "DRY-RUN MODE - No changes will be made"
+        echo ""
     fi
 
-    # Prompt for uninstall mode (if interactive)
-    prompt_uninstall_mode
+    # Get mode
+    prompt_mode
 
-    # Check manifest (unless force)
-    if [[ "$FORCE" != "true" ]] && [[ "$UNINSTALL_MODE" != "debforge-only" ]]; then
-        check_manifest
-    fi
+    # Run phases
+    phase_check_manifest
+    phase_remove_configs
+    phase_reload_systemd
+    phase_clean_state
+    phase_summary
 
-    # Always stop services and remove DebForge binaries
-    stop_services
-    remove_binaries
-
-    # Remove system configs based on mode
-    if [[ "$UNINSTALL_MODE" == "system" ]] || [[ "$UNINSTALL_MODE" == "full" ]]; then
-        restore_files
-        remove_services
-        reload_system
-    fi
-
-    # Remove home configs and state based on mode
-    if [[ "$UNINSTALL_MODE" == "full" ]]; then
-        remove_home_configs
-        remove_home_state  # This clears LOG_FILE internally
-    fi
-
-    # Clean backups (unless kept)
-    if [[ "$UNINSTALL_MODE" != "debforge-only" ]]; then
-        clean_backups
-    fi
-
-    # Final cleanup (state marker for non-full modes)
-    cleanup_final
-
-    # Print summary (after cleanup to avoid log file issues in full mode)
-    print_summary
-
-    # Log success only if LOG_FILE is still set and exists
-    if [[ -n "$LOG_FILE" ]] && [[ -f "$LOG_FILE" ]]; then
-        log_success "Uninstall completed successfully"
-    fi
+    log_success "Uninstall completed!"
 }
 
 main "$@"
