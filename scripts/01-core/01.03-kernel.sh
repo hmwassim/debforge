@@ -93,7 +93,7 @@ case "$KERNEL_CHOICE" in
     liquorix)
         echo "==> Installing Liquorix kernel..."
         sudo apt update
-        sudo apt install -y curl gnupg
+        sudo apt install -y gnupg
         sudo apt install -t trixie-backports -y libelf-dev
         curl -fsSL https://liquorix.net/install-liquorix.sh -o /tmp/liquorix.sh
         sudo bash /tmp/liquorix.sh
