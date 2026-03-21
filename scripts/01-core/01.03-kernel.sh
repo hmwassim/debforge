@@ -103,11 +103,7 @@ esac
 # ─────────────────────────────────────────────────────────────
 # ntsync (safe)
 # ─────────────────────────────────────────────────────────────
-if modinfo ntsync &>/dev/null; then
-    echo "==> Enabling ntsync module..."
-    echo ntsync | sudo tee /etc/modules-load.d/ntsync.conf >/dev/null
-else
-    echo "==> ntsync not available in this kernel, skipping"
-fi
+echo "==> Enabling ntsync module..."
+echo ntsync | sudo tee /etc/modules-load.d/ntsync.conf
 
 echo "==> Done: $KERNEL_CHOICE"
