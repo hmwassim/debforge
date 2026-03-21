@@ -466,8 +466,6 @@ EOF
 # DebForge environment optimizations
 PROTON_ENABLE_WAYLAND=1
 MOZ_ENABLE_WAYLAND=1
-LIBVA_DRIVER_NAME=nvidia
-GBM_BACKEND=nvidia-drm
 EOF
         sudo chmod 0644 /etc/environment.d/90-debforge-env.conf
         INSTALLED_FILES+=("/etc/environment.d/90-debforge-env.conf")
