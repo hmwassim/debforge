@@ -98,7 +98,7 @@ func sourceRepoExists() bool {
 
 func cloneRepo(log *text.Logger) error {
 	log.Info("Cloning %s [branch: %s]...", settings.RepoURL, settings.Branch)
-	cmd := exec.Command("git", "clone", "--depth", "1", "--branch", settings.Branch, "--", settings.RepoURL, settings.SourceDir)
+	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", settings.Branch, "--", settings.RepoURL, settings.SourceDir)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -136,7 +136,7 @@ func gitRevParse(ref string) (string, error) {
 
 func gitPull(log *text.Logger) error {
 	log.Info("Pulling latest source...")
-	cmd := exec.Command("git", "pull", "--ff-only")
+	cmd := exec.Command("git", "pull", "-q", "--ff-only")
 	cmd.Dir = settings.SourceDir
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
