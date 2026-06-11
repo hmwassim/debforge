@@ -49,7 +49,8 @@ info "Building debforge..."
 export GOPATH="$DEBFORGE_GOPATH"
 export GOMODCACHE="$DEBFORGE_GOPATH/mod"
 export GOCACHE="$DEBFORGE_CACHE"
-go build -o "$DEBFORGE_BIN/debforge" "${DEBFORGE_SRC}/cmd/debforge/"
+cd "$DEBFORGE_SRC"
+go build -o "$DEBFORGE_BIN/debforge" ./cmd/debforge/
 
 info "Verifying binary..."
 "$DEBFORGE_BIN/debforge" --version
