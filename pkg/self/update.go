@@ -2,6 +2,7 @@ package self
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -97,9 +98,15 @@ func sourceRepoExists() bool {
 }
 
 func cloneRepo(log *text.Logger) error {
+	if _, err := os.Stat(settings.SourceDir); err == nil {
+		if _, err := os.Stat(filepath.Join(settings.SourceDir, ".git")); os.IsNotExist(err) {
+			log.Warn("Removing stale source directory...")
+			os.RemoveAll(settings.SourceDir)
+		}
+	}
 	log.Info("Cloning %s [branch: %s]...", settings.RepoURL, settings.Branch)
 	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", settings.Branch, "--", settings.RepoURL, settings.SourceDir)
-	cmd.Stdout = os.Stderr
+	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
@@ -138,7 +145,7 @@ func gitPull(log *text.Logger) error {
 	log.Info("Pulling latest source...")
 	cmd := exec.Command("git", "pull", "-q", "--ff-only")
 	cmd.Dir = settings.SourceDir
-	cmd.Stdout = os.Stderr
+	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
