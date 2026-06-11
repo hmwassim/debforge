@@ -28,16 +28,16 @@ func Parse() (*ParseResult, error) {
 
 	op := args[0]
 	switch op {
-	case "self-update":
+	case "--self-update":
 		return &ParseResult{Op: OpSelfUpdate}, nil
-	case "self-remove":
+	case "--self-remove":
 		return &ParseResult{Op: OpSelfRemove}, nil
-	case "--version", "-V", "-v", "version":
+	case "--version", "-V", "-v":
 		return &ParseResult{Op: OpVersion}, nil
-	case "--help", "-h", "help":
+	case "--help", "-h":
 		return &ParseResult{Op: OpHelp}, nil
 	default:
-		return nil, fmt.Errorf("unknown command: %s", op)
+		return nil, fmt.Errorf("unknown flag: %s", op)
 	}
 }
 
@@ -46,8 +46,8 @@ func PrintUsage() {
 	fmt.Fprintf(os.Stderr, `%s – Manage packages outside Debian repositories
 
 Usage:
-  %[1]s self-update              Install or update debforge
-  %[1]s self-remove              Remove debforge and all data
+  %[1]s --self-update            Install or update debforge
+  %[1]s --self-remove            Remove debforge and all data
   %[1]s --version, -V            Show version
   %[1]s --help, -h               Show this help message
 `,

@@ -26,7 +26,7 @@ BINARY="/usr/local/bin/debforge"
 
 if [ -x "$DEBFORGE_BIN/debforge" ]; then
 	err "debforge appears to be already installed."
-	err "Run 'sudo debforge self-update' to update."
+	err "Run 'sudo debforge --self-update' to update."
 	exit 1
 fi
 
@@ -68,4 +68,4 @@ EOF
 
 echo ""
 ok "debforge installed at ${BINARY}"
-echo "  Run 'sudo debforge self-update' to update."
+echo "  Run 'sudo debforge --self-update' to update."
