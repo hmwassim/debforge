@@ -105,7 +105,7 @@ func cloneRepo(log *text.Logger) error {
 }
 
 func gitFetch() error {
-	cmd := exec.Command("git", "fetch", "origin", settings.Branch)
+	cmd := exec.Command("git", "fetch", "-q", "origin", settings.Branch)
 	cmd.Dir = settings.SourceDir
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
