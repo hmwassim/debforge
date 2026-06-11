@@ -23,11 +23,7 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
-	log.Info("Setting up directories...")
-	if err := settings.EnsureDirsExist(); err != nil {
-		return fmt.Errorf("creating directories: %w", err)
-	}
-
+	settings.EnsureDirsExist()
 	sourceExists := sourceRepoExists()
 
 	if !sourceExists {
@@ -41,7 +37,7 @@ func Update(log *text.Logger) error {
 		}
 	} else {
 		log.Info("Checking for updates...")
-		if err := gitFetch(log); err != nil {
+		if err := gitFetch(); err != nil {
 			return fmt.Errorf("fetching remote: %w", err)
 		}
 		localSHA, remoteSHA, err := compareRevisions()
@@ -49,10 +45,10 @@ func Update(log *text.Logger) error {
 			return fmt.Errorf("comparing revisions: %w", err)
 		}
 		if localSHA == remoteSHA {
-			log.Success("Already up to date (%s)", commitShort(localSHA))
+			log.Success("Already up to date")
 			return nil
 		}
-		log.Info("Update available: %s → %s", commitShort(localSHA), commitShort(remoteSHA))
+		log.Info("Update available")
 		if !text.Prompt("Update debforge?") {
 			log.Info("Cancelled")
 			return nil
@@ -68,7 +64,6 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	log.Debug("Verifying built binary...")
 	if err := verifyBinary(buildPath); err != nil {
 		return fmt.Errorf("verification failed: %w", err)
 	}
@@ -109,8 +104,7 @@ func cloneRepo(log *text.Logger) error {
 	return cmd.Run()
 }
 
-func gitFetch(log *text.Logger) error {
-	log.Debug("Fetching origin %s...", settings.Branch)
+func gitFetch() error {
 	cmd := exec.Command("git", "fetch", "origin", settings.Branch)
 	cmd.Dir = settings.SourceDir
 	cmd.Stdout = os.Stderr
@@ -181,12 +175,3 @@ func installBinary(buildPath string) error {
 	return os.Symlink(buildPath, settings.BinaryPath)
 }
 
-func commitShort(hash string) string {
-	if len(hash) > 12 {
-		return hash[:12]
-	}
-	if hash == "" {
-		return "(none)"
-	}
-	return hash
-}

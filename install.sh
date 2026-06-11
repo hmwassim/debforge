@@ -24,7 +24,7 @@ DEBFORGE_CACHE="${DEBFORGE_VAR}/cache"
 DEBFORGE_GOPATH="${DEBFORGE_VAR}/gopath"
 BINARY="/usr/local/bin/debforge"
 
-if [ -f "$BINARY" ] || [ -d "$DEBFORGE_ROOT" ]; then
+if [ -x "$DEBFORGE_BIN/debforge" ]; then
 	err "debforge appears to be already installed."
 	err "Run 'sudo debforge self-update' to update."
 	exit 1
