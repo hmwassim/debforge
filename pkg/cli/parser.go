@@ -32,7 +32,7 @@ func Parse() (*ParseResult, error) {
 		return &ParseResult{Op: OpSelfUpdate}, nil
 	case "--self-remove":
 		return &ParseResult{Op: OpSelfRemove}, nil
-	case "--version", "-V", "-v":
+	case "--version", "-V":
 		return &ParseResult{Op: OpVersion}, nil
 	case "--help", "-h":
 		return &ParseResult{Op: OpHelp}, nil
@@ -42,6 +42,20 @@ func Parse() (*ParseResult, error) {
 }
 
 func PrintUsage() {
+	name := "debforge"
+	fmt.Fprintf(os.Stdout, `%s – Manage packages outside Debian repositories
+
+Usage:
+  %[1]s --self-update            Install or update debforge
+  %[1]s --self-remove            Remove debforge and all data
+  %[1]s --version, -V            Show version
+  %[1]s --help, -h               Show this help message
+`,
+		name,
+	)
+}
+
+func PrintUsageErr() {
 	name := "debforge"
 	fmt.Fprintf(os.Stderr, `%s – Manage packages outside Debian repositories
 

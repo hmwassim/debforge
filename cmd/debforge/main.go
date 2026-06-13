@@ -14,6 +14,7 @@ func main() {
 	result, err := cli.Parse()
 	if err != nil {
 		log.Error(err.Error())
+		cli.PrintUsageErr()
 		os.Exit(1)
 	}
 

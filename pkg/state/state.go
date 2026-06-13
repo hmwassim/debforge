@@ -3,14 +3,11 @@ package state
 import (
 	"encoding/json"
 	"os"
-	"sync"
 
 	"github.com/hmwassim/debforge/pkg/settings"
 )
 
 type State struct {
-	mu sync.Mutex
-
 	InstalledAt string `json:"installed_at"`
 	UpdatedAt   string `json:"updated_at,omitempty"`
 }
@@ -35,9 +32,6 @@ func Load() (*State, error) {
 }
 
 func (s *State) Save() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if err := settings.EnsureDirsExist(); err != nil {
 		return err
 	}
@@ -45,5 +39,9 @@ func (s *State) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(settings.StateFile, data, 0644)
+	tmp := settings.StateFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, settings.StateFile)
 }

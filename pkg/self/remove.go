@@ -14,14 +14,14 @@ func Remove(log *text.Logger) error {
 	}
 
 	log.Warn("This will permanently remove debforge and all its data")
-	if !text.Prompt("Remove debforge?") {
+	if !log.Prompt("Remove debforge?") {
 		log.Info("Cancelled")
 		return nil
 	}
 
 	log.Info("Removing %s...", settings.RootDir)
 	if err := os.RemoveAll(settings.RootDir); err != nil {
-		log.Warn("Failed to remove %s: %v", settings.RootDir, err)
+		return fmt.Errorf("removing %s: %w", settings.RootDir, err)
 	}
 
 	log.Info("Removing binary at %s...", settings.BinaryPath)

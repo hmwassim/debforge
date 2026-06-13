@@ -24,12 +24,14 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
-	settings.EnsureDirsExist()
+	if err := settings.EnsureDirsExist(); err != nil {
+		return fmt.Errorf("creating directories: %w", err)
+	}
 	sourceExists := sourceRepoExists()
 
 	if !sourceExists {
 		log.Info("debforge is not installed")
-		if !text.Prompt("Install debforge?") {
+		if !log.Prompt("Install debforge?") {
 			log.Info("Cancelled")
 			return nil
 		}
@@ -50,7 +52,7 @@ func Update(log *text.Logger) error {
 			return nil
 		}
 		log.Info("Update available")
-		if !text.Prompt("Update debforge?") {
+		if !log.Prompt("Update debforge?") {
 			log.Info("Cancelled")
 			return nil
 		}
@@ -114,7 +116,7 @@ func cloneRepo(log *text.Logger) error {
 func gitFetch() error {
 	cmd := exec.Command("git", "fetch", "-q", "origin", settings.Branch)
 	cmd.Dir = settings.SourceDir
-	cmd.Stdout = os.Stderr
+	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
@@ -143,7 +145,14 @@ func gitRevParse(ref string) (string, error) {
 
 func gitPull(log *text.Logger) error {
 	log.Info("Pulling latest source...")
-	cmd := exec.Command("git", "pull", "-q", "--ff-only")
+	cmd := exec.Command("git", "fetch", "--depth", "1", "origin", settings.Branch)
+	cmd.Dir = settings.SourceDir
+	cmd.Stdout = io.Discard
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	cmd = exec.Command("git", "reset", "--hard", "origin/"+settings.Branch)
 	cmd.Dir = settings.SourceDir
 	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
@@ -158,7 +167,7 @@ func buildBinary(dst string) error {
 		"GOMODCACHE="+settings.GoPathDir+"/mod",
 		"GOCACHE="+settings.CacheDir,
 	)
-	cmd.Stdout = os.Stderr
+	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
@@ -176,9 +185,13 @@ func verifyBinary(path string) error {
 }
 
 func installBinary(buildPath string) error {
-	if err := os.Remove(settings.BinaryPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing existing binary at %s: %w", settings.BinaryPath, err)
+	tmp := settings.BinaryPath + ".new"
+	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) {
+		return err
 	}
-	return os.Symlink(buildPath, settings.BinaryPath)
+	if err := os.Symlink(buildPath, tmp); err != nil {
+		return err
+	}
+	return os.Rename(tmp, settings.BinaryPath)
 }
 
