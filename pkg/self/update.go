@@ -1,6 +1,7 @@
 package self
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hmwassim/debforge/pkg/executil"
+	"github.com/hmwassim/debforge/pkg/lock"
 	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/state"
 	"github.com/hmwassim/debforge/pkg/text"
@@ -19,12 +22,18 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("self-update must be run as root")
 	}
 
+	release, err := lock.Acquire(settings.Default.LockFile())
+	if err != nil {
+		return fmt.Errorf("cannot acquire lock: %w", err)
+	}
+	defer release()
+
 	st, err := state.Load()
 	if err != nil {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
-	if err := settings.EnsureDirsExist(); err != nil {
+	if err := settings.Default.EnsureDirsExist(); err != nil {
 		return fmt.Errorf("creating directories: %w", err)
 	}
 	sourceExists := sourceRepoExists()
@@ -61,8 +70,11 @@ func Update(log *text.Logger) error {
 		}
 	}
 
+	cfg := settings.Default
+	buildPath := filepath.Join(cfg.BinDir(), "debforge.new")
+	finalPath := filepath.Join(cfg.BinDir(), "debforge")
+
 	log.Info("Building debforge...")
-	buildPath := filepath.Join(settings.BinDir, "debforge")
 	if err := buildBinary(buildPath); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
@@ -71,9 +83,9 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
-	log.Info("Linking %s → %s", buildPath, settings.BinaryPath)
-	if err := installBinary(buildPath); err != nil {
-		return fmt.Errorf("linking binary: %w", err)
+	log.Info("Installing binary...")
+	if err := installBinary(buildPath, finalPath); err != nil {
+		return fmt.Errorf("installing binary: %w", err)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -95,30 +107,32 @@ func Update(log *text.Logger) error {
 }
 
 func sourceRepoExists() bool {
-	_, err := os.Stat(filepath.Join(settings.SourceDir, ".git"))
+	_, err := os.Stat(filepath.Join(settings.Default.SourceDir(), ".git"))
 	return err == nil
 }
 
 func cloneRepo(log *text.Logger) error {
-	if _, err := os.Stat(settings.SourceDir); err == nil {
-		if _, err := os.Stat(filepath.Join(settings.SourceDir, ".git")); os.IsNotExist(err) {
+	cfg := settings.Default
+	if _, err := os.Stat(cfg.SourceDir()); err == nil {
+		if _, err := os.Stat(filepath.Join(cfg.SourceDir(), ".git")); os.IsNotExist(err) {
 			log.Warn("Removing stale source directory...")
-			os.RemoveAll(settings.SourceDir)
+			if err := os.RemoveAll(cfg.SourceDir()); err != nil {
+				return fmt.Errorf("removing stale source directory: %w", err)
+			}
 		}
 	}
-	log.Info("Cloning %s [branch: %s]...", settings.RepoURL, settings.Branch)
-	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", settings.Branch, "--", settings.RepoURL, settings.SourceDir)
+	log.Info("Cloning %s [branch: %s]...", cfg.RepoURL, cfg.Branch)
+	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", cfg.Branch, "--", cfg.RepoURL, cfg.SourceDir())
+	cmd.Dir = ""
 	cmd.Stdout = io.Discard
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return executil.Run(cmd)
 }
 
 func gitFetch() error {
-	cmd := exec.Command("git", "fetch", "-q", "origin", settings.Branch)
-	cmd.Dir = settings.SourceDir
+	cmd := exec.Command("git", "fetch", "-q", "origin", settings.Default.Branch)
+	cmd.Dir = settings.Default.SourceDir()
 	cmd.Stdout = io.Discard
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return executil.Run(cmd)
 }
 
 func compareRevisions() (local, remote string, err error) {
@@ -126,7 +140,7 @@ func compareRevisions() (local, remote string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	remote, err = gitRevParse("origin/" + settings.Branch)
+	remote, err = gitRevParse("origin/" + settings.Default.Branch)
 	if err != nil {
 		return "", "", err
 	}
@@ -134,49 +148,61 @@ func compareRevisions() (local, remote string, err error) {
 }
 
 func gitRevParse(ref string) (string, error) {
+	var stderr bytes.Buffer
 	cmd := exec.Command("git", "rev-parse", ref)
-	cmd.Dir = settings.SourceDir
+	cmd.Dir = settings.Default.SourceDir()
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git rev-parse %s: %w", ref, err)
+		return "", fmt.Errorf("git rev-parse %s: %s", ref, strings.TrimSpace(stderr.String()))
 	}
 	return strings.TrimSpace(string(out)), nil
 }
 
 func gitPull(log *text.Logger) error {
+	cfg := settings.Default
 	log.Info("Pulling latest source...")
-	cmd := exec.Command("git", "fetch", "--depth", "1", "origin", settings.Branch)
-	cmd.Dir = settings.SourceDir
+	cmd := exec.Command("git", "fetch", "--depth", "1", "origin", cfg.Branch)
+	cmd.Dir = cfg.SourceDir()
 	cmd.Stdout = io.Discard
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := executil.Run(cmd); err != nil {
 		return err
 	}
-	cmd = exec.Command("git", "reset", "--hard", "origin/"+settings.Branch)
-	cmd.Dir = settings.SourceDir
+	cmd = exec.Command("git", "reset", "--hard", "origin/"+cfg.Branch)
+	cmd.Dir = cfg.SourceDir()
 	cmd.Stdout = io.Discard
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return executil.Run(cmd)
 }
 
 func buildBinary(dst string) error {
+	cfg := settings.Default
 	cmd := exec.Command("go", "build", "-o", dst, "./cmd/debforge/")
-	cmd.Dir = settings.SourceDir
-	cmd.Env = append(os.Environ(),
-		"GOPATH="+settings.GoPathDir,
-		"GOMODCACHE="+settings.GoPathDir+"/mod",
-		"GOCACHE="+settings.CacheDir,
-	)
+	cmd.Dir = cfg.SourceDir()
+	cmd.Env = []string{
+		"PATH=/usr/local/go/bin:/usr/bin:/bin",
+		"GOPATH=" + cfg.GoPathDir(),
+		"GOMODCACHE=" + cfg.GoPathDir() + "/mod",
+		"GOCACHE=" + cfg.CacheDir(),
+	}
+	for _, e := range os.Environ() {
+		k, _, _ := strings.Cut(e, "=")
+		switch k {
+		case "HOME", "GOFLAGS", "GOOS", "GOARCH", "GOARM", "GOAMD64",
+			"CGO_ENABLED", "CC", "CXX", "GOPROXY", "GOSUMDB", "GOPRIVATE":
+			cmd.Env = append(cmd.Env, e)
+		}
+	}
 	cmd.Stdout = io.Discard
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return executil.Run(cmd)
 }
 
 func verifyBinary(path string) error {
+	var stderr bytes.Buffer
 	cmd := exec.Command(path, "--version")
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("binary did not execute: %w", err)
+		return fmt.Errorf("binary did not execute: %s", strings.TrimSpace(stderr.String()))
 	}
 	if len(out) == 0 {
 		return fmt.Errorf("binary produced no output")
@@ -184,14 +210,16 @@ func verifyBinary(path string) error {
 	return nil
 }
 
-func installBinary(buildPath string) error {
-	tmp := settings.BinaryPath + ".new"
-	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) {
+func installBinary(buildPath, finalPath string) error {
+	if err := os.Rename(buildPath, finalPath); err != nil {
 		return err
 	}
-	if err := os.Symlink(buildPath, tmp); err != nil {
+	_, err := os.Lstat(settings.Default.BinaryPath)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
 		return err
 	}
-	return os.Rename(tmp, settings.BinaryPath)
+	return os.Symlink(finalPath, settings.Default.BinaryPath)
 }
-

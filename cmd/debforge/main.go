@@ -14,13 +14,13 @@ func main() {
 	result, err := cli.Parse()
 	if err != nil {
 		log.Error(err.Error())
-		cli.PrintUsageErr()
+		cli.PrintUsage(os.Stderr)
 		os.Exit(1)
 	}
 
 	switch result.Op {
 	case cli.OpHelp:
-		cli.PrintUsage()
+		cli.PrintUsage(os.Stdout)
 	case cli.OpVersion:
 		cli.PrintVersion()
 	case cli.OpSelfUpdate:

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -41,23 +42,9 @@ func Parse() (*ParseResult, error) {
 	}
 }
 
-func PrintUsage() {
+func PrintUsage(w io.Writer) {
 	name := "debforge"
-	fmt.Fprintf(os.Stdout, `%s – Manage packages outside Debian repositories
-
-Usage:
-  %[1]s --self-update            Install or update debforge
-  %[1]s --self-remove            Remove debforge and all data
-  %[1]s --version, -V            Show version
-  %[1]s --help, -h               Show this help message
-`,
-		name,
-	)
-}
-
-func PrintUsageErr() {
-	name := "debforge"
-	fmt.Fprintf(os.Stderr, `%s – Manage packages outside Debian repositories
+	fmt.Fprintf(w, `%s – Manage packages outside Debian repositories
 
 Usage:
   %[1]s --self-update            Install or update debforge
