@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -206,9 +205,7 @@ func List(log *text.Logger) {
 	for _, g := range groups {
 		var missing []string
 		for _, pkg := range g.packages {
-			cmd := exec.Command("dpkg", "-s", pkg)
-			cmd.Stdout = io.Discard
-			if err := executil.Run(cmd); err != nil {
+			if !isInstalled(pkg) {
 				missing = append(missing, pkg)
 			}
 		}
@@ -218,6 +215,11 @@ func List(log *text.Logger) {
 			log.Warn("  %s — missing: %s", g.name, strings.Join(missing, ", "))
 		}
 	}
+}
+
+func isInstalled(pkg string) bool {
+	out, err := exec.Command("dpkg-query", "-W", "--showformat", "${db:Status-Status}", pkg).Output()
+	return err == nil && strings.TrimSpace(string(out)) == "installed"
 }
 
 func ensureSourcesList() error {
