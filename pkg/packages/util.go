@@ -51,7 +51,13 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 		}
 		parts := strings.Fields(line)
 		if len(parts) >= 2 && parts[1] == "install" {
-			installed[parts[0]] = true
+			name := parts[0]
+			if _, ok := installed[name]; !ok {
+				if idx := strings.IndexByte(name, ':'); idx != -1 {
+					name = name[:idx]
+				}
+			}
+			installed[name] = true
 		}
 	}
 	return installed, nil
