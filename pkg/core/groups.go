@@ -113,7 +113,6 @@ var groups = []group{
 		configs: []configFile{
 			{"/etc/security/limits.d/20-audio.conf", audioLimitsConfig, 0644},
 		},
-		services: []string{},
 	},
 	{
 		name: "flatpak",

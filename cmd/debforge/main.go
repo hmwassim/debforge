@@ -35,10 +35,6 @@ func main() {
 			os.Exit(1)
 		}
 	case cli.OpCore:
-		if len(result.Args) == 0 {
-			log.Error("core requires a subcommand: update, repair, list")
-			os.Exit(1)
-		}
 		switch result.Args[0] {
 		case "repair":
 			if err := core.Repair(log); err != nil {

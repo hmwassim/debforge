@@ -16,10 +16,12 @@ const (
 	gray   = "\033[90m"
 )
 
-type Logger struct{}
+type Logger struct {
+	debug bool
+}
 
 func New() *Logger {
-	return &Logger{}
+	return &Logger{debug: os.Getenv("DEBFORGE_DEBUG") == "1"}
 }
 
 func (l *Logger) Info(format string, args ...interface{}) {
@@ -39,6 +41,9 @@ func (l *Logger) Error(format string, args ...interface{}) {
 }
 
 func (l *Logger) Debug(format string, args ...interface{}) {
+	if !l.debug {
+		return
+	}
 	l.print(os.Stderr, gray, "-", format, args...)
 }
 

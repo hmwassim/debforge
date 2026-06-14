@@ -168,9 +168,32 @@ func gitPull(log *text.Logger) error {
 	return executil.Run(cmd)
 }
 
+func gitDescribe() (string, error) {
+	var stderr bytes.Buffer
+	cmd := exec.Command("git", "describe", "--tags", "--always")
+	cmd.Dir = settings.Default.SourceDir()
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git describe: %s", strings.TrimSpace(stderr.String()))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func buildBinary(dst string) error {
 	cfg := settings.Default
-	cmd := exec.Command("go", "build", "-o", dst, "./cmd/debforge/")
+	for _, d := range []string{cfg.GoPathDir(), cfg.CacheDir()} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			return err
+		}
+	}
+	version := "0.1.0-dev"
+	if v, err := gitDescribe(); err == nil {
+		version = v
+	}
+	cmd := exec.Command("go", "build", "-o", dst,
+		"-ldflags=-X github.com/hmwassim/debforge/pkg/cli.Version="+version,
+		"./cmd/debforge/")
 	cmd.Dir = cfg.SourceDir()
 	cmd.Env = []string{
 		"PATH=/usr/local/go/bin:/usr/bin:/bin",
