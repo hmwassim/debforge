@@ -257,7 +257,11 @@ func installCodebergFonts(log *text.Logger) error {
 
 	if _, err := os.Stat(cachePath); err == nil {
 		log.Info("Using cached fonts...")
-		return extractFonts(cachePath, fontDir)
+		if err := extractFonts(cachePath, fontDir); err == nil {
+			return nil
+		}
+		log.Warn("Cached fonts are corrupt, re-downloading...")
+		os.Remove(cachePath)
 	}
 
 	log.Info("Downloading custom fonts...")
