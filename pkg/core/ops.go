@@ -8,12 +8,21 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
+	"github.com/hmwassim/debforge/pkg/lock"
 	"github.com/hmwassim/debforge/pkg/packages"
+	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
 func Repair(log *text.Logger) error {
 	log.Info("Repairing core system...")
+
+	release, err := lock.Acquire(settings.Default.LockFile())
+	if err != nil {
+		return fmt.Errorf("cannot acquire lock: %w", err)
+	}
+	defer release()
+
 	var errs []error
 
 	if err := ensureSourcesList(); err != nil {
@@ -70,6 +79,12 @@ func Repair(log *text.Logger) error {
 
 func Update(log *text.Logger) error {
 	log.Info("Updating core packages...")
+
+	release, err := lock.Acquire(settings.Default.LockFile())
+	if err != nil {
+		return fmt.Errorf("cannot acquire lock: %w", err)
+	}
+	defer release()
 
 	if err := executil.Run(exec.Command("apt", "update")); err != nil {
 		return fmt.Errorf("apt update: %w", err)
