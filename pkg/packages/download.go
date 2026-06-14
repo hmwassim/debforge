@@ -77,7 +77,24 @@ func (w *progressWriter) done() {
 	w.print()
 }
 
+func isStderrTerminal() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	if os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	fi, err := os.Stderr.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
 func (w *progressWriter) print() {
+	if !isStderrTerminal() {
+		return
+	}
 	pct := float64(w.current) / float64(w.total) * 100
 	barWidth := 40
 	filled := int(float64(barWidth) * float64(w.current) / float64(w.total))

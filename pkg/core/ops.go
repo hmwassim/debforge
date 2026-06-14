@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -111,8 +112,11 @@ func ensureSourcesList() error {
 }
 
 func enablei386() error {
-	out, err := exec.Command("dpkg", "--print-foreign-architectures").Output()
-	if err == nil && strings.Contains(string(out), "i386") {
+	cmd := exec.Command("dpkg", "--print-foreign-architectures")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	err := executil.Run(cmd)
+	if err == nil && strings.Contains(stdout.String(), "i386") {
 		return nil
 	}
 	return executil.Run(exec.Command("dpkg", "--add-architecture", "i386"))

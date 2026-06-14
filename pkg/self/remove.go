@@ -55,20 +55,17 @@ func verifyRemovablePath(path string) error {
 		return fmt.Errorf("path is empty")
 	}
 
-	// Block removal of known dangerous system directories.
-	for _, d := range dangerousRoots {
-		if clean == d {
-			return fmt.Errorf("refusing to remove dangerous path %q", clean)
-		}
-		if strings.HasPrefix(clean, d+"/") {
-			return fmt.Errorf("refusing to remove subdirectory of %q: %q", d, clean)
-		}
-	}
-
 	// Verify the path matches the expected debforge root.
 	expected := filepath.Clean(settings.Default.RootDir)
 	if clean != expected && !strings.HasPrefix(clean, expected+"/") {
 		return fmt.Errorf("path %q is not within debforge root %q", clean, expected)
+	}
+
+	// Block removal if the debforge root itself is a dangerous system directory.
+	for _, d := range dangerousRoots {
+		if expected == d {
+			return fmt.Errorf("refusing to remove: debforge root %q is a dangerous system path", expected)
+		}
 	}
 
 	return nil
