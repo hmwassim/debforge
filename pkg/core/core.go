@@ -8,6 +8,7 @@ import (
 
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/packages"
+	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
@@ -34,11 +35,12 @@ type configFile struct {
 }
 
 type group struct {
-	name     string
-	packages []string
-	backport bool
-	configs  []configFile
-	services []string
+	name        string
+	packages    []string
+	backport    bool
+	configs     []configFile
+	services    []string
+	postInstall func(*text.Logger) error
 }
 
 var groups = []group{
@@ -83,6 +85,10 @@ var groups = []group{
 			"fonts-noto-cjk-extra", "fonts-noto-color-emoji",
 			"fonts-noto-extra", "fonts-noto-mono", "fonts-noto-ui-extra",
 		},
+		configs: []configFile{
+			{"/etc/fonts/local.conf", fontConfig, 0644},
+		},
+		postInstall: installCodebergFonts,
 	},
 	{
 		name: "system-services",
@@ -172,6 +178,12 @@ func Repair(log *text.Logger) error {
 				log.Warn("Failed to start %s: %s", svc, err)
 			}
 		}
+
+		if g.postInstall != nil {
+			if err := g.postInstall(log); err != nil {
+				return fmt.Errorf("post-install %s: %w", g.name, err)
+			}
+		}
 	}
 
 	log.Success("Core repair complete")
@@ -239,6 +251,41 @@ func enablei386() error {
 	return executil.Run(exec.Command("dpkg", "--add-architecture", "i386"))
 }
 
+func installCodebergFonts(log *text.Logger) error {
+	cachePath := settings.Default.CacheDir() + "/fonts.tar.gz"
+	fontDir := "/usr/local/share/fonts"
+
+	if _, err := os.Stat(cachePath); err == nil {
+		log.Info("Using cached fonts...")
+		return extractFonts(cachePath, fontDir)
+	}
+
+	log.Info("Downloading custom fonts...")
+	if err := os.MkdirAll(settings.Default.CacheDir(), 0755); err != nil {
+		return err
+	}
+
+	dl := exec.Command("curl", "-fL", "-o", cachePath, "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz")
+	dl.Stdout = nil
+	if err := executil.Run(dl); err != nil {
+		return fmt.Errorf("downloading fonts: %w", err)
+	}
+
+	return extractFonts(cachePath, fontDir)
+}
+
+func extractFonts(path, fontDir string) error {
+	if err := os.MkdirAll(fontDir, 0755); err != nil {
+		return err
+	}
+	extract := exec.Command("tar", "-xzf", path, "-C", fontDir)
+	extract.Stdout = nil
+	if err := executil.Run(extract); err != nil {
+		return fmt.Errorf("extracting fonts: %w", err)
+	}
+	return executil.Run(exec.Command("fc-cache", "-f", "-v"))
+}
+
 func deployConfig(cf configFile) error {
 	dir := cf.dest[:strings.LastIndex(cf.dest, "/")]
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -281,4 +328,139 @@ FallbackNTP=time.google.com 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian
 `
 
 const audioLimitsConfig = `@audio - rtprio 99
+`
+
+const fontConfig = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+
+  <selectfont>
+    <rejectfont>
+      <glob>*NotoNastaliq*</glob>
+    </rejectfont>
+  </selectfont>
+
+  <alias>
+    <family>sans-serif</family>
+    <prefer>
+      <family>Arimo</family>
+      <family>Noto Sans Arabic</family>
+    </prefer>
+  </alias>
+
+  <alias>
+    <family>serif</family>
+    <prefer>
+      <family>Tinos</family>
+      <family>Noto Sans Arabic</family>
+    </prefer>
+  </alias>
+
+  <alias>
+    <family>Sans</family>
+    <prefer>
+      <family>Arimo</family>
+      <family>Noto Sans Arabic</family>
+    </prefer>
+  </alias>
+
+  <alias>
+    <family>monospace</family>
+    <prefer>
+      <family>Cousine</family>
+      <family>Noto Sans Arabic</family>
+    </prefer>
+  </alias>
+
+  <match>
+    <test name="family"><string>Arial</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Arimo</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Helvetica</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Arimo</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Verdana</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Arimo</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Tahoma</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Arimo</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Comic Sans MS</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Arimo</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Times New Roman</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Tinos</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Times</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Tinos</string>
+    </edit>
+  </match>
+  <match>
+    <test name="family"><string>Courier New</string></test>
+    <edit name="family" mode="assign" binding="strong">
+      <string>Cousine</string>
+    </edit>
+  </match>
+
+  <match target="pattern">
+    <test name="lang" compare="contains"><string>ar</string></test>
+    <edit name="family" mode="prepend" binding="strong">
+      <string>Noto Sans Arabic</string>
+    </edit>
+  </match>
+
+  <match target="pattern">
+    <test name="lang" compare="contains"><string>ar</string></test>
+    <test name="spacing" compare="eq"><int>100</int></test>
+    <edit name="family" mode="prepend" binding="strong">
+      <string>Noto Sans Arabic UI</string>
+    </edit>
+  </match>
+
+  <match target="pattern">
+    <test name="family"><string>emoji</string></test>
+    <edit name="family" mode="prepend" binding="strong">
+      <string>Noto Color Emoji</string>
+    </edit>
+  </match>
+
+  <match target="pattern">
+    <test name="lang" compare="contains"><string>zh</string></test>
+    <edit name="family" mode="append" binding="weak">
+      <string>Noto Sans CJK SC</string>
+    </edit>
+  </match>
+  <match target="pattern">
+    <test name="lang" compare="contains"><string>ja</string></test>
+    <edit name="family" mode="append" binding="weak">
+      <string>Noto Sans CJK JP</string>
+    </edit>
+  </match>
+  <match target="pattern">
+    <test name="lang" compare="contains"><string>ko</string></test>
+    <edit name="family" mode="append" binding="weak">
+      <string>Noto Sans CJK KR</string>
+    </edit>
+  </match>
+
+</fontconfig>
 `
