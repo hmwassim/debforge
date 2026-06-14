@@ -130,7 +130,7 @@ var groups = []group{
 		configs: []configFile{
 			{"/etc/security/limits.d/20-audio.conf", audioLimitsConfig, 0644},
 		},
-		services: []string{"pipewire", "pipewire-pulse", "wireplumber"},
+		services: []string{}, // user services (pipewire, wireplumber) handled per-user
 	},
 }
 
