@@ -22,6 +22,7 @@ DEBFORGE_SRC="${DEBFORGE_ROOT}/src"
 DEBFORGE_VAR="${DEBFORGE_ROOT}/var"
 DEBFORGE_CACHE="${DEBFORGE_VAR}/cache"
 DEBFORGE_GOPATH="${DEBFORGE_VAR}/gopath"
+DEBFORGE_GOCACHE="${DEBFORGE_GOPATH}/buildcache"
 BINARY="/usr/local/bin/debforge"
 
 if [ -x "$DEBFORGE_BIN/debforge" ]; then
@@ -42,7 +43,7 @@ apt-get update -y
 apt-get install -y git golang-go
 
 info "Setting up directories..."
-mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC" "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH"
+mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC" "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
 
 info "Cloning ${REPO_URL} [${BRANCH}]..."
 rm -rf "$DEBFORGE_SRC"
@@ -51,7 +52,7 @@ git clone --depth 1 --branch "$BRANCH" -- "$REPO_URL" "$DEBFORGE_SRC"
 info "Building debforge..."
 export GOPATH="$DEBFORGE_GOPATH"
 export GOMODCACHE="$DEBFORGE_GOPATH/mod"
-export GOCACHE="$DEBFORGE_CACHE"
+export GOCACHE="$DEBFORGE_GOCACHE"
 cd "$DEBFORGE_SRC"
 VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
 go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/

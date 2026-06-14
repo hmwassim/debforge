@@ -182,7 +182,7 @@ func gitDescribe() (string, error) {
 
 func buildBinary(dst string) error {
 	cfg := settings.Default
-	for _, d := range []string{cfg.GoPathDir(), cfg.CacheDir()} {
+	for _, d := range []string{cfg.GoPathDir(), cfg.GoCacheDir()} {
 		if err := os.MkdirAll(d, 0755); err != nil {
 			return err
 		}
@@ -199,7 +199,7 @@ func buildBinary(dst string) error {
 		"PATH=/usr/local/go/bin:/usr/bin:/bin",
 		"GOPATH=" + cfg.GoPathDir(),
 		"GOMODCACHE=" + cfg.GoPathDir() + "/mod",
-		"GOCACHE=" + cfg.CacheDir(),
+		"GOCACHE=" + cfg.GoCacheDir(),
 	}
 	for _, e := range os.Environ() {
 		k, _, _ := strings.Cut(e, "=")
