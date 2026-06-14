@@ -1,22 +1,5 @@
 package core
 
-import (
-	"fmt"
-	"os"
-	"strings"
-)
-
-func deployConfig(cf configFile) error {
-	i := strings.LastIndex(cf.dest, "/")
-	if i < 0 {
-		return fmt.Errorf("invalid config path: %q", cf.dest)
-	}
-	if err := os.MkdirAll(cf.dest[:i], 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(cf.dest, []byte(cf.content), cf.mode)
-}
-
 const sourcesList = `deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
 deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security/ trixie-security main contrib non-free non-free-firmware

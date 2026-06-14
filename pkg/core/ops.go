@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
+	"github.com/hmwassim/debforge/pkg/packages"
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
@@ -28,24 +29,18 @@ func Repair(log *text.Logger) error {
 	for _, g := range groups {
 		log.Info("Installing %s...", g.name)
 
-		args := []string{"install", "-y"}
-		if g.backport {
-			args = append(args, "-t", "trixie-backports")
-		}
-		args = append(args, g.packages...)
-
-		if err := executil.Run(exec.Command("apt", args...)); err != nil {
+		if err := packages.AptInstall(g.packages, g.backport); err != nil {
 			return fmt.Errorf("installing %s: %w", g.name, err)
 		}
 
 		for _, cf := range g.configs {
-			if err := deployConfig(cf); err != nil {
+			if err := packages.DeployConfig(cf.dest, cf.content, cf.mode); err != nil {
 				return fmt.Errorf("deploying %s: %w", cf.dest, err)
 			}
 		}
 
 		for _, svc := range g.services {
-			if err := executil.Run(exec.Command("systemctl", "enable", "--now", svc)); err != nil {
+			if err := packages.EnableService(svc); err != nil {
 				log.Warn("Failed to start %s: %s", svc, err)
 			}
 		}
@@ -77,17 +72,11 @@ func Update(log *text.Logger) error {
 		}
 	}
 
-	if len(defaultPkgs) > 0 {
-		args := append([]string{"install", "-y"}, defaultPkgs...)
-		if err := executil.Run(exec.Command("apt", args...)); err != nil {
-			return fmt.Errorf("upgrading core: %w", err)
-		}
+	if err := packages.AptInstall(defaultPkgs, false); err != nil {
+		return fmt.Errorf("upgrading core: %w", err)
 	}
-	if len(backportPkgs) > 0 {
-		args := append([]string{"install", "-y", "-t", "trixie-backports"}, backportPkgs...)
-		if err := executil.Run(exec.Command("apt", args...)); err != nil {
-			return fmt.Errorf("upgrading backports: %w", err)
-		}
+	if err := packages.AptInstall(backportPkgs, true); err != nil {
+		return fmt.Errorf("upgrading backports: %w", err)
 	}
 
 	log.Success("Core packages up to date")
@@ -100,7 +89,7 @@ func List(log *text.Logger) {
 	for _, g := range groups {
 		var missing []string
 		for _, pkg := range g.packages {
-			if !isInstalled(pkg) {
+			if !packages.IsInstalled(pkg) {
 				missing = append(missing, pkg)
 			}
 		}
@@ -110,11 +99,6 @@ func List(log *text.Logger) {
 			log.Warn("  %s — missing: %s", g.name, strings.Join(missing, ", "))
 		}
 	}
-}
-
-func isInstalled(pkg string) bool {
-	out, err := exec.Command("dpkg", "--get-selections", pkg).Output()
-	return err == nil && strings.Contains(string(out), "\tinstall")
 }
 
 func ensureSourcesList() error {
