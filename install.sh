@@ -57,7 +57,7 @@ VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
 go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/
 
 info "Verifying binary..."
-"$DEBFORGE_BIN/debforge" --version
+"$DEBFORGE_BIN/debforge" --help >/dev/null 2>&1
 
 info "Linking ${DEBFORGE_BIN}/debforge -> ${BINARY}..."
 mkdir -p "$(dirname "$BINARY")"
