@@ -18,7 +18,8 @@ const (
 )
 
 type ParseResult struct {
-	Op Operation
+	Op   Operation
+	Args []string
 }
 
 func Parse() (*ParseResult, error) {
@@ -27,8 +28,7 @@ func Parse() (*ParseResult, error) {
 		return &ParseResult{Op: OpHelp}, nil
 	}
 
-	op := args[0]
-	switch op {
+	switch op := args[0]; op {
 	case "--self-update":
 		return &ParseResult{Op: OpSelfUpdate}, nil
 	case "--self-remove":
