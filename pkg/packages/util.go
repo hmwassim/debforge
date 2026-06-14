@@ -32,11 +32,6 @@ func DeployConfig(dest, content string, mode os.FileMode) error {
 	return os.WriteFile(dest, []byte(content), mode)
 }
 
-func IsInstalled(pkg string) bool {
-	out, err := exec.Command("dpkg", "--get-selections", pkg).Output()
-	return err == nil && strings.Contains(string(out), "\tinstall")
-}
-
 func CheckInstalled(pkgs []string) (map[string]bool, error) {
 	if len(pkgs) == 0 {
 		return map[string]bool{}, nil
