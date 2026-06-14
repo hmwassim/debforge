@@ -13,7 +13,7 @@ import (
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
-var httpClient = &http.Client{Timeout: 30 * time.Second}
+var httpClient = &http.Client{Timeout: 0}
 
 func DownloadFile(path, url string) error {
 	out, err := os.Create(path)
