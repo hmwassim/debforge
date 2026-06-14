@@ -73,7 +73,9 @@ func DownloadFile(path, url string) error {
 			return err
 		}
 		pb.done()
-		fmt.Fprintln(os.Stderr)
+		if text.IsTerminal(os.Stderr) {
+			fmt.Fprintln(os.Stderr)
+		}
 	}
 
 	if err := f.Close(); err != nil {

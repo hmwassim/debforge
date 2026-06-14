@@ -2,6 +2,7 @@ package packages
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,7 +37,9 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 	if len(pkgs) == 0 {
 		return map[string]bool{}, nil
 	}
-	out, err := exec.Command("dpkg", append([]string{"--get-selections"}, pkgs...)...).Output()
+	cmd := exec.Command("dpkg", append([]string{"--get-selections"}, pkgs...)...)
+	cmd.Stderr = io.Discard
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}

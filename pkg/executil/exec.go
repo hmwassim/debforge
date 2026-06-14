@@ -2,7 +2,7 @@ package executil
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
@@ -16,7 +16,7 @@ func Run(cmd *exec.Cmd) error {
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if s := strings.TrimSpace(stderr.String()); s != "" {
-			return errors.New(s)
+			return fmt.Errorf("%s: %w", s, err)
 		}
 		return err
 	}

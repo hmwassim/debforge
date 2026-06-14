@@ -52,5 +52,8 @@ func main() {
 			log.Error("unknown core subcommand: %s", result.Args[0])
 			os.Exit(1)
 		}
+	default:
+		log.Error("unhandled operation: %s", result.Op)
+		os.Exit(1)
 	}
 }
