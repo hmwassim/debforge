@@ -2,9 +2,12 @@ package core
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/packages"
@@ -269,14 +272,65 @@ func installCodebergFonts(log *text.Logger) error {
 		return err
 	}
 
-	dl := exec.Command("curl", "-fL", "-o", cachePath, "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz")
-	dl.Stderr = os.Stderr
-	dl.Stdout = nil
-	if err := dl.Run(); err != nil {
+	if err := downloadFile(cachePath, "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz"); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
 	return extractFonts(cachePath, fontDir)
+}
+
+func downloadFile(path, url string) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	total := resp.ContentLength
+	start := time.Now()
+	pb := &progressWriter{total: total, start: start}
+
+	if _, err := io.Copy(out, io.TeeReader(resp.Body, pb)); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr)
+	return nil
+}
+
+type progressWriter struct {
+	total     int64
+	current   int64
+	start     time.Time
+	lastPrint time.Time
+}
+
+func (w *progressWriter) Write(p []byte) (int, error) {
+	w.current += int64(len(p))
+	if time.Since(w.lastPrint) < 100*time.Millisecond {
+		return len(p), nil
+	}
+	w.lastPrint = time.Now()
+
+	pct := float64(w.current) / float64(w.total) * 100
+
+	barWidth := 40
+	filled := int(float64(barWidth) * float64(w.current) / float64(w.total))
+	bar := strings.Repeat("=", filled) + strings.Repeat("-", barWidth-filled)
+	if filled < barWidth {
+		bar = bar[:filled] + ">" + bar[filled+1:]
+	}
+
+	elapsed := time.Since(w.start)
+	eta := time.Duration(float64(elapsed) / float64(w.current) * float64(w.total-w.current))
+
+	fmt.Fprintf(os.Stderr, "\r  [%s] %3.0f%%  ETA %s", bar, pct, eta.Truncate(time.Second))
+	return len(p), nil
 }
 
 func extractFonts(path, fontDir string) error {
