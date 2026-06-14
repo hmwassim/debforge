@@ -3,9 +3,13 @@ package core
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/packages"
@@ -13,20 +17,31 @@ import (
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
-const expectedFontsSHA256 = "ba2f262512f8acb31aac951cedb9195202f3ec6415a4c2c3c1ac3e123f64fc2f"
+const fontsURL = "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz"
+
+type fontCacheMeta struct {
+	SHA256 string `json:"sha256"`
+	ETag   string `json:"etag,omitempty"`
+}
+
+func metaPath(cachePath string) string {
+	return cachePath + ".meta"
+}
 
 func installCodebergFonts(log *text.Logger) error {
 	cachePath := settings.Default.CacheDir() + "/fonts.tar.gz"
 	fontDir := "/usr/local/share/fonts"
 
 	if _, err := os.Stat(cachePath); err == nil {
-		log.Info("Using cached fonts...")
-		if err := verifyAndExtractFonts(cachePath, fontDir); err == nil {
-			return nil
+		if fresh, err := cacheIsFresh(cachePath); err == nil && fresh {
+			log.Info("Using cached fonts...")
+			if err := extractFonts(cachePath, fontDir); err == nil {
+				return nil
+			}
+			log.Warn("Cached fonts are corrupt, re-downloading...")
 		}
-		log.Warn("Cached fonts are corrupt, re-downloading...")
 		if err := os.Remove(cachePath); err != nil {
-			return fmt.Errorf("removing corrupt cache: %w", err)
+			return fmt.Errorf("removing cache: %w", err)
 		}
 	}
 
@@ -35,32 +50,87 @@ func installCodebergFonts(log *text.Logger) error {
 		return err
 	}
 
-	if err := packages.DownloadFile(cachePath, "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz"); err != nil {
+	if err := packages.DownloadFile(cachePath, fontsURL); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
-	return verifyAndExtractFonts(cachePath, fontDir)
-}
-
-func verifyAndExtractFonts(path, fontDir string) error {
-	if err := verifySHA256(path); err != nil {
-		os.Remove(path)
+	if err := saveMeta(cachePath); err != nil {
 		return err
 	}
-	return extractFonts(path, fontDir)
+
+	return extractFonts(cachePath, fontDir)
 }
 
-func verifySHA256(path string) error {
+func cacheIsFresh(path string) (bool, error) {
+	meta, err := readMeta(path)
+	if err != nil {
+		return false, err
+	}
+	etag, err := headETag(fontsURL)
+	if err == nil && etag != "" && meta.ETag != "" && etag != meta.ETag {
+		return false, nil
+	}
+	sum, err := hashFile(path)
+	if err != nil {
+		return false, err
+	}
+	if sum != meta.SHA256 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func saveMeta(path string) error {
+	sum, err := hashFile(path)
+	if err != nil {
+		return fmt.Errorf("checksumming: %w", err)
+	}
+	meta := fontCacheMeta{SHA256: sum}
+	if etag, err := headETag(fontsURL); err == nil && etag != "" {
+		meta.ETag = etag
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(metaPath(path), data, 0644)
+}
+
+func readMeta(path string) (*fontCacheMeta, error) {
+	data, err := os.ReadFile(metaPath(path))
+	if err != nil {
+		return nil, err
+	}
+	var meta fontCacheMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, err
+	}
+	return &meta, nil
+}
+
+func hashFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("reading %s: %w", path, err)
+		return "", err
 	}
 	sum := sha256.Sum256(data)
-	got := hex.EncodeToString(sum[:])
-	if got != expectedFontsSHA256 {
-		return fmt.Errorf("SHA256 mismatch: got %s, expected %s", got, expectedFontsSHA256)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func headETag(url string) (string, error) {
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+			TLSHandshakeTimeout: 10 * time.Second,
+		},
+		Timeout: 15 * time.Second,
 	}
-	return nil
+	resp, err := client.Head(url)
+	if err != nil {
+		return "", err
+	}
+	resp.Body.Close()
+	return resp.Header.Get("ETag"), nil
 }
 
 func extractFonts(path, fontDir string) error {
