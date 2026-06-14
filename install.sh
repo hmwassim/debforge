@@ -52,7 +52,8 @@ info "Building debforge..."
 export GOPATH="$DEBFORGE_GOPATH"
 export GOMODCACHE="$DEBFORGE_GOPATH/mod"
 export GOCACHE="$DEBFORGE_CACHE"
-VERSION=$(git -C "$DEBFORGE_SRC" describe --tags --always 2>/dev/null || echo "0.1.0-dev")
+cd "$DEBFORGE_SRC"
+VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
 go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/
 
 info "Verifying binary..."
