@@ -1,6 +1,11 @@
 package settings
 
-import "os"
+import (
+	"os"
+	"os/exec"
+
+	"github.com/hmwassim/debforge/pkg/executil"
+)
 
 type Config struct {
 	RootDir    string
@@ -32,4 +37,15 @@ func (c *Config) EnsureDirsExist() error {
 		}
 	}
 	return nil
+}
+
+func (c *Config) GoCacheClean() error {
+	cmd := exec.Command("go", "clean", "-cache")
+	cmd.Env = []string{
+		"PATH=/usr/local/go/bin:/usr/bin:/bin",
+		"GOPATH=" + c.GoPathDir(),
+		"GOMODCACHE=" + c.GoPathDir() + "/mod",
+		"GOCACHE=" + c.GoCacheDir(),
+	}
+	return executil.Run(cmd)
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -39,10 +40,16 @@ func installCodebergFonts(log *text.Logger) error {
 				return nil
 			}
 			log.Warn("Cached fonts are corrupt, re-downloading...")
+		} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
+			if err := saveMeta(cachePath); err == nil {
+				if err := extractFonts(cachePath, fontDir); err == nil {
+					return nil
+				}
+			}
+			log.Warn("Cached fonts are corrupt, re-downloading...")
 		}
-		if err := os.Remove(cachePath); err != nil {
-			return fmt.Errorf("removing cache: %w", err)
-		}
+		os.Remove(cachePath)
+		os.Remove(metaPath(cachePath))
 	}
 
 	log.Info("Downloading custom fonts...")
@@ -66,15 +73,15 @@ func cacheIsFresh(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	etag, err := headETag(fontsURL)
-	if err == nil && etag != "" && meta.ETag != "" && etag != meta.ETag {
-		return false, nil
-	}
 	sum, err := hashFile(path)
 	if err != nil {
 		return false, err
 	}
 	if sum != meta.SHA256 {
+		return false, nil
+	}
+	etag, err := headETag(fontsURL)
+	if err == nil && etag != "" && meta.ETag != "" && etag != meta.ETag {
 		return false, nil
 	}
 	return true, nil
@@ -109,18 +116,22 @@ func readMeta(path string) (*fontCacheMeta, error) {
 }
 
 func hashFile(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func headETag(url string) (string, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+			DialContext:       (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
 			TLSHandshakeTimeout: 10 * time.Second,
 		},
 		Timeout: 15 * time.Second,
@@ -137,5 +148,5 @@ func extractFonts(path, fontDir string) error {
 	if err := packages.ExtractTarGz(path, fontDir); err != nil {
 		return fmt.Errorf("extracting fonts: %w", err)
 	}
-	return executil.Run(exec.Command("fc-cache", "-f", "-v"))
+	return executil.Run(exec.Command("fc-cache", "-f"))
 }

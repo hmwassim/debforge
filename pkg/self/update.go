@@ -210,7 +210,11 @@ func buildBinary(dst string) error {
 		}
 	}
 	cmd.Stdout = io.Discard
-	return executil.Run(cmd)
+	if err := executil.Run(cmd); err != nil {
+		return err
+	}
+	settings.Default.GoCacheClean()
+	return nil
 }
 
 func verifyBinary(path string) error {

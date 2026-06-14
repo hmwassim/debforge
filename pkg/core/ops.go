@@ -66,6 +66,10 @@ func Repair(log *text.Logger) error {
 		}
 	}
 
+	if err := ensureResolvSymlink(); err != nil {
+		errs = append(errs, fmt.Errorf("resolv.conf symlink: %w", err))
+	}
+
 	if len(errs) > 0 {
 		for _, err := range errs {
 			log.Error("%s", err)
@@ -173,4 +177,17 @@ func enablei386() error {
 func installFlathub(log *text.Logger) error {
 	log.Info("Adding Flathub remote...")
 	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
+}
+
+func ensureResolvSymlink() error {
+	const target = "/run/systemd/resolve/stub-resolv.conf"
+	const link = "/etc/resolv.conf"
+	current, err := os.Readlink(link)
+	if err == nil && current == target {
+		return nil
+	}
+	if err := os.Remove(link); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.Symlink(target, link)
 }

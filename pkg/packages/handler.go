@@ -1,5 +1,7 @@
 package packages
 
+import "sort"
+
 type Handler interface {
 	Type() string
 	Install(pkg string) error
@@ -22,5 +24,6 @@ func Types() []string {
 	for t := range handlers {
 		types = append(types, t)
 	}
+	sort.Strings(types)
 	return types
 }
