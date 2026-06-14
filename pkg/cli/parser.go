@@ -15,6 +15,7 @@ const (
 	OpSelfRemove Operation = "self-remove"
 	OpVersion    Operation = "version"
 	OpHelp       Operation = "help"
+	OpCore       Operation = "core"
 )
 
 type ParseResult struct {
@@ -37,6 +38,11 @@ func Parse() (*ParseResult, error) {
 		return &ParseResult{Op: OpVersion}, nil
 	case "--help", "-h":
 		return &ParseResult{Op: OpHelp}, nil
+	case "core":
+		if len(args) < 2 {
+			return nil, fmt.Errorf("core requires a subcommand: update, repair, list")
+		}
+		return &ParseResult{Op: OpCore, Args: args[1:]}, nil
 	default:
 		return nil, fmt.Errorf("unknown flag: %s", op)
 	}
