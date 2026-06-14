@@ -12,8 +12,9 @@ func Register(h Handler) {
 	handlers[h.Type()] = h
 }
 
-func Get(typ string) Handler {
-	return handlers[typ]
+func Get(typ string) (Handler, bool) {
+	h, ok := handlers[typ]
+	return h, ok
 }
 
 func Types() []string {

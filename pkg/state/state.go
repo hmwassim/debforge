@@ -39,6 +39,9 @@ func Load() (*State, error) {
 }
 
 func (s *State) migrate() error {
+	if s.Version > CurrentVersion {
+		return fmt.Errorf("state version %d is newer than supported version %d", s.Version, CurrentVersion)
+	}
 	for s.Version < CurrentVersion {
 		next := s.Version + 1
 		switch next {

@@ -56,11 +56,13 @@ info "Verifying binary..."
 "$DEBFORGE_BIN/debforge" --version
 
 info "Linking ${DEBFORGE_BIN}/debforge -> ${BINARY}..."
+mkdir -p "$(dirname "$BINARY")"
 ln -sf "$DEBFORGE_BIN/debforge" "$BINARY"
 
 info "Writing state..."
 cat > "${DEBFORGE_VAR}/state.json" <<EOF
 {
+  "_version": 1,
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF

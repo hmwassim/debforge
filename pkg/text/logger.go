@@ -65,7 +65,7 @@ func (l *Logger) Prompt(msg string) bool {
 		defer tty.Close()
 		fmt.Fscanln(tty, &resp)
 	}
-	return resp == "y" || resp == "Y"
+	return resp == "y" || resp == "Y" || resp == "yes" || resp == "YES" || resp == "Yes"
 }
 
 func useColor(w io.Writer) bool {

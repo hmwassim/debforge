@@ -113,13 +113,8 @@ func sourceRepoExists() bool {
 
 func cloneRepo(log *text.Logger) error {
 	cfg := settings.Default
-	if _, err := os.Stat(cfg.SourceDir()); err == nil {
-		if _, err := os.Stat(filepath.Join(cfg.SourceDir(), ".git")); os.IsNotExist(err) {
-			log.Warn("Removing stale source directory...")
-			if err := os.RemoveAll(cfg.SourceDir()); err != nil {
-				return fmt.Errorf("removing stale source directory: %w", err)
-			}
-		}
+	if err := os.RemoveAll(cfg.SourceDir()); err != nil {
+		return fmt.Errorf("removing existing source directory: %w", err)
 	}
 	log.Info("Cloning %s [branch: %s]...", cfg.RepoURL, cfg.Branch)
 	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", cfg.Branch, "--", cfg.RepoURL, cfg.SourceDir())
@@ -213,12 +208,45 @@ func installBinary(buildPath, finalPath string) error {
 	if err := os.Rename(buildPath, finalPath); err != nil {
 		return err
 	}
-	_, err := os.Lstat(settings.Default.BinaryPath)
-	if err == nil {
-		return nil
+
+	// Verify the installed binary exists and is executable.
+	fi, err := os.Stat(finalPath)
+	if err != nil {
+		return fmt.Errorf("installed binary not found: %w", err)
 	}
-	if !os.IsNotExist(err) {
-		return err
+	if fi.Mode()&0100 == 0 {
+		if err := os.Chmod(finalPath, 0755); err != nil {
+			return fmt.Errorf("setting executable bit: %w", err)
+		}
 	}
-	return os.Symlink(finalPath, settings.Default.BinaryPath)
+
+	return ensureSymlink(finalPath, settings.Default.BinaryPath)
+}
+
+func ensureSymlink(target, link string) error {
+	fi, err := os.Lstat(link)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		return os.Symlink(target, link)
+	}
+
+	// Check if it's a symlink pointing to the correct target.
+	if fi.Mode()&os.ModeSymlink == 0 {
+		return fmt.Errorf("%s exists and is not a symlink", link)
+	}
+
+	current, err := os.Readlink(link)
+	if err != nil {
+		return fmt.Errorf("reading symlink %s: %w", link, err)
+	}
+
+	if current == target {
+		return nil // already correct
+	}
+
+	// Broken or incorrect symlink — replace it.
+	os.Remove(link)
+	return os.Symlink(target, link)
 }

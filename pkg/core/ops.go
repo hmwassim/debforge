@@ -1,0 +1,140 @@
+package core
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/hmwassim/debforge/pkg/executil"
+	"github.com/hmwassim/debforge/pkg/text"
+)
+
+func Repair(log *text.Logger) error {
+	log.Info("Repairing core system...")
+
+	if err := ensureSourcesList(); err != nil {
+		return fmt.Errorf("sources.list: %w", err)
+	}
+	if err := enablei386(); err != nil {
+		return fmt.Errorf("i386: %w", err)
+	}
+
+	log.Info("Updating package lists...")
+	if err := executil.Run(exec.Command("apt", "update")); err != nil {
+		return fmt.Errorf("apt update: %w", err)
+	}
+
+	for _, g := range groups {
+		log.Info("Installing %s...", g.name)
+
+		args := []string{"install", "-y"}
+		if g.backport {
+			args = append(args, "-t", "trixie-backports")
+		}
+		args = append(args, g.packages...)
+
+		if err := executil.Run(exec.Command("apt", args...)); err != nil {
+			return fmt.Errorf("installing %s: %w", g.name, err)
+		}
+
+		for _, cf := range g.configs {
+			if err := deployConfig(cf); err != nil {
+				return fmt.Errorf("deploying %s: %w", cf.dest, err)
+			}
+		}
+
+		for _, svc := range g.services {
+			if err := executil.Run(exec.Command("systemctl", "enable", "--now", svc)); err != nil {
+				log.Warn("Failed to start %s: %s", svc, err)
+			}
+		}
+
+		if g.postInstall != nil {
+			if err := g.postInstall(log); err != nil {
+				return fmt.Errorf("post-install %s: %w", g.name, err)
+			}
+		}
+	}
+
+	log.Success("Core repair complete")
+	return nil
+}
+
+func Update(log *text.Logger) error {
+	log.Info("Updating core packages...")
+
+	if err := executil.Run(exec.Command("apt", "update")); err != nil {
+		return fmt.Errorf("apt update: %w", err)
+	}
+
+	var defaultPkgs, backportPkgs []string
+	for _, g := range groups {
+		if g.backport {
+			backportPkgs = append(backportPkgs, g.packages...)
+		} else {
+			defaultPkgs = append(defaultPkgs, g.packages...)
+		}
+	}
+
+	if len(defaultPkgs) > 0 {
+		args := append([]string{"install", "-y"}, defaultPkgs...)
+		if err := executil.Run(exec.Command("apt", args...)); err != nil {
+			return fmt.Errorf("upgrading core: %w", err)
+		}
+	}
+	if len(backportPkgs) > 0 {
+		args := append([]string{"install", "-y", "-t", "trixie-backports"}, backportPkgs...)
+		if err := executil.Run(exec.Command("apt", args...)); err != nil {
+			return fmt.Errorf("upgrading backports: %w", err)
+		}
+	}
+
+	log.Success("Core packages up to date")
+	return nil
+}
+
+func List(log *text.Logger) {
+	log.Info("Core packages:")
+
+	for _, g := range groups {
+		var missing []string
+		for _, pkg := range g.packages {
+			if !isInstalled(pkg) {
+				missing = append(missing, pkg)
+			}
+		}
+		if len(missing) == 0 {
+			log.Success("  %s — installed", g.name)
+		} else {
+			log.Warn("  %s — missing: %s", g.name, strings.Join(missing, ", "))
+		}
+	}
+}
+
+func isInstalled(pkg string) bool {
+	out, err := exec.Command("dpkg", "--get-selections", pkg).Output()
+	return err == nil && strings.Contains(string(out), "\tinstall")
+}
+
+func ensureSourcesList() error {
+	const path = "/etc/apt/sources.list"
+	data, err := os.ReadFile(path)
+	if err == nil && strings.Contains(string(data), "trixie") {
+		return nil
+	}
+	return os.WriteFile(path, []byte(sourcesList), 0644)
+}
+
+func enablei386() error {
+	out, err := exec.Command("dpkg", "--print-foreign-architectures").Output()
+	if err == nil && strings.Contains(string(out), "i386") {
+		return nil
+	}
+	return executil.Run(exec.Command("dpkg", "--add-architecture", "i386"))
+}
+
+func installFlathub(log *text.Logger) error {
+	log.Info("Adding Flathub remote...")
+	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
+}
