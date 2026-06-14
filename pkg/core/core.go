@@ -329,7 +329,8 @@ func (w *progressWriter) Write(p []byte) (int, error) {
 	elapsed := time.Since(w.start)
 	eta := time.Duration(float64(elapsed) / float64(w.current) * float64(w.total-w.current))
 
-	fmt.Fprintf(os.Stderr, "\r  [%s] %3.0f%%  ETA %s", bar, pct, eta.Truncate(time.Second))
+	etaStr := eta.Truncate(time.Second).String()
+	fmt.Fprintf(os.Stderr, "\033[2K\r  [%s] %3.0f%%  ETA %s", bar, pct, etaStr)
 	return len(p), nil
 }
 
