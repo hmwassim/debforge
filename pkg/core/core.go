@@ -218,8 +218,8 @@ func List(log *text.Logger) {
 }
 
 func isInstalled(pkg string) bool {
-	out, err := exec.Command("dpkg-query", "-W", "--showformat", "${db:Status-Status}", pkg).Output()
-	return err == nil && strings.TrimSpace(string(out)) == "installed"
+	out, err := exec.Command("dpkg", "--get-selections", pkg).Output()
+	return err == nil && strings.Contains(string(out), "\tinstall")
 }
 
 func ensureSourcesList() error {
