@@ -123,7 +123,6 @@ func cloneRepo(log *text.Logger) error {
 	}
 	log.Info("Cloning %s [branch: %s]...", cfg.RepoURL, cfg.Branch)
 	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", cfg.Branch, "--", cfg.RepoURL, cfg.SourceDir())
-	cmd.Dir = ""
 	cmd.Stdout = io.Discard
 	return executil.Run(cmd)
 }
