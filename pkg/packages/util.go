@@ -45,20 +45,18 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 		installed[pkg] = false
 	}
 	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 		parts := strings.Fields(line)
-		if len(parts) >= 2 && parts[1] == "install" {
-			name := parts[0]
-			if _, ok := installed[name]; !ok {
-				if idx := strings.IndexByte(name, ':'); idx != -1 {
-					name = name[:idx]
-				}
-			}
-			installed[name] = true
+		if len(parts) < 2 || parts[1] != "install" {
+			continue
 		}
+		name := parts[0]
+		if _, ok := installed[name]; !ok {
+			name, _, _ = strings.Cut(name, ":")
+		}
+		installed[name] = true
 	}
 	return installed, nil
 }
