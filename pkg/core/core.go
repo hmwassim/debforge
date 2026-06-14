@@ -266,8 +266,9 @@ func installCodebergFonts(log *text.Logger) error {
 	}
 
 	dl := exec.Command("curl", "-fL", "-o", cachePath, "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz")
+	dl.Stderr = os.Stderr
 	dl.Stdout = nil
-	if err := executil.Run(dl); err != nil {
+	if err := dl.Run(); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
