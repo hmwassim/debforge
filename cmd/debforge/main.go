@@ -14,7 +14,7 @@ func main() {
 
 	result, err := cli.Parse()
 	if err != nil {
-		log.Error(err.Error())
+		log.Error("%s", err)
 		cli.PrintUsage(os.Stderr)
 		os.Exit(1)
 	}
@@ -26,12 +26,12 @@ func main() {
 		cli.PrintVersion()
 	case cli.OpSelfUpdate:
 		if err := self.Update(log); err != nil {
-			log.Error(err.Error())
+			log.Error("%s", err)
 			os.Exit(1)
 		}
 	case cli.OpSelfRemove:
 		if err := self.Remove(log); err != nil {
-			log.Error(err.Error())
+			log.Error("%s", err)
 			os.Exit(1)
 		}
 	case cli.OpCore:
@@ -42,12 +42,12 @@ func main() {
 		switch result.Args[0] {
 		case "repair":
 			if err := core.Repair(log); err != nil {
-				log.Error(err.Error())
+				log.Error("%s", err)
 				os.Exit(1)
 			}
 		case "update":
 			if err := core.Update(log); err != nil {
-				log.Error(err.Error())
+				log.Error("%s", err)
 				os.Exit(1)
 			}
 		case "list":

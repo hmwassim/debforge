@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/executil"
+	"github.com/hmwassim/debforge/pkg/text"
 )
+
+var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 func DownloadFile(path, url string) error {
 	out, err := os.Create(path)
@@ -19,7 +22,13 @@ func DownloadFile(path, url string) error {
 	}
 	defer out.Close()
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "debforge/0.1.0")
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -50,7 +59,7 @@ func ExtractTarGz(src, dest string) error {
 		return err
 	}
 	extract := exec.Command("tar", "-xzf", src, "-C", dest)
-	extract.Stdout = nil
+	extract.Stdout = io.Discard
 	return executil.Run(extract)
 }
 
@@ -77,22 +86,8 @@ func (w *progressWriter) done() {
 	w.print()
 }
 
-func isStderrTerminal() bool {
-	if os.Getenv("NO_COLOR") != "" {
-		return false
-	}
-	if os.Getenv("TERM") == "dumb" {
-		return false
-	}
-	fi, err := os.Stderr.Stat()
-	if err != nil {
-		return false
-	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
-}
-
 func (w *progressWriter) print() {
-	if !isStderrTerminal() {
+	if !text.IsTerminal(os.Stderr) {
 		return
 	}
 	pct := float64(w.current) / float64(w.total) * 100

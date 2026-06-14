@@ -35,6 +35,8 @@ if [ "$(id -u)" -ne 0 ]; then
 	exit 1
 fi
 
+trap 'err "Installation failed"' ERR
+
 info "Installing dependencies..."
 apt-get update -y
 apt-get install -y git golang-go
@@ -43,14 +45,15 @@ info "Setting up directories..."
 mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC" "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH"
 
 info "Cloning ${REPO_URL} [${BRANCH}]..."
+rm -rf "$DEBFORGE_SRC"
 git clone --depth 1 --branch "$BRANCH" -- "$REPO_URL" "$DEBFORGE_SRC"
 
 info "Building debforge..."
 export GOPATH="$DEBFORGE_GOPATH"
 export GOMODCACHE="$DEBFORGE_GOPATH/mod"
 export GOCACHE="$DEBFORGE_CACHE"
-cd "$DEBFORGE_SRC"
-go build -o "$DEBFORGE_BIN/debforge" ./cmd/debforge/
+VERSION=$(git -C "$DEBFORGE_SRC" describe --tags --always 2>/dev/null || echo "0.1.0-dev")
+go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/
 
 info "Verifying binary..."
 "$DEBFORGE_BIN/debforge" --version

@@ -14,29 +14,33 @@ import (
 
 func Repair(log *text.Logger) error {
 	log.Info("Repairing core system...")
+	var errs []error
 
 	if err := ensureSourcesList(); err != nil {
-		return fmt.Errorf("sources.list: %w", err)
+		errs = append(errs, fmt.Errorf("sources.list: %w", err))
 	}
 	if err := enablei386(); err != nil {
-		return fmt.Errorf("i386: %w", err)
+		errs = append(errs, fmt.Errorf("i386: %w", err))
 	}
 
-	log.Info("Updating package lists...")
-	if err := executil.Run(exec.Command("apt", "update")); err != nil {
-		return fmt.Errorf("apt update: %w", err)
+	if len(errs) == 0 {
+		log.Info("Updating package lists...")
+		if err := executil.Run(exec.Command("apt", "update")); err != nil {
+			errs = append(errs, fmt.Errorf("apt update: %w", err))
+		}
 	}
 
 	for _, g := range groups {
 		log.Info("Installing %s...", g.name)
 
 		if err := packages.AptInstall(g.packages, g.backport); err != nil {
-			return fmt.Errorf("installing %s: %w", g.name, err)
+			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
+			continue
 		}
 
 		for _, cf := range g.configs {
 			if err := packages.DeployConfig(cf.dest, cf.content, cf.mode); err != nil {
-				return fmt.Errorf("deploying %s: %w", cf.dest, err)
+				errs = append(errs, fmt.Errorf("deploying %s: %w", cf.dest, err))
 			}
 		}
 
@@ -48,9 +52,16 @@ func Repair(log *text.Logger) error {
 
 		if g.postInstall != nil {
 			if err := g.postInstall(log); err != nil {
-				return fmt.Errorf("post-install %s: %w", g.name, err)
+				errs = append(errs, fmt.Errorf("post-install %s: %w", g.name, err))
 			}
 		}
+	}
+
+	if len(errs) > 0 {
+		for _, err := range errs {
+			log.Error("%s", err)
+		}
+		return fmt.Errorf("repair completed with %d error(s)", len(errs))
 	}
 
 	log.Success("Core repair complete")
@@ -87,17 +98,39 @@ func Update(log *text.Logger) error {
 func List(log *text.Logger) {
 	log.Info("Core packages:")
 
+	var allPkgs []string
+	pkgToGroup := map[string]string{}
 	for _, g := range groups {
-		var missing []string
 		for _, pkg := range g.packages {
-			if !packages.IsInstalled(pkg) {
-				missing = append(missing, pkg)
-			}
+			allPkgs = append(allPkgs, pkg)
+			pkgToGroup[pkg] = g.name
 		}
-		if len(missing) == 0 {
+	}
+
+	installed, err := packages.CheckInstalled(allPkgs)
+	if err != nil {
+		log.Warn("Could not query package status: %s", err)
+		return
+	}
+
+	type groupStatus struct {
+		missing []string
+	}
+	statuses := map[string]*groupStatus{}
+	for _, g := range groups {
+		statuses[g.name] = &groupStatus{}
+	}
+	for pkg, gname := range pkgToGroup {
+		if !installed[pkg] {
+			statuses[gname].missing = append(statuses[gname].missing, pkg)
+		}
+	}
+	for _, g := range groups {
+		s := statuses[g.name]
+		if len(s.missing) == 0 {
 			log.Success("  %s — installed", g.name)
 		} else {
-			log.Warn("  %s — missing: %s", g.name, strings.Join(missing, ", "))
+			log.Warn("  %s — missing: %s", g.name, strings.Join(s.missing, ", "))
 		}
 	}
 }

@@ -37,6 +37,31 @@ func IsInstalled(pkg string) bool {
 	return err == nil && strings.Contains(string(out), "\tinstall")
 }
 
+func CheckInstalled(pkgs []string) (map[string]bool, error) {
+	if len(pkgs) == 0 {
+		return map[string]bool{}, nil
+	}
+	out, err := exec.Command("dpkg", append([]string{"--get-selections"}, pkgs...)...).Output()
+	if err != nil {
+		return nil, err
+	}
+	installed := make(map[string]bool, len(pkgs))
+	for _, pkg := range pkgs {
+		installed[pkg] = false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) >= 2 && parts[1] == "install" {
+			installed[parts[0]] = true
+		}
+	}
+	return installed, nil
+}
+
 func EnableService(name string) error {
 	return executil.Run(exec.Command("systemctl", "enable", "--now", name))
 }

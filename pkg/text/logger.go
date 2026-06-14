@@ -68,7 +68,7 @@ func (l *Logger) Prompt(msg string) bool {
 	return resp == "y" || resp == "Y" || resp == "yes" || resp == "YES" || resp == "Yes"
 }
 
-func useColor(w io.Writer) bool {
+func IsTerminal(w io.Writer) bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
@@ -84,4 +84,8 @@ func useColor(w io.Writer) bool {
 		return false
 	}
 	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+func useColor(w io.Writer) bool {
+	return IsTerminal(w)
 }
