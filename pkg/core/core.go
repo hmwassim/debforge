@@ -140,6 +140,13 @@ var groups = []group{
 		},
 		services: []string{}, // user services (pipewire, wireplumber) handled per-user
 	},
+	{
+		name: "flatpak",
+		packages: []string{
+			"flatpak",
+		},
+		postInstall: installFlathub,
+	},
 }
 
 func Repair(log *text.Logger) error {
@@ -200,14 +207,26 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("apt update: %w", err)
 	}
 
-	var allPkgs []string
+	var defaultPkgs, backportPkgs []string
 	for _, g := range groups {
-		allPkgs = append(allPkgs, g.packages...)
+		if g.backport {
+			backportPkgs = append(backportPkgs, g.packages...)
+		} else {
+			defaultPkgs = append(defaultPkgs, g.packages...)
+		}
 	}
 
-	args := append([]string{"install", "-y"}, allPkgs...)
-	if err := executil.Run(exec.Command("apt", args...)); err != nil {
-		return fmt.Errorf("upgrading core: %w", err)
+	if len(defaultPkgs) > 0 {
+		args := append([]string{"install", "-y"}, defaultPkgs...)
+		if err := executil.Run(exec.Command("apt", args...)); err != nil {
+			return fmt.Errorf("upgrading core: %w", err)
+		}
+	}
+	if len(backportPkgs) > 0 {
+		args := append([]string{"install", "-y", "-t", "trixie-backports"}, backportPkgs...)
+		if err := executil.Run(exec.Command("apt", args...)); err != nil {
+			return fmt.Errorf("upgrading backports: %w", err)
+		}
 	}
 
 	log.Success("Core packages up to date")
@@ -292,13 +311,22 @@ func downloadFile(path, url string) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected HTTP status: %s", resp.Status)
+	}
+
 	total := resp.ContentLength
+	if total <= 0 {
+		_, err = io.Copy(out, resp.Body)
+		return err
+	}
+
 	start := time.Now()
 	pb := &progressWriter{total: total, start: start}
-
 	if _, err := io.Copy(out, io.TeeReader(resp.Body, pb)); err != nil {
 		return err
 	}
+	pb.done()
 	fmt.Fprintln(os.Stderr)
 	return nil
 }
@@ -311,27 +339,39 @@ type progressWriter struct {
 }
 
 func (w *progressWriter) Write(p []byte) (int, error) {
-	w.current += int64(len(p))
+	n := len(p)
+	w.current += int64(n)
 	if time.Since(w.lastPrint) < 100*time.Millisecond {
-		return len(p), nil
+		return n, nil
 	}
 	w.lastPrint = time.Now()
+	w.print()
+	return n, nil
+}
 
+func (w *progressWriter) done() {
+	w.current = w.total
+	w.print()
+}
+
+func (w *progressWriter) print() {
 	pct := float64(w.current) / float64(w.total) * 100
-
 	barWidth := 40
 	filled := int(float64(barWidth) * float64(w.current) / float64(w.total))
 	bar := strings.Repeat("=", filled) + strings.Repeat("-", barWidth-filled)
 	if filled < barWidth {
 		bar = bar[:filled] + ">" + bar[filled+1:]
 	}
-
 	elapsed := time.Since(w.start)
-	eta := time.Duration(float64(elapsed) / float64(w.current) * float64(w.total-w.current))
-
-	etaStr := eta.Truncate(time.Second).String()
+	rate := float64(w.current) / elapsed.Seconds()
+	var etaStr string
+	if rate > 0 {
+		remaining := time.Duration(float64(w.total-w.current)/rate) * time.Second
+		etaStr = remaining.Truncate(time.Second).String()
+	} else {
+		etaStr = "?"
+	}
 	fmt.Fprintf(os.Stderr, "\033[2K\r  [%s] %3.0f%%  ETA %s", bar, pct, etaStr)
-	return len(p), nil
 }
 
 func extractFonts(path, fontDir string) error {
@@ -352,6 +392,11 @@ func deployConfig(cf configFile) error {
 		return err
 	}
 	return os.WriteFile(cf.dest, []byte(cf.content), cf.mode)
+}
+
+func installFlathub(log *text.Logger) error {
+	log.Info("Adding Flathub remote...")
+	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
 }
 
 const sourcesList = `deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
