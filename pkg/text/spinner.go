@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var spinFrames = []string{"|", "/", "-", "\\"}
-
 type Spinner struct {
 	w     io.Writer
 	desc  string
@@ -30,6 +28,8 @@ func StartSpinner(w io.Writer, desc string) *Spinner {
 
 func (s *Spinner) run() {
 	pre, suf := ansiPair(s.color, frameColor)
+	// First write has no \r — the cursor is already at a fresh line
+	// (either from a prior \n or because no output preceded this).
 	fmt.Fprintf(s.w, "%s[%s]%s %s", pre, spinFrames[0], suf, s.desc)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -56,33 +56,42 @@ func (s *Spinner) Pause() {
 }
 
 func (s *Spinner) Resume() {
-	if s.stop != nil {
+	if s.stop != nil || !IsTerminal(s.w) {
 		return
 	}
 	s.stop = make(chan struct{})
 	s.done = make(chan struct{})
-	s.color = useColor(s.w)
 	go s.run()
 }
 
 func (s *Spinner) Done() {
-	if s.stop == nil {
-		return
+	if s.stop != nil {
+		close(s.stop)
+		<-s.done
+		s.stop = nil
 	}
-	close(s.stop)
-	<-s.done
-	s.stop = nil
 	pre, suf := ansiPair(s.color, successColor)
-	fmt.Fprintf(s.w, "\r%s[*]%s %s\n", pre, suf, s.desc)
+	cr := ""
+	if IsTerminal(s.w) {
+		cr = "\r"
+	}
+	fmt.Fprintf(s.w, "%s%s[*]%s %s\n", cr, pre, suf, s.desc)
 }
 
 func (s *Spinner) Fail() {
-	if s.stop == nil {
-		return
+	if s.stop != nil {
+		close(s.stop)
+		<-s.done
+		s.stop = nil
 	}
-	close(s.stop)
-	<-s.done
-	s.stop = nil
 	pre, suf := ansiPair(s.color, errorColor)
-	fmt.Fprintf(s.w, "\r%s[x]%s %s\n", pre, suf, s.desc)
+	cr := ""
+	if IsTerminal(s.w) {
+		cr = "\r"
+	}
+	fmt.Fprintf(s.w, "%s%s[x]%s %s\n", cr, pre, suf, s.desc)
+}
+
+func (s *Spinner) UpdateDesc(desc string) {
+	s.desc = desc
 }

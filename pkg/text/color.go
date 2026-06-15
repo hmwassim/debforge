@@ -16,8 +16,10 @@ const (
 	errorColor   = bold + red
 )
 
-func ansiPair(ok bool, code string) (string, string) {
-	if ok {
+var spinFrames = []string{"|", "/", "-", "\\"}
+
+func ansiPair(colored bool, code string) (string, string) {
+	if colored {
 		return code, reset
 	}
 	return "", ""

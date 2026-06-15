@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var progFrames = []string{"|", "/", "-", "\\"}
-
 type Progress struct {
 	total    int64
 	current  int64
@@ -40,18 +38,23 @@ func (p *Progress) Done() {
 }
 
 func (p *Progress) write() {
+	if p.current >= p.total {
+		pre, suf := ansiPair(p.color, successColor)
+		if IsTerminal(p.w) {
+			fmt.Fprintf(p.w, "\r%s[*]%s %s...\033[K\n", pre, suf, p.desc)
+		} else {
+			fmt.Fprintf(p.w, "[*] %s...\n", p.desc)
+		}
+		return
+	}
 	if !IsTerminal(p.w) {
 		return
 	}
-	if p.current >= p.total {
-		pre, suf := ansiPair(p.color, successColor)
-		fmt.Fprintf(p.w, "\r%s[*]%s %s...\033[K\n", pre, suf, p.desc)
-		return
-	}
-	frame := progFrames[p.frameIdx%len(progFrames)]
+	frame := spinFrames[p.frameIdx%len(spinFrames)]
 	p.frameIdx++
-	cv, unit := formatSize(p.current)
-	tv, _ := formatSize(p.total)
+	tv, unit := formatSize(p.total)
+	divisor := float64(p.total) / tv
+	cv := float64(p.current) / divisor
 	pre, suf := ansiPair(p.color, frameColor)
 	fmt.Fprintf(p.w, "\r%s[%s]%s %s... [%.0f/%.0f %s]\033[K", pre, frame, suf, p.desc, cv, tv, unit)
 }

@@ -59,11 +59,13 @@ func DownloadFile(path, url, desc string) error {
 
 	total := resp.ContentLength
 	if total <= 0 {
+		sp := text.StartSpinner(os.Stderr, desc)
 		_, err = io.Copy(f, resp.Body)
 		if err != nil {
+			sp.Fail()
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "[i] %s...\n", desc)
+		sp.Done()
 	} else {
 		p := text.NewProgress(os.Stderr, total, desc)
 		if _, err := io.Copy(f, io.TeeReader(resp.Body, p)); err != nil {
