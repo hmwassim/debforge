@@ -17,6 +17,6 @@ debforge --version, -V    Show version
 debforge --help, -h       Show this help message
 
 debforge core setup       Set up core packages and configs (idempotent)
-debforge core setup -f    Force re-apply all core packages and configs
+debforge core setup -f, --force    Force re-apply all core packages and configs
 debforge core list        Show installed and missing packages
 ```

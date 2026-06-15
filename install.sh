@@ -16,43 +16,30 @@ success() {
 repo="hmwassim/debforge"
 DEBFORGE_REPO="${DEBFORGE_REPO:-$repo}"
 DEBFORGE_BIN="${DEBFORGE_BIN:-/opt/debforge/bin}"
+DEBFORGE_SRC="${DEBFORGE_SRC:-/opt/debforge/src}"
 
 if [ "$(id -u)" -ne 0 ]; then
     error "debforge must be installed as root"
     exit 1
 fi
 
-if ! command -v curl &>/dev/null; then
-    error "curl is required for installation"
-    exit 1
+if ! command -v git &>/dev/null || ! command -v go &>/dev/null; then
+    info "Installing build dependencies..."
+    apt-get update
+    apt-get install -y git golang-go
 fi
 
 info "Creating directories..."
-mkdir -p "$DEBFORGE_BIN"
+mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC"
 
-REMOTE="${GITHUB_SERVER_URL:-https://github.com}/${DEBFORGE_REPO}"
+REMOTE="https://github.com/${DEBFORGE_REPO}"
 
-download_url() {
-    if [ -n "${DEBFORGE_VERSION:-}" ]; then
-        echo "${REMOTE}/releases/download/${DEBFORGE_VERSION}/debforge"
-    else
-        echo "${REMOTE}/releases/latest/download/debforge"
-    fi
-}
+info "Cloning ${REMOTE}..."
+rm -rf "$DEBFORGE_SRC"
+git clone --depth 1 "$REMOTE" "$DEBFORGE_SRC"
 
-info "Downloading debforge..."
-if ! curl -sSfL "$(download_url)" -o "${DEBFORGE_BIN}/debforge"; then
-    error "Download failed. Falling back to manual build..."
-    if ! command -v git &>/dev/null || ! command -v go &>/dev/null; then
-        info "Installing build dependencies..."
-        apt-get install -y git golang-go
-    fi
-    TMPDIR=$(mktemp -d)
-    git clone "https://github.com/${DEBFORGE_REPO}" "$TMPDIR"
-    (cd "$TMPDIR" && go build -o debforge .)
-    mv "$TMPDIR/debforge" "${DEBFORGE_BIN}/debforge"
-    rm -rf "$TMPDIR"
-fi
+info "Building debforge..."
+(cd "$DEBFORGE_SRC" && go build -o "$DEBFORGE_BIN/debforge" ./cmd/debforge/)
 
 chmod +x "${DEBFORGE_BIN}/debforge"
 

@@ -10,7 +10,7 @@ import (
 	"github.com/hmwassim/debforge/pkg/executil"
 )
 
-func AptInstall(pkgs []string, backport bool, msg string, force bool) error {
+func AptInstall(pkgs []string, backport bool, msg string) error {
 	if len(pkgs) == 0 {
 		return nil
 	}

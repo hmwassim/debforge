@@ -56,7 +56,7 @@ Usage:
   %[1]s --self-update            Install or update debforge
   %[1]s --self-remove            Remove debforge and all data
   %[1]s core setup               Set up core packages and configs
-  %[1]s core setup -f            Force re-apply all core packages and configs
+  %[1]s core setup -f, --force   Force re-apply all core packages and configs
   %[1]s core list                List core packages and status
   %[1]s --version, -V            Show version
   %[1]s --help, -h               Show this help message

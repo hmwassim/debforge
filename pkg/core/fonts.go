@@ -1,6 +1,7 @@
 package core
 
 import (
+	"archive/tar"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -46,6 +49,11 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 			fresh, checkErr := cacheIsFresh(cachePath)
 			if checkErr != nil {
 				log.Warn("Could not verify font cache (%s), using cached version", checkErr)
+				if metaMissing := readMetaFails(cachePath); metaMissing {
+					if err := saveMetaFromCache(cachePath); err == nil {
+						log.Debug("Generated missing font cache metadata")
+					}
+				}
 				if err := extractFonts(cachePath, fontDir, false); err == nil {
 					return nil
 				}
@@ -55,8 +63,6 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 				}
 				log.Warn("Cached fonts are corrupt, re-downloading...")
 			}
-			os.Remove(cachePath)
-			os.Remove(metaPath(cachePath))
 		}
 	}
 
@@ -71,12 +77,32 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
+	os.Remove(metaPath(cachePath))
+
 	etag, _ := headETag(fontsURL)
 	if err := saveMeta(cachePath, etag); err != nil {
 		return err
 	}
 
 	return extractFonts(cachePath, fontDir, true)
+}
+
+func readMetaFails(path string) bool {
+	_, err := readMeta(path)
+	return err != nil
+}
+
+func saveMetaFromCache(cachePath string) error {
+	sum, err := hashFile(cachePath)
+	if err != nil {
+		return err
+	}
+	meta := fontCacheMeta{SHA256: sum}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(metaPath(cachePath), data, 0644)
 }
 
 func cacheIsFresh(path string) (bool, error) {
@@ -145,11 +171,49 @@ func extractFonts(path, fontDir string, force bool) error {
 	if err := os.MkdirAll(fontDir, 0755); err != nil {
 		return err
 	}
-	extract := exec.Command("tar", "-xzf", path, "-C", fontDir)
-	extract.Stdout = io.Discard
-	if err := executil.Run(extract); err != nil {
-		return fmt.Errorf("extracting fonts: %w", err)
+
+	f, err := os.Open(path)
+	if err != nil {
+		return err
 	}
+	defer f.Close()
+
+	tr := tar.NewReader(f)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("reading font archive: %w", err)
+		}
+
+		clean := filepath.Clean(filepath.Join(fontDir, hdr.Name))
+		if !strings.HasPrefix(clean, filepath.Clean(fontDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("font archive contains unsafe path: %s", hdr.Name)
+		}
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(clean, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(clean), 0755); err != nil {
+				return err
+			}
+			fw, err := os.Create(clean)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(fw, tr); err != nil {
+				fw.Close()
+				return err
+			}
+			fw.Close()
+		}
+	}
+
 	if force {
 		return executil.Run(exec.Command("fc-cache", "-f"))
 	}

@@ -21,6 +21,29 @@ type coreState struct {
 	ManagedConfigs  []string `json:"managed_configs,omitempty"`
 }
 
+type configCheck struct {
+	dest    string
+	content string
+}
+
+type plan struct {
+	pkgs    []string
+	configs []configCheck
+	svcs    []string
+}
+
+func buildPlan() plan {
+	var p plan
+	for _, g := range groups {
+		p.pkgs = append(p.pkgs, g.packages...)
+		for _, cf := range g.configs {
+			p.configs = append(p.configs, configCheck{cf.dest, cf.content})
+		}
+		p.svcs = append(p.svcs, g.services...)
+	}
+	return p
+}
+
 func Setup(log *text.Logger, force bool) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("core setup must be run as root")
@@ -45,20 +68,25 @@ func Setup(log *text.Logger, force bool) error {
 	st := &coreState{}
 	store := state.New("core")
 	if err := store.Load(st); err != nil {
-		return fmt.Errorf("loading state: %w", err)
+		log.Warn("State file corrupt, resetting: %s", err)
+		st = &coreState{}
 	}
 
 	cur := currentCommit(log)
 	commitChanged := cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit
 
-	desiredPkgs := desiredPackages()
-	desiredConfigs := desiredConfigs()
+	p := buildPlan()
+	desiredPkgs := p.pkgs
+	desiredConfigs := make([]string, len(p.configs))
+	for i, cf := range p.configs {
+		desiredConfigs[i] = cf.dest
+	}
 	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
 	staleConfigs := setDiff(st.ManagedConfigs, desiredConfigs)
 
 	if !force && !commitChanged && st.ManagedPackages != nil && len(stalePkgs) == 0 && len(staleConfigs) == 0 {
 		s := text.StartSpinner(os.Stderr, "Verifying core...")
-		if verifySetup(log) {
+		if verifySetup(p) {
 			s.Done()
 			log.Success("Core setup already up to date")
 			return nil
@@ -101,7 +129,7 @@ func Setup(log *text.Logger, force bool) error {
 	for _, g := range groups {
 		s := text.StartSpinner(os.Stderr, "Setting up "+g.name+"...")
 
-		if err := packages.AptInstall(g.packages, g.backport, "", force); err != nil {
+		if err := packages.AptInstall(g.packages, g.backport, ""); err != nil {
 			s.Fail()
 			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
 			continue
@@ -117,7 +145,7 @@ func Setup(log *text.Logger, force bool) error {
 
 		for _, svc := range g.services {
 			if err := packages.EnableService(svc); err != nil {
-				log.Warn("Could not enable %s (non-fatal, will retry on next repair): %s", svc, err)
+				log.Warn("Could not enable %s (non-fatal): %s", svc, err)
 			}
 		}
 
@@ -157,60 +185,26 @@ func Setup(log *text.Logger, force bool) error {
 	return nil
 }
 
-func desiredPackages() []string {
-	var pkgs []string
-	for _, g := range groups {
-		pkgs = append(pkgs, g.packages...)
-	}
-	return pkgs
-}
-
-func desiredConfigs() []string {
-	var paths []string
-	for _, g := range groups {
-		for _, cf := range g.configs {
-			paths = append(paths, cf.dest)
-		}
-	}
-	return paths
-}
-
-func verifySetup(log *text.Logger) bool {
-	var allPkgs []string
-	type configCheck struct {
-		dest    string
-		content string
-	}
-	var configs []configCheck
-	var services []string
-
-	for _, g := range groups {
-		allPkgs = append(allPkgs, g.packages...)
-		for _, cf := range g.configs {
-			configs = append(configs, configCheck{cf.dest, cf.content})
-		}
-		services = append(services, g.services...)
-	}
-
-	installed, err := packages.CheckInstalled(allPkgs)
+func verifySetup(p plan) bool {
+	installed, err := packages.CheckInstalled(p.pkgs)
 	if err != nil {
 		return false
 	}
-	for _, pkg := range allPkgs {
+	for _, pkg := range p.pkgs {
 		if !installed[pkg] {
 			return false
 		}
 	}
 
-	for _, cf := range configs {
+	for _, cf := range p.configs {
 		data, err := os.ReadFile(cf.dest)
 		if err != nil || string(data) != cf.content {
 			return false
 		}
 	}
 
-	if len(services) > 0 {
-		args := append([]string{"is-active", "--quiet"}, services...)
+	if len(p.svcs) > 0 {
+		args := append([]string{"is-active", "--quiet"}, p.svcs...)
 		if err := executil.Run(exec.Command("systemctl", args...)); err != nil {
 			return false
 		}
@@ -248,52 +242,50 @@ func setDiff(prev, cur []string) []string {
 }
 
 func List(log *text.Logger) {
-	log.Info("Core packages:")
-
-	var allPkgs []string
+	p := buildPlan()
 	pkgToGroup := map[string]string{}
 	for _, g := range groups {
 		for _, pkg := range g.packages {
-			allPkgs = append(allPkgs, pkg)
 			pkgToGroup[pkg] = g.name
 		}
 	}
 
-	installed, err := packages.CheckInstalled(allPkgs)
+	installed, err := packages.CheckInstalled(p.pkgs)
 	if err != nil {
 		log.Warn("Could not query package status: %s", err)
 		return
 	}
 
-	type groupStatus struct {
-		missing []string
-	}
-	statuses := map[string]*groupStatus{}
-	for _, g := range groups {
-		statuses[g.name] = &groupStatus{}
-	}
+	missing := map[string][]string{}
 	for pkg, gname := range pkgToGroup {
 		if !installed[pkg] {
-			statuses[gname].missing = append(statuses[gname].missing, pkg)
+			missing[gname] = append(missing[gname], pkg)
 		}
 	}
 	for _, g := range groups {
-		s := statuses[g.name]
-		if len(s.missing) == 0 {
+		if m := missing[g.name]; len(m) == 0 {
 			log.Success("  %s — installed", g.name)
 		} else {
-			log.Warn("  %s — missing: %s", g.name, strings.Join(s.missing, ", "))
+			log.Warn("  %s — missing: %s", g.name, strings.Join(m, ", "))
 		}
 	}
 }
 
 func ensureSourcesList(force bool) error {
-	const path = "/etc/apt/sources.list"
+	const path = "/etc/apt/sources.list.d/debforge.sources"
+	const checkPath = "/etc/apt/sources.list"
 	if !force {
-		data, err := os.ReadFile(path)
-		if err == nil && strings.Contains(string(data), "trixie") {
+		if data, err := os.ReadFile(path); err == nil && string(data) == sourcesList {
 			return nil
 		}
+		if _, err := os.Stat(checkPath); err == nil {
+			if data, err := os.ReadFile(checkPath); err == nil && strings.Contains(string(data), "trixie") {
+				return nil
+			}
+		}
+	}
+	if err := os.MkdirAll("/etc/apt/sources.list.d", 0755); err != nil {
+		return err
 	}
 	return os.WriteFile(path, []byte(sourcesList), 0644)
 }
@@ -321,11 +313,25 @@ func installFlathub(log *text.Logger, s *text.Spinner, force bool) error {
 func ensureResolvSymlink(log *text.Logger) error {
 	const target = "/run/systemd/resolve/stub-resolv.conf"
 	const link = "/etc/resolv.conf"
-	current, err := os.Readlink(link)
-	if err == nil && current == target {
+	fi, err := os.Lstat(link)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		return os.Symlink(target, link)
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		log.Warn("%s is a regular file, not a symlink — skipping (systemd-resolved won't manage DNS)", link)
 		return nil
 	}
-	if err := os.Remove(link); err != nil && !os.IsNotExist(err) {
+	current, err := os.Readlink(link)
+	if err != nil {
+		return err
+	}
+	if current == target {
+		return nil
+	}
+	if err := os.Remove(link); err != nil {
 		return err
 	}
 	if err := os.Symlink(target, link); err != nil {
