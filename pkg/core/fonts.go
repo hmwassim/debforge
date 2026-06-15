@@ -34,19 +34,24 @@ func installCodebergFonts(log *text.Logger) error {
 	fontDir := "/usr/local/share/fonts"
 
 	if _, err := os.Stat(cachePath); err == nil {
-		if fresh, err := cacheIsFresh(cachePath); err == nil && fresh {
+		s := text.StartSpinner(os.Stderr, "Installing fonts...")
+		fresh, err := cacheIsFresh(cachePath)
+		if err == nil && fresh {
 			if err := extractFonts(cachePath, fontDir); err == nil {
+				s.Done()
 				return nil
 			}
 			log.Warn("Cached fonts are corrupt, re-downloading...")
 		} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
 			if err := saveMeta(cachePath); err == nil {
 				if err := extractFonts(cachePath, fontDir); err == nil {
+					s.Done()
 					return nil
 				}
 			}
 			log.Warn("Cached fonts are corrupt, re-downloading...")
 		}
+		s.Fail()
 		os.Remove(cachePath)
 		os.Remove(metaPath(cachePath))
 	}
@@ -63,7 +68,10 @@ func installCodebergFonts(log *text.Logger) error {
 		return err
 	}
 
-	return extractFonts(cachePath, fontDir)
+	s := text.StartSpinner(os.Stderr, "Installing fonts...")
+	err := extractFonts(cachePath, fontDir)
+	s.Done()
+	return err
 }
 
 func cacheIsFresh(path string) (bool, error) {
@@ -148,8 +156,8 @@ func extractFonts(path, fontDir string) error {
 	}
 	extract := exec.Command("tar", "-xzf", path, "-C", fontDir)
 	extract.Stdout = io.Discard
-	if err := executil.RunWithSpinner(extract, "Extracting fonts..."); err != nil {
+	if err := executil.Run(extract); err != nil {
 		return fmt.Errorf("extracting fonts: %w", err)
 	}
-	return executil.RunWithSpinner(exec.Command("fc-cache", "-f"), "Updating font cache...")
+	return executil.Run(exec.Command("fc-cache", "-f"))
 }
