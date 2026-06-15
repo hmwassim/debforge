@@ -28,39 +28,53 @@ func Run(cmd *exec.Cmd) error {
 func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 	w := os.Stderr
 	msg := "[i] " + desc
-	terminal := isTerminal(w)
 
-	if terminal {
-		fmt.Fprintf(w, "%s [ ]", msg)
+	if cmd.Stdout == nil {
+		cmd.Stdout = io.Discard
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		return err
 	}
 
-	done := make(chan struct{})
+	done := make(chan error, 1)
 	go func() {
-		if !terminal {
-			<-done
-			return
-		}
+		done <- cmd.Wait()
+	}()
+
+	if isTerminal(w) {
+		fmt.Fprintf(w, "%s [ ]", msg)
 		chars := []string{"|", "/", "-", "\\"}
 		i := 0
 		for {
 			select {
-			case <-done:
+			case err := <-done:
 				fmt.Fprintf(w, "\r%s\n", msg)
-				return
+				if err != nil {
+					if s := strings.TrimSpace(stderr.String()); s != "" {
+						return fmt.Errorf("%s: %w", s, err)
+					}
+					return err
+				}
+				return nil
 			default:
 				fmt.Fprintf(w, "\r%s [%s]", msg, chars[i%len(chars)])
 				i++
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
-	}()
-
-	err := Run(cmd)
-	close(done)
-	if terminal {
-		time.Sleep(10 * time.Millisecond)
 	}
-	return err
+
+	err := <-done
+	if err != nil {
+		if s := strings.TrimSpace(stderr.String()); s != "" {
+			return fmt.Errorf("%s: %w", s, err)
+		}
+		return err
+	}
+	return nil
 }
 
 func isTerminal(f *os.File) bool {
