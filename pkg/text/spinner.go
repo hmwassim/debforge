@@ -29,7 +29,7 @@ func StartSpinner(w io.Writer, desc string) *Spinner {
 }
 
 func (s *Spinner) run() {
-	pre, suf := ansiPair(s.color, bold+blue)
+	pre, suf := ansiPair(s.color, frameColor)
 	fmt.Fprintf(s.w, "%s[%s]%s %s", pre, spinFrames[0], suf, s.desc)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -53,7 +53,7 @@ func (s *Spinner) Done() {
 	close(s.stop)
 	<-s.done
 	s.stop = nil
-	pre, suf := ansiPair(s.color, bold+green)
+	pre, suf := ansiPair(s.color, successColor)
 	fmt.Fprintf(s.w, "\r%s[*]%s %s\n", pre, suf, s.desc)
 }
 
@@ -64,13 +64,6 @@ func (s *Spinner) Fail() {
 	close(s.stop)
 	<-s.done
 	s.stop = nil
-	pre, suf := ansiPair(s.color, bold+red)
+	pre, suf := ansiPair(s.color, errorColor)
 	fmt.Fprintf(s.w, "\r%s[x]%s %s\n", pre, suf, s.desc)
-}
-
-func ansiPair(ok bool, code string) (string, string) {
-	if ok {
-		return code, reset
-	}
-	return "", ""
 }

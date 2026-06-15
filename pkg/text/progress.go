@@ -44,7 +44,7 @@ func (p *Progress) write() {
 		return
 	}
 	if p.current >= p.total {
-		pre, suf := ansiPair(p.color, bold+green)
+		pre, suf := ansiPair(p.color, successColor)
 		fmt.Fprintf(p.w, "\r%s[*]%s %s...\033[K\n", pre, suf, p.desc)
 		return
 	}
@@ -52,7 +52,7 @@ func (p *Progress) write() {
 	p.frameIdx++
 	cv, unit := formatSize(p.current)
 	tv, _ := formatSize(p.total)
-	pre, suf := ansiPair(p.color, bold+blue)
+	pre, suf := ansiPair(p.color, frameColor)
 	fmt.Fprintf(p.w, "\r%s[%s]%s %s... [%.0f/%.0f %s]\033[K", pre, frame, suf, p.desc, cv, tv, unit)
 }
 

@@ -44,11 +44,10 @@ func Update(log *text.Logger) error {
 			log.Info("Cancelled")
 			return nil
 		}
-		if err := cloneRepo(log); err != nil {
+		if err := cloneRepo(); err != nil {
 			return fmt.Errorf("cloning repository: %w", err)
 		}
 	} else {
-		log.Info("Checking for updates...")
 		if err := gitFetch(); err != nil {
 			return fmt.Errorf("fetching remote: %w", err)
 		}
@@ -65,7 +64,7 @@ func Update(log *text.Logger) error {
 			log.Info("Cancelled")
 			return nil
 		}
-		if err := gitPull(log); err != nil {
+		if err := gitPull(); err != nil {
 			return fmt.Errorf("pulling latest source: %w", err)
 		}
 	}
@@ -74,7 +73,6 @@ func Update(log *text.Logger) error {
 	buildPath := filepath.Join(cfg.BinDir(), "debforge.new")
 	finalPath := filepath.Join(cfg.BinDir(), "debforge")
 
-	log.Info("Building debforge...")
 	if err := buildBinary(buildPath); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
@@ -111,22 +109,21 @@ func sourceRepoExists() bool {
 	return err == nil
 }
 
-func cloneRepo(log *text.Logger) error {
+func cloneRepo() error {
 	cfg := settings.Default
 	if err := os.RemoveAll(cfg.SourceDir()); err != nil {
 		return fmt.Errorf("removing existing source directory: %w", err)
 	}
-	log.Info("Cloning %s [branch: %s]...", cfg.RepoURL, cfg.Branch)
 	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", cfg.Branch, "--", cfg.RepoURL, cfg.SourceDir())
 	cmd.Stdout = io.Discard
-	return executil.Run(cmd)
+	return executil.RunWithSpinner(cmd, "Cloning repository...")
 }
 
 func gitFetch() error {
 	cmd := exec.Command("git", "fetch", "-q", "origin", settings.Default.Branch)
 	cmd.Dir = settings.Default.SourceDir()
 	cmd.Stdout = io.Discard
-	return executil.Run(cmd)
+	return executil.RunWithSpinner(cmd, "Checking for updates...")
 }
 
 func compareRevisions() (local, remote string, err error) {
@@ -153,13 +150,12 @@ func gitRevParse(ref string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func gitPull(log *text.Logger) error {
+func gitPull() error {
 	cfg := settings.Default
-	log.Info("Pulling latest source...")
 	cmd := exec.Command("git", "fetch", "--depth", "1", "origin", cfg.Branch)
 	cmd.Dir = cfg.SourceDir()
 	cmd.Stdout = io.Discard
-	if err := executil.Run(cmd); err != nil {
+	if err := executil.RunWithSpinner(cmd, "Pulling latest source..."); err != nil {
 		return err
 	}
 	cmd = exec.Command("git", "reset", "--hard", "origin/"+cfg.Branch)
@@ -209,8 +205,7 @@ func buildBinary(dst string) error {
 			cmd.Env = append(cmd.Env, e)
 		}
 	}
-	cmd.Stdout = io.Discard
-	if err := executil.Run(cmd); err != nil {
+	if err := executil.RunWithSpinner(cmd, "Building debforge..."); err != nil {
 		return err
 	}
 	settings.Default.GoCacheClean()
