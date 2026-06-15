@@ -81,10 +81,10 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
-	log.Info("Installing binary...")
 	if err := installBinary(buildPath, finalPath); err != nil {
 		return fmt.Errorf("installing binary: %w", err)
 	}
+	log.Success("Installing binary...")
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	if st.InstalledAt == "" {
