@@ -127,19 +127,12 @@ func (w *progressWriter) print() {
 	pct := float64(w.current) / float64(w.total) * 100
 	elapsed := time.Since(w.start)
 	rate := float64(w.current) / elapsed.Seconds()
-	var etaStr string
-	if rate > 0 {
-		remaining := time.Duration(float64(w.total-w.current)/rate) * time.Second
-		etaStr = remaining.Truncate(time.Second).String()
-	} else {
-		etaStr = "?"
-	}
 	if w.current >= w.total {
 		fmt.Fprintf(os.Stderr, "\r[i] %s...\033[K\n", w.desc)
 	} else {
 		frame := spinnerFrames[w.frameIdx%len(spinnerFrames)]
 		w.frameIdx++
-		fmt.Fprintf(os.Stderr, "\r[%s] %s... [%3.0f%% %s %s]\033[K", frame, w.desc, pct, formatRate(rate), etaStr)
+		fmt.Fprintf(os.Stderr, "\r[%s] %s... %3.0f%% \u2022 %s\033[K", frame, w.desc, pct, formatRate(rate))
 	}
 }
 
