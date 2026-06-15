@@ -24,6 +24,9 @@ func NewProgress(w io.Writer, total int64, desc string) *Progress {
 func (p *Progress) Write(buf []byte) (int, error) {
 	n := len(buf)
 	p.current += int64(n)
+	if p.current >= p.total {
+		return n, nil
+	}
 	if time.Since(p.last) < 100*time.Millisecond {
 		return n, nil
 	}
