@@ -20,6 +20,14 @@ import (
 
 const fontsURL = "https://codeberg.org/hmwassim/fonts/raw/branch/main/fonts.tar.gz"
 
+var etagClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:       (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	},
+	Timeout: 15 * time.Second,
+}
+
 type fontCacheMeta struct {
 	SHA256 string `json:"sha256"`
 	ETag   string `json:"etag,omitempty"`
@@ -41,7 +49,7 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner) error {
 			}
 			log.Warn("Cached fonts are corrupt, re-downloading...")
 		} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
-			if err := saveMeta(cachePath); err == nil {
+			if err := saveMeta(cachePath, ""); err == nil {
 				if err := extractFonts(cachePath, fontDir); err == nil {
 					return nil
 				}
@@ -63,7 +71,7 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner) error {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
-	if err := saveMeta(cachePath); err != nil {
+	if err := saveMeta(cachePath, ""); err != nil {
 		return err
 	}
 
@@ -89,13 +97,16 @@ func cacheIsFresh(path string) (bool, error) {
 	return true, nil
 }
 
-func saveMeta(path string) error {
+func saveMeta(path, etag string) error {
 	sum, err := hashFile(path)
 	if err != nil {
 		return fmt.Errorf("checksumming: %w", err)
 	}
 	meta := fontCacheMeta{SHA256: sum}
-	if etag, err := headETag(fontsURL); err == nil && etag != "" {
+	if etag == "" {
+		etag, _ = headETag(fontsURL)
+	}
+	if etag != "" {
 		meta.ETag = etag
 	}
 	data, err := json.Marshal(meta)
@@ -131,14 +142,7 @@ func hashFile(path string) (string, error) {
 }
 
 func headETag(url string) (string, error) {
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext:       (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
-			TLSHandshakeTimeout: 10 * time.Second,
-		},
-		Timeout: 15 * time.Second,
-	}
-	resp, err := client.Head(url)
+	resp, err := etagClient.Head(url)
 	if err != nil {
 		return "", err
 	}

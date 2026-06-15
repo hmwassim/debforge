@@ -57,7 +57,7 @@ func Repair(log *text.Logger) error {
 
 		for _, svc := range g.services {
 			if err := packages.EnableService(svc); err != nil {
-				log.Warn("Failed to start %s: %s", svc, err)
+				log.Warn("Failed to enable %s (non-fatal, will retry on next repair): %s", svc, err)
 			}
 		}
 
@@ -75,7 +75,7 @@ func Repair(log *text.Logger) error {
 		}
 	}
 
-	if err := ensureResolvSymlink(); err != nil {
+	if err := ensureResolvSymlink(log); err != nil {
 		errs = append(errs, fmt.Errorf("resolv.conf symlink: %w", err))
 	}
 
@@ -116,6 +116,7 @@ func Update(log *text.Logger) error {
 	if err := packages.AptInstall(backportPkgs, true, "Upgrading backports..."); err != nil {
 		return fmt.Errorf("upgrading backports: %w", err)
 	}
+	// postInstall hooks are intentionally skipped here; run 'core repair' for first-time setup.
 
 	log.Success("Core packages up to date")
 	return nil
@@ -185,7 +186,7 @@ func installFlathub(log *text.Logger, s *text.Spinner) error {
 	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
 }
 
-func ensureResolvSymlink() error {
+func ensureResolvSymlink(log *text.Logger) error {
 	const target = "/run/systemd/resolve/stub-resolv.conf"
 	const link = "/etc/resolv.conf"
 	current, err := os.Readlink(link)
@@ -195,5 +196,11 @@ func ensureResolvSymlink() error {
 	if err := os.Remove(link); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	return os.Symlink(target, link)
+	if err := os.Symlink(target, link); err != nil {
+		return err
+	}
+	if _, err := os.Stat(target); os.IsNotExist(err) {
+		log.Warn("systemd-resolved is not yet running; /etc/resolv.conf symlink is dangling and will resolve once the service starts")
+	}
+	return nil
 }

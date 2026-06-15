@@ -65,17 +65,23 @@ func DownloadFile(path, url, desc string) error {
 		}
 		p.Done()
 	} else {
+		sp := text.StartSpinner(os.Stderr, desc)
 		_, err = io.Copy(f, resp.Body)
 		if err != nil {
+			sp.Fail()
 			return err
 		}
+		sp.Done()
 	}
 
 	if err := f.Close(); err != nil {
 		return err
 	}
 	f = nil
-	abort = false
 
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	abort = false
+	return nil
 }

@@ -57,11 +57,18 @@ cd "$DEBFORGE_SRC"
 VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
 go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/
 
+info "Cleaning build cache..."
+go clean -cache
+
 info "Verifying binary..."
-"$DEBFORGE_BIN/debforge" --help >/dev/null 2>&1
+"$DEBFORGE_BIN/debforge" --version >/dev/null 2>&1
 
 info "Linking ${DEBFORGE_BIN}/debforge -> ${BINARY}..."
 mkdir -p "$(dirname "$BINARY")"
+if [ -e "$BINARY" ] && [ ! -L "$BINARY" ]; then
+	err "$BINARY exists and is not a symlink -- refusing to overwrite"
+	exit 1
+fi
 ln -sf "$DEBFORGE_BIN/debforge" "$BINARY"
 
 info "Writing state..."

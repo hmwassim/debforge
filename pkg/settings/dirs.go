@@ -31,8 +31,13 @@ func (c *Config) GoCacheDir() string  { return c.GoPathDir() + "/buildcache" }
 func (c *Config) LockFile() string    { return c.StateDir() + "/.lock" }
 
 func (c *Config) EnsureDirsExist() error {
-	for _, d := range []string{c.BinDir(), c.SourceDir(), c.StateDir(), c.CacheDir(), c.GoPathDir(), c.GoCacheDir()} {
+	for _, d := range []string{c.BinDir(), c.SourceDir()} {
 		if err := os.MkdirAll(d, 0755); err != nil {
+			return err
+		}
+	}
+	for _, d := range []string{c.StateDir(), c.CacheDir(), c.GoPathDir(), c.GoCacheDir()} {
+		if err := os.MkdirAll(d, 0700); err != nil {
 			return err
 		}
 	}
