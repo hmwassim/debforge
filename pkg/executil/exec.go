@@ -28,11 +28,6 @@ func Run(cmd *exec.Cmd) error {
 func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 	w := os.Stderr
 
-	msg := "[i] " + desc
-	if useColor() {
-		msg = "\033[1;34m[i]\033[0m " + desc
-	}
-
 	if cmd.Stdout == nil {
 		cmd.Stdout = io.Discard
 	}
@@ -49,13 +44,18 @@ func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 	}()
 
 	if isTerminal(w) {
-		fmt.Fprintf(w, "%s [ ]", msg)
-		chars := []string{"|", "/", "-", "\\"}
-		i := 0
+		frames := []string{"|", "/", "-", "\\"}
+		idx := 0
+		fmt.Fprintf(w, "[%s] %s", frames[idx], desc)
+		idx++
 		for {
 			select {
 			case err := <-done:
-				fmt.Fprintf(w, "\r%s\033[K\n", msg)
+				msg := "[i] " + desc
+				if useColor() {
+					msg = "\033[1;34m[i]\033[0m " + desc
+				}
+				fmt.Fprintf(w, "\r%s\n", msg)
 				if err != nil {
 					if s := strings.TrimSpace(stderr.String()); s != "" {
 						return fmt.Errorf("%s: %w", s, err)
@@ -64,8 +64,8 @@ func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 				}
 				return nil
 			default:
-				fmt.Fprintf(w, "\r%s [%s]", msg, chars[i%len(chars)])
-				i++
+				fmt.Fprintf(w, "\r[%s] %s", frames[idx%len(frames)], desc)
+				idx++
 				time.Sleep(100 * time.Millisecond)
 			}
 		}

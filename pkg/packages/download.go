@@ -93,12 +93,15 @@ func ExtractTarGz(src, dest string) error {
 	return executil.Run(extract)
 }
 
+var spinnerFrames = []string{"|", "/", "-", "\\"}
+
 type progressWriter struct {
 	total     int64
 	current   int64
 	start     time.Time
 	lastPrint time.Time
 	desc      string
+	frameIdx  int
 }
 
 func (w *progressWriter) Write(p []byte) (int, error) {
@@ -131,11 +134,12 @@ func (w *progressWriter) print() {
 	} else {
 		etaStr = "?"
 	}
-	done := w.current >= w.total
-	if done {
+	if w.current >= w.total {
 		fmt.Fprintf(os.Stderr, "\r[i] %s...\033[K\n", w.desc)
 	} else {
-		fmt.Fprintf(os.Stderr, "\r[i] %s... [%3.0f%% %s %s]\033[K", w.desc, pct, formatRate(rate), etaStr)
+		frame := spinnerFrames[w.frameIdx%len(spinnerFrames)]
+		w.frameIdx++
+		fmt.Fprintf(os.Stderr, "\r[%s] %s... [%3.0f%% %s %s]\033[K", frame, w.desc, pct, formatRate(rate), etaStr)
 	}
 }
 
