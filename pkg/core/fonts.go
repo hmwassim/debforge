@@ -43,17 +43,15 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 
 	if !force {
 		if _, err := os.Stat(cachePath); err == nil {
-			fresh, err := cacheIsFresh(cachePath)
-			if err == nil && fresh {
-				if err := extractFonts(cachePath, fontDir); err == nil {
+			fresh, checkErr := cacheIsFresh(cachePath)
+			if checkErr != nil {
+				log.Warn("Could not verify font cache (%s), using cached version", checkErr)
+				if err := extractFonts(cachePath, fontDir, false); err == nil {
 					return nil
 				}
-				log.Warn("Cached fonts are corrupt, re-downloading...")
-			} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
-				if err := saveMeta(cachePath, ""); err == nil {
-					if err := extractFonts(cachePath, fontDir); err == nil {
-						return nil
-					}
+			} else if fresh {
+				if err := extractFonts(cachePath, fontDir, false); err == nil {
+					return nil
 				}
 				log.Warn("Cached fonts are corrupt, re-downloading...")
 			}
@@ -73,11 +71,12 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
-	if err := saveMeta(cachePath, ""); err != nil {
+	etag, _ := headETag(fontsURL)
+	if err := saveMeta(cachePath, etag); err != nil {
 		return err
 	}
 
-	return extractFonts(cachePath, fontDir)
+	return extractFonts(cachePath, fontDir, true)
 }
 
 func cacheIsFresh(path string) (bool, error) {
@@ -89,14 +88,7 @@ func cacheIsFresh(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if sum != meta.SHA256 {
-		return false, nil
-	}
-	etag, err := headETag(fontsURL)
-	if err == nil && etag != "" && meta.ETag != "" && etag != meta.ETag {
-		return false, nil
-	}
-	return true, nil
+	return sum == meta.SHA256, nil
 }
 
 func saveMeta(path, etag string) error {
@@ -105,9 +97,6 @@ func saveMeta(path, etag string) error {
 		return fmt.Errorf("checksumming: %w", err)
 	}
 	meta := fontCacheMeta{SHA256: sum}
-	if etag == "" {
-		etag, _ = headETag(fontsURL)
-	}
 	if etag != "" {
 		meta.ETag = etag
 	}
@@ -152,7 +141,7 @@ func headETag(url string) (string, error) {
 	return resp.Header.Get("ETag"), nil
 }
 
-func extractFonts(path, fontDir string) error {
+func extractFonts(path, fontDir string, force bool) error {
 	if err := os.MkdirAll(fontDir, 0755); err != nil {
 		return err
 	}
@@ -161,5 +150,8 @@ func extractFonts(path, fontDir string) error {
 	if err := executil.Run(extract); err != nil {
 		return fmt.Errorf("extracting fonts: %w", err)
 	}
-	return executil.Run(exec.Command("fc-cache", "-f"))
+	if force {
+		return executil.Run(exec.Command("fc-cache", "-f"))
+	}
+	return executil.Run(exec.Command("fc-cache"))
 }

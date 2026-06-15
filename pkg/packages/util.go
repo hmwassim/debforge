@@ -75,17 +75,10 @@ func AptRemove(pkgs []string) error {
 	if len(pkgs) == 0 {
 		return nil
 	}
-	return executil.Run(exec.Command("apt-get", append([]string{"remove", "-y"}, pkgs...)...))
+	args := append([]string{"purge", "-y", "--autoremove"}, pkgs...)
+	return executil.Run(exec.Command("apt-get", args...))
 }
 
-func EnableService(name string, force bool) error {
-	if !force {
-		if executil.Run(exec.Command("systemctl", "is-enabled", "--quiet", name)) == nil &&
-			executil.Run(exec.Command("systemctl", "is-active", "--quiet", name)) == nil {
-			return nil
-		}
-	} else {
-		executil.Run(exec.Command("systemctl", "disable", name))
-	}
+func EnableService(name string) error {
 	return executil.Run(exec.Command("systemctl", "enable", "--now", name))
 }

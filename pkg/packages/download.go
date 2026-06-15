@@ -20,7 +20,7 @@ var httpClient = &http.Client{
 		TLSHandshakeTimeout:   30 * time.Second,
 		ResponseHeaderTimeout: 60 * time.Second,
 	},
-	Timeout: 0,
+	Timeout: 10 * time.Minute,
 }
 
 func DownloadFile(path, url, desc string) error {

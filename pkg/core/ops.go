@@ -22,6 +22,10 @@ type coreState struct {
 }
 
 func Setup(log *text.Logger, force bool) error {
+	if os.Geteuid() != 0 {
+		return fmt.Errorf("core setup must be run as root")
+	}
+
 	if force {
 		log.Info("Reapplying core...")
 	} else {
@@ -32,6 +36,12 @@ func Setup(log *text.Logger, force bool) error {
 		return fmt.Errorf("creating directories: %w", err)
 	}
 
+	release, err := lock.Acquire(settings.Default.LockFile())
+	if err != nil {
+		return fmt.Errorf("cannot acquire lock: %w", err)
+	}
+	defer release()
+
 	st := &coreState{}
 	store := state.New("core")
 	if err := store.Load(st); err != nil {
@@ -39,12 +49,14 @@ func Setup(log *text.Logger, force bool) error {
 	}
 
 	cur := currentCommit(log)
+	commitChanged := cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit
+
 	desiredPkgs := desiredPackages()
 	desiredConfigs := desiredConfigs()
 	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
 	staleConfigs := setDiff(st.ManagedConfigs, desiredConfigs)
 
-	if !force && st.ManagedPackages != nil && len(stalePkgs) == 0 && len(staleConfigs) == 0 {
+	if !force && !commitChanged && st.ManagedPackages != nil && len(stalePkgs) == 0 && len(staleConfigs) == 0 {
 		s := text.StartSpinner(os.Stderr, "Verifying core...")
 		if verifySetup(log) {
 			s.Done()
@@ -54,7 +66,7 @@ func Setup(log *text.Logger, force bool) error {
 		s.Fail()
 	}
 
-	if cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit {
+	if commitChanged {
 		log.Info("New source detected since last setup, reapplying...")
 	}
 
@@ -71,12 +83,6 @@ func Setup(log *text.Logger, force bool) error {
 		}
 	}
 
-	release, err := lock.Acquire(settings.Default.LockFile())
-	if err != nil {
-		return fmt.Errorf("cannot acquire lock: %w", err)
-	}
-	defer release()
-
 	var errs []error
 
 	if err := ensureSourcesList(force); err != nil {
@@ -89,12 +95,6 @@ func Setup(log *text.Logger, force bool) error {
 	if len(errs) == 0 {
 		if err := executil.RunWithSpinner(exec.Command("apt-get", "update"), "Updating package lists..."); err != nil {
 			errs = append(errs, fmt.Errorf("apt-get update: %w", err))
-		}
-	}
-
-	if len(errs) == 0 {
-		if err := executil.RunWithSpinner(exec.Command("apt-get", "upgrade", "-y"), "Upgrading system packages..."); err != nil {
-			errs = append(errs, fmt.Errorf("apt-get upgrade: %w", err))
 		}
 	}
 
@@ -116,7 +116,7 @@ func Setup(log *text.Logger, force bool) error {
 		}
 
 		for _, svc := range g.services {
-			if err := packages.EnableService(svc, force); err != nil {
+			if err := packages.EnableService(svc); err != nil {
 				log.Warn("Could not enable %s (non-fatal, will retry on next repair): %s", svc, err)
 			}
 		}
@@ -209,11 +209,9 @@ func verifySetup(log *text.Logger) bool {
 		}
 	}
 
-	for _, svc := range services {
-		if err := executil.Run(exec.Command("systemctl", "is-enabled", "--quiet", svc)); err != nil {
-			return false
-		}
-		if err := executil.Run(exec.Command("systemctl", "is-active", "--quiet", svc)); err != nil {
+	if len(services) > 0 {
+		args := append([]string{"is-active", "--quiet"}, services...)
+		if err := executil.Run(exec.Command("systemctl", args...)); err != nil {
 			return false
 		}
 	}
@@ -314,7 +312,10 @@ func enablei386(force bool) error {
 }
 
 func installFlathub(log *text.Logger, s *text.Spinner, force bool) error {
-	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
+	s.Pause()
+	err := executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
+	s.Resume()
+	return err
 }
 
 func ensureResolvSymlink(log *text.Logger) error {

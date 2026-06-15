@@ -1,94 +1,88 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BOLD='\033[1m'
-RED='\033[31m'
-GREEN='\033[32m'
-YELLOW='\033[33m'
-BLUE='\033[34m'
-GRAY='\033[90m'
-RESET='\033[0m'
+info() {
+    printf "\033[1;34m[*]\033[0m %s\n" "$1"
+}
 
-info()  { printf "${BOLD}${BLUE}[i]${RESET} %s\n" "$*"; }
-ok()    { printf "${BOLD}${GREEN}[*]${RESET} %s\n" "$*"; }
-warn()  { printf "${BOLD}${YELLOW}[!]${RESET} %s\n" "$*" >&2; }
-err()   { printf "${BOLD}${RED}[x]${RESET} %s\n" "$*" >&2; }
+error() {
+    printf "\033[1;31m[!]\033[0m %s\n" "$1" >&2
+}
 
-REPO_URL="https://github.com/hmwassim/debforge"
-BRANCH="main"
-DEBFORGE_ROOT="/opt/debforge"
-DEBFORGE_BIN="${DEBFORGE_ROOT}/bin"
-DEBFORGE_SRC="${DEBFORGE_ROOT}/src"
-DEBFORGE_VAR="${DEBFORGE_ROOT}/var"
-DEBFORGE_CACHE="${DEBFORGE_VAR}/cache"
-DEBFORGE_GOPATH="${DEBFORGE_VAR}/gopath"
-DEBFORGE_GOCACHE="${DEBFORGE_GOPATH}/buildcache"
-BINARY="/usr/local/bin/debforge"
+success() {
+    printf "\033[1;32m[+]\033[0m %s\n" "$1"
+}
 
-if [ -x "$DEBFORGE_BIN/debforge" ]; then
-	err "debforge appears to be already installed."
-	err "Run 'sudo debforge --self-update' to update."
-	exit 1
-fi
+repo="hmwassim/debforge"
+DEBFORGE_REPO="${DEBFORGE_REPO:-$repo}"
+DEBFORGE_BIN="${DEBFORGE_BIN:-/opt/debforge/bin}"
 
 if [ "$(id -u)" -ne 0 ]; then
-	err "This script must be run as root."
-	exit 1
+    error "debforge must be installed as root"
+    exit 1
 fi
 
-trap 'err "Installation failed"' ERR
-
-info "Installing dependencies..."
-apt-get update -y
-apt-get install -y git golang-go
-
-info "Setting up directories..."
-mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC"
-mkdir -p "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
-chmod 700 "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
-
-info "Cloning ${REPO_URL} [${BRANCH}]..."
-rm -rf "$DEBFORGE_SRC"
-git clone --depth 1 --branch "$BRANCH" -- "$REPO_URL" "$DEBFORGE_SRC"
-
-info "Building debforge..."
-export GOPATH="$DEBFORGE_GOPATH"
-export GOMODCACHE="$DEBFORGE_GOPATH/mod"
-export GOCACHE="$DEBFORGE_GOCACHE"
-cd "$DEBFORGE_SRC"
-VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
-go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/
-
-info "Cleaning build cache..."
-go clean -cache
-
-info "Verifying binary..."
-"$DEBFORGE_BIN/debforge" --version >/dev/null 2>&1
-
-info "Linking ${DEBFORGE_BIN}/debforge -> ${BINARY}..."
-mkdir -p "$(dirname "$BINARY")"
-if [ -e "$BINARY" ] && [ ! -L "$BINARY" ]; then
-	err "$BINARY exists and is not a symlink -- refusing to overwrite"
-	exit 1
+if ! command -v curl &>/dev/null; then
+    error "curl is required for installation"
+    exit 1
 fi
-ln -sf "$DEBFORGE_BIN/debforge" "$BINARY"
 
-info "Writing state..."
-mkdir -p "${DEBFORGE_VAR}/states"
-cat > "${DEBFORGE_VAR}/states/debforge.state.json" <<EOF
-{
-  "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+info "Creating directories..."
+mkdir -p "$DEBFORGE_BIN"
+
+REMOTE="${GITHUB_SERVER_URL:-https://github.com}/${DEBFORGE_REPO}"
+
+download_url() {
+    if [ -n "${DEBFORGE_VERSION:-}" ]; then
+        echo "${REMOTE}/releases/download/${DEBFORGE_VERSION}/debforge"
+    else
+        echo "${REMOTE}/releases/latest/download/debforge"
+    fi
 }
-EOF
-chmod 600 "${DEBFORGE_VAR}/states/debforge.state.json"
 
-info "Running core setup..."
-if [ ! -x "$DEBFORGE_BIN/debforge" ]; then
-	err "Binary not found at $DEBFORGE_BIN/debforge — build may have failed"
-	exit 1
+info "Downloading debforge..."
+if ! curl -sSfL "$(download_url)" -o "${DEBFORGE_BIN}/debforge"; then
+    error "Download failed. Falling back to manual build..."
+    if ! command -v git &>/dev/null || ! command -v go &>/dev/null; then
+        info "Installing build dependencies..."
+        apt-get install -y git golang-go
+    fi
+    TMPDIR=$(mktemp -d)
+    git clone "https://github.com/${DEBFORGE_REPO}" "$TMPDIR"
+    (cd "$TMPDIR" && go build -o debforge .)
+    mv "$TMPDIR/debforge" "${DEBFORGE_BIN}/debforge"
+    rm -rf "$TMPDIR"
 fi
-"$DEBFORGE_BIN/debforge" core setup
 
-echo ""
-ok "debforge installed at ${BINARY}"
-echo "  Run 'sudo debforge --self-update' to update."
+chmod +x "${DEBFORGE_BIN}/debforge"
+
+if [ ! -f /etc/systemd/system/debforge.timer ]; then
+    info "Creating systemd timer for periodic setup..."
+    cat > /etc/systemd/system/debforge.service <<'EOF'
+[Unit]
+Description=debforge
+
+[Service]
+Type=oneshot
+ExecStart=/opt/debforge/bin/debforge core setup
+EOF
+    cat > /etc/systemd/system/debforge.timer <<'EOF'
+[Unit]
+Description=Run debforge setup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now debforge.timer
+    success "Systemd timer created and enabled"
+fi
+
+"${DEBFORGE_BIN}/debforge" core setup
+
+success "debforge is installed and up to date"
+echo "Run 'sudo /opt/debforge/bin/debforge --help' to see available commands."
