@@ -71,7 +71,7 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 	}
 
 	s.Pause()
-	err := packages.DownloadFile(cachePath, fontsURL, "Downloading custom fonts")
+	err := packages.DownloadFile(cachePath, fontsURL, "Downloading custom-fonts")
 	s.Resume()
 	if err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
