@@ -57,11 +57,16 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 				if err := extractFonts(cachePath, fontDir, false); err == nil {
 					return nil
 				}
+				log.Warn("Cached fonts are corrupt, re-downloading...")
+				os.Remove(cachePath)
+				os.Remove(metaPath(cachePath))
 			} else if fresh {
 				if err := extractFonts(cachePath, fontDir, false); err == nil {
 					return nil
 				}
 				log.Warn("Cached fonts are corrupt, re-downloading...")
+				os.Remove(cachePath)
+				os.Remove(metaPath(cachePath))
 			}
 		}
 	}
@@ -81,10 +86,16 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 
 	etag, _ := headETag(fontsURL)
 	if err := saveMeta(cachePath, etag); err != nil {
+		os.Remove(cachePath)
 		return err
 	}
 
-	return extractFonts(cachePath, fontDir, true)
+	if err := extractFonts(cachePath, fontDir, true); err != nil {
+		os.Remove(cachePath)
+		os.Remove(metaPath(cachePath))
+		return err
+	}
+	return nil
 }
 
 func readMetaFails(path string) bool {

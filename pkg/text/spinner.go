@@ -34,17 +34,24 @@ func (s *Spinner) Pause() {
 	s.mu.Lock()
 	s.paused = true
 	s.mu.Unlock()
+	if IsTerminal(s.w) {
+		fmt.Fprintf(s.w, "\r\033[K")
+	}
 }
 
 func (s *Spinner) Resume() {
 	s.mu.Lock()
 	s.paused = false
 	s.mu.Unlock()
+	if s.stop != nil && IsTerminal(s.w) {
+		pre, suf := ansiPair(s.color, frameColor)
+		fmt.Fprintf(s.w, "\r%s[%s]%s %s\033[K", pre, spinFrames[0], suf, s.desc)
+	}
 }
 
 func (s *Spinner) run() {
 	pre, suf := ansiPair(s.color, frameColor)
-	fmt.Fprintf(s.w, "%s[%s]%s %s\033[K", pre, spinFrames[0], suf, s.desc)
+	fmt.Fprintf(s.w, "\r%s[%s]%s %s\033[K", pre, spinFrames[0], suf, s.desc)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	idx := 1
