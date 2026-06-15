@@ -3,14 +3,14 @@ package executil
 import (
 	"bytes"
 	"fmt"
-	"io"
+	"os"
 	"os/exec"
 	"strings"
 )
 
 func Run(cmd *exec.Cmd) error {
 	if cmd.Stdout == nil {
-		cmd.Stdout = io.Discard
+		cmd.Stdout = os.Stdout
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
