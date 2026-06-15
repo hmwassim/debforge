@@ -124,25 +124,26 @@ func (w *progressWriter) print() {
 	if !text.IsTerminal(os.Stderr) {
 		return
 	}
-	pct := float64(w.current) / float64(w.total) * 100
-	elapsed := time.Since(w.start)
-	rate := float64(w.current) / elapsed.Seconds()
 	if w.current >= w.total {
 		fmt.Fprintf(os.Stderr, "\r[i] %s...\033[K\n", w.desc)
 	} else {
 		frame := spinnerFrames[w.frameIdx%len(spinnerFrames)]
 		w.frameIdx++
-		fmt.Fprintf(os.Stderr, "\r[%s] %s... %3.0f%% \u2022 %s\033[K", frame, w.desc, pct, formatRate(rate))
+		cv, unit := formatSize(w.current)
+		tv, _ := formatSize(w.total)
+		fmt.Fprintf(os.Stderr, "\r[%s] %s... [%.0f/%.0f %s]\033[K", frame, w.desc, cv, tv, unit)
 	}
 }
 
-func formatRate(bytesPerSec float64) string {
+func formatSize(bytes int64) (float64, string) {
 	switch {
-	case bytesPerSec >= 1024*1024:
-		return fmt.Sprintf("%.1fMB/s", bytesPerSec/(1024*1024))
-	case bytesPerSec >= 1024:
-		return fmt.Sprintf("%.0fKB/s", bytesPerSec/1024)
+	case bytes >= 1024*1024*1024:
+		return float64(bytes) / (1024 * 1024 * 1024), "GB"
+	case bytes >= 1024*1024:
+		return float64(bytes) / (1024 * 1024), "MB"
+	case bytes >= 1024:
+		return float64(bytes) / 1024, "KB"
 	default:
-		return fmt.Sprintf("%.0fB/s", bytesPerSec)
+		return float64(bytes), "B"
 	}
 }
