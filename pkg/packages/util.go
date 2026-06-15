@@ -1,7 +1,6 @@
 package packages
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -23,18 +22,9 @@ func AptInstall(pkgs []string, backport bool, msg string, force bool) error {
 		args = append(args, "-t", "trixie-backports")
 	}
 	args = append(args, pkgs...)
-	cmd := exec.Command("apt", args...)
+	cmd := exec.Command("apt-get", args...)
 	if msg == "" {
-		cmd.Stdout = io.Discard
-		var stderr bytes.Buffer
-		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-		if err := cmd.Run(); err != nil {
-			if s := strings.TrimSpace(stderr.String()); s != "" {
-				return fmt.Errorf("%s: %w", s, err)
-			}
-			return fmt.Errorf("apt install: %w", err)
-		}
-		return nil
+		return executil.Run(cmd)
 	}
 	return executil.RunWithSpinner(cmd, msg)
 }
@@ -88,17 +78,7 @@ func AptRemove(pkgs []string) error {
 	if len(pkgs) == 0 {
 		return nil
 	}
-	cmd := exec.Command("apt", append([]string{"remove", "-y"}, pkgs...)...)
-	cmd.Stdout = io.Discard
-	var stderr bytes.Buffer
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-	if err := cmd.Run(); err != nil {
-		if s := strings.TrimSpace(stderr.String()); s != "" {
-			return fmt.Errorf("%s: %w", s, err)
-		}
-		return fmt.Errorf("apt remove: %w", err)
-	}
-	return nil
+	return executil.Run(exec.Command("apt-get", append([]string{"remove", "-y"}, pkgs...)...))
 }
 
 func EnableService(name string, force bool) error {

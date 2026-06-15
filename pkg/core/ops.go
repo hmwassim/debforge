@@ -87,8 +87,8 @@ func Setup(log *text.Logger, force bool) error {
 	}
 
 	if len(errs) == 0 {
-		if err := executil.RunWithSpinner(exec.Command("apt", "update"), "Updating package lists..."); err != nil {
-			errs = append(errs, fmt.Errorf("apt update: %w", err))
+		if err := executil.RunWithSpinner(exec.Command("apt-get", "update"), "Updating package lists..."); err != nil {
+			errs = append(errs, fmt.Errorf("apt-get update: %w", err))
 		}
 	}
 
