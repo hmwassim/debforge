@@ -3,6 +3,7 @@ package text
 import (
 	"fmt"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -12,6 +13,9 @@ type Spinner struct {
 	stop  chan struct{}
 	done  chan struct{}
 	color bool
+
+	mu     sync.Mutex
+	paused bool
 }
 
 func StartSpinner(w io.Writer, desc string) *Spinner {
@@ -26,9 +30,21 @@ func StartSpinner(w io.Writer, desc string) *Spinner {
 	return s
 }
 
+func (s *Spinner) Pause() {
+	s.mu.Lock()
+	s.paused = true
+	s.mu.Unlock()
+}
+
+func (s *Spinner) Resume() {
+	s.mu.Lock()
+	s.paused = false
+	s.mu.Unlock()
+}
+
 func (s *Spinner) run() {
 	pre, suf := ansiPair(s.color, frameColor)
-	fmt.Fprintf(s.w, "%s[%s]%s %s", pre, spinFrames[0], suf, s.desc)
+	fmt.Fprintf(s.w, "%s[%s]%s %s\033[K", pre, spinFrames[0], suf, s.desc)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	idx := 1
@@ -38,36 +54,49 @@ func (s *Spinner) run() {
 			close(s.done)
 			return
 		case <-ticker.C:
-			fmt.Fprintf(s.w, "\r%s[%s]%s %s", pre, spinFrames[idx%len(spinFrames)], suf, s.desc)
+			s.mu.Lock()
+			p := s.paused
+			s.mu.Unlock()
+			if p {
+				continue
+			}
+			fmt.Fprintf(s.w, "\r%s[%s]%s %s\033[K", pre, spinFrames[idx%len(spinFrames)], suf, s.desc)
 			idx++
 		}
 	}
 }
 
-func (s *Spinner) Done() {
+func (s *Spinner) doneFail(ok bool) {
+	s.mu.Lock()
+	s.paused = false
+	s.mu.Unlock()
+
 	if s.stop != nil {
 		close(s.stop)
 		<-s.done
 		s.stop = nil
 	}
-	pre, suf := ansiPair(s.color, successColor)
+
+	s.mu.Lock()
+	desc := s.desc
+	s.mu.Unlock()
+
+	mark, pair := "[*]", successColor
+	if !ok {
+		mark, pair = "[x]", errorColor
+	}
+	pre, suf := ansiPair(s.color, pair)
 	if IsTerminal(s.w) {
-		fmt.Fprintf(s.w, "\r%s[*]%s %s\033[K\n", pre, suf, s.desc)
+		fmt.Fprintf(s.w, "\r%s%s%s %s\033[K\n", pre, mark, suf, desc)
 	} else {
-		fmt.Fprintf(s.w, "[*] %s\n", s.desc)
+		fmt.Fprintf(s.w, "%s %s\n", mark, desc)
 	}
 }
 
+func (s *Spinner) Done() {
+	s.doneFail(true)
+}
+
 func (s *Spinner) Fail() {
-	if s.stop != nil {
-		close(s.stop)
-		<-s.done
-		s.stop = nil
-	}
-	pre, suf := ansiPair(s.color, errorColor)
-	if IsTerminal(s.w) {
-		fmt.Fprintf(s.w, "\r%s[x]%s %s\033[K\n", pre, suf, s.desc)
-	} else {
-		fmt.Fprintf(s.w, "[x] %s\n", s.desc)
-	}
+	s.doneFail(false)
 }

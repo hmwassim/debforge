@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/cli"
+	"github.com/hmwassim/debforge/pkg/text"
 )
 
 var httpClient = &http.Client{
@@ -56,12 +57,18 @@ func DownloadFile(path, url, desc string) error {
 		return fmt.Errorf("downloading %s: unexpected HTTP status: %s", url, resp.Status)
 	}
 
-	_, err = io.Copy(f, resp.Body)
-	if err != nil {
-		return err
-	}
-	if desc != "" {
-		fmt.Fprintf(os.Stderr, "\r[*] %s...\n", desc)
+	if resp.ContentLength > 0 {
+		p := text.NewProgress(os.Stderr, resp.ContentLength, desc)
+		_, err = io.Copy(io.MultiWriter(f, p), resp.Body)
+		if err != nil {
+			return err
+		}
+		p.Done()
+	} else {
+		_, err = io.Copy(f, resp.Body)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := f.Close(); err != nil {
