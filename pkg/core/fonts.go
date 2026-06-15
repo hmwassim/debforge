@@ -37,27 +37,29 @@ func metaPath(cachePath string) string {
 	return cachePath + ".meta"
 }
 
-func installCodebergFonts(log *text.Logger, s *text.Spinner) error {
+func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 	cachePath := settings.Default.CacheDir() + "/fonts.tar.gz"
 	fontDir := "/usr/local/share/fonts"
 
-	if _, err := os.Stat(cachePath); err == nil {
-		fresh, err := cacheIsFresh(cachePath)
-		if err == nil && fresh {
-			if err := extractFonts(cachePath, fontDir); err == nil {
-				return nil
-			}
-			log.Warn("Cached fonts are corrupt, re-downloading...")
-		} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
-			if err := saveMeta(cachePath, ""); err == nil {
+	if !force {
+		if _, err := os.Stat(cachePath); err == nil {
+			fresh, err := cacheIsFresh(cachePath)
+			if err == nil && fresh {
 				if err := extractFonts(cachePath, fontDir); err == nil {
 					return nil
 				}
+				log.Warn("Cached fonts are corrupt, re-downloading...")
+			} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
+				if err := saveMeta(cachePath, ""); err == nil {
+					if err := extractFonts(cachePath, fontDir); err == nil {
+						return nil
+					}
+				}
+				log.Warn("Cached fonts are corrupt, re-downloading...")
 			}
-			log.Warn("Cached fonts are corrupt, re-downloading...")
+			os.Remove(cachePath)
+			os.Remove(metaPath(cachePath))
 		}
-		os.Remove(cachePath)
-		os.Remove(metaPath(cachePath))
 	}
 
 	if err := os.MkdirAll(settings.Default.CacheDir(), 0755); err != nil {

@@ -14,8 +14,12 @@ import (
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
-func Repair(log *text.Logger) error {
-	log.Info("Repairing core system...")
+func Setup(log *text.Logger, force bool) error {
+	if force {
+		log.Info("Reapplying core...")
+	} else {
+		log.Info("Setting up core...")
+	}
 
 	if err := settings.Default.EnsureDirsExist(); err != nil {
 		return fmt.Errorf("creating directories: %w", err)
@@ -29,10 +33,10 @@ func Repair(log *text.Logger) error {
 
 	var errs []error
 
-	if err := ensureSourcesList(); err != nil {
+	if err := ensureSourcesList(force); err != nil {
 		errs = append(errs, fmt.Errorf("sources.list: %w", err))
 	}
-	if err := enablei386(); err != nil {
+	if err := enablei386(force); err != nil {
 		errs = append(errs, fmt.Errorf("i386: %w", err))
 	}
 
@@ -45,7 +49,7 @@ func Repair(log *text.Logger) error {
 	for _, g := range groups {
 		s := text.StartSpinner(os.Stderr, "Setting up "+g.name+"...")
 
-		if err := packages.AptInstall(g.packages, g.backport, ""); err != nil {
+		if err := packages.AptInstall(g.packages, g.backport, "", force); err != nil {
 			s.Fail()
 			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
 			continue
@@ -60,13 +64,13 @@ func Repair(log *text.Logger) error {
 		}
 
 		for _, svc := range g.services {
-			if err := packages.EnableService(svc); err != nil {
+			if err := packages.EnableService(svc, force); err != nil {
 				log.Warn("Could not enable %s (non-fatal, will retry on next repair): %s", svc, err)
 			}
 		}
 
 		if g.postInstall != nil {
-			if err := g.postInstall(log, s); err != nil {
+			if err := g.postInstall(log, s, force); err != nil {
 				errs = append(errs, fmt.Errorf("post-install %s: %w", g.name, err))
 				failed = true
 			}
@@ -87,10 +91,10 @@ func Repair(log *text.Logger) error {
 		for _, err := range errs {
 			log.Error("%s", err)
 		}
-		return fmt.Errorf("repair completed with %d error(s)", len(errs))
+		return fmt.Errorf("setup completed with %d error(s)", len(errs))
 	}
 
-	log.Success("Core repair complete")
+	log.Success("Core setup complete")
 	return nil
 }
 
@@ -120,13 +124,13 @@ func Update(log *text.Logger) error {
 		}
 	}
 
-	if err := packages.AptInstall(defaultPkgs, false, "Upgrading core packages..."); err != nil {
+	if err := packages.AptInstall(defaultPkgs, false, "Upgrading core packages...", false); err != nil {
 		return fmt.Errorf("upgrading core: %w", err)
 	}
-	if err := packages.AptInstall(backportPkgs, true, "Upgrading backports..."); err != nil {
+	if err := packages.AptInstall(backportPkgs, true, "Upgrading backports...", false); err != nil {
 		return fmt.Errorf("upgrading backports: %w", err)
 	}
-	// postInstall hooks are intentionally skipped here; run 'core repair' for first-time setup.
+	// postInstall hooks are intentionally skipped here; run 'core setup' for first-time setup.
 
 	log.Success("Core packages up to date")
 	return nil
@@ -172,27 +176,31 @@ func List(log *text.Logger) {
 	}
 }
 
-func ensureSourcesList() error {
+func ensureSourcesList(force bool) error {
 	const path = "/etc/apt/sources.list"
-	data, err := os.ReadFile(path)
-	if err == nil && strings.Contains(string(data), "trixie") {
-		return nil
+	if !force {
+		data, err := os.ReadFile(path)
+		if err == nil && strings.Contains(string(data), "trixie") {
+			return nil
+		}
 	}
 	return os.WriteFile(path, []byte(sourcesList), 0644)
 }
 
-func enablei386() error {
-	cmd := exec.Command("dpkg", "--print-foreign-architectures")
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	err := executil.Run(cmd)
-	if err == nil && strings.Contains(stdout.String(), "i386") {
-		return nil
+func enablei386(force bool) error {
+	if !force {
+		cmd := exec.Command("dpkg", "--print-foreign-architectures")
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		err := executil.Run(cmd)
+		if err == nil && strings.Contains(stdout.String(), "i386") {
+			return nil
+		}
 	}
 	return executil.Run(exec.Command("dpkg", "--add-architecture", "i386"))
 }
 
-func installFlathub(log *text.Logger, s *text.Spinner) error {
+func installFlathub(log *text.Logger, s *text.Spinner, force bool) error {
 	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
 }
 

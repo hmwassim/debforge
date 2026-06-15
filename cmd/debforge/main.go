@@ -9,6 +9,17 @@ import (
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
+func hasFlag(args []string, flags ...string) bool {
+	for _, a := range args {
+		for _, f := range flags {
+			if a == f {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func main() {
 	log := text.New()
 
@@ -35,9 +46,17 @@ func main() {
 			os.Exit(1)
 		}
 	case cli.OpCore:
-		switch result.Args[0] {
+		sub := result.Args[0]
+		rest := result.Args[1:]
+		switch sub {
+		case "setup":
+			if err := core.Setup(log, hasFlag(rest, "-f", "--force")); err != nil {
+				log.Error("%s", err)
+				os.Exit(1)
+			}
 		case "repair":
-			if err := core.Repair(log); err != nil {
+			log.Warn("'core repair' is deprecated, use 'core setup'")
+			if err := core.Setup(log, hasFlag(rest, "-f", "--force")); err != nil {
 				log.Error("%s", err)
 				os.Exit(1)
 			}
@@ -49,7 +68,7 @@ func main() {
 		case "list":
 			core.List(log)
 		default:
-			log.Error("unknown core subcommand: %s", result.Args[0])
+			log.Error("unknown core subcommand: %s", sub)
 			os.Exit(1)
 		}
 	default:

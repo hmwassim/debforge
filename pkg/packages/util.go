@@ -10,11 +10,14 @@ import (
 	"github.com/hmwassim/debforge/pkg/executil"
 )
 
-func AptInstall(pkgs []string, backport bool, msg string) error {
+func AptInstall(pkgs []string, backport bool, msg string, force bool) error {
 	if len(pkgs) == 0 {
 		return nil
 	}
 	args := []string{"install", "-y"}
+	if force {
+		args = append(args, "--reinstall")
+	}
 	if backport {
 		args = append(args, "-t", "trixie-backports")
 	}
@@ -67,6 +70,9 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 	return installed, nil
 }
 
-func EnableService(name string) error {
+func EnableService(name string, force bool) error {
+	if force {
+		executil.Run(exec.Command("systemctl", "disable", name))
+	}
 	return executil.Run(exec.Command("systemctl", "enable", "--now", name))
 }

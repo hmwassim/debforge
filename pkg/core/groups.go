@@ -18,7 +18,7 @@ type group struct {
 	backport    bool
 	configs     []configFile
 	services    []string
-	postInstall func(*text.Logger, *text.Spinner) error
+	postInstall func(*text.Logger, *text.Spinner, bool) error
 }
 
 var groups = []group{
