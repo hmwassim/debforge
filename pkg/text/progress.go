@@ -37,6 +37,15 @@ func (p *Progress) Done() {
 	p.write()
 }
 
+func (p *Progress) Fail() {
+	pre, suf := ansiPair(p.color, errorColor)
+	if IsTerminal(p.w) {
+		fmt.Fprintf(p.w, "\r%s[x]%s %s...\033[K\n", pre, suf, p.desc)
+	} else {
+		fmt.Fprintf(p.w, "[x] %s...\n", p.desc)
+	}
+}
+
 func (p *Progress) write() {
 	if p.current >= p.total {
 		pre, suf := ansiPair(p.color, successColor)

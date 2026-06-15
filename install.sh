@@ -43,7 +43,9 @@ apt-get update -y
 apt-get install -y git golang-go
 
 info "Setting up directories..."
-mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC" "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
+mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC"
+mkdir -p "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
+chmod 700 "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
 
 info "Cloning ${REPO_URL} [${BRANCH}]..."
 rm -rf "$DEBFORGE_SRC"
@@ -78,6 +80,7 @@ cat > "${DEBFORGE_VAR}/state.json" <<EOF
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
+chmod 600 "${DEBFORGE_VAR}/state.json"
 
 echo ""
 ok "debforge installed at ${BINARY}"

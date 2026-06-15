@@ -61,6 +61,7 @@ func DownloadFile(path, url, desc string) error {
 		p := text.NewProgress(os.Stderr, resp.ContentLength, desc)
 		_, err = io.Copy(io.MultiWriter(f, p), resp.Body)
 		if err != nil {
+			p.Fail()
 			return err
 		}
 		p.Done()

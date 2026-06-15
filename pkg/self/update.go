@@ -27,6 +27,10 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("self-update must be run as root")
 	}
 
+	if err := settings.Default.EnsureDirsExist(); err != nil {
+		return fmt.Errorf("creating directories: %w", err)
+	}
+
 	release, err := lock.Acquire(settings.Default.LockFile())
 	if err != nil {
 		return fmt.Errorf("cannot acquire lock: %w", err)
@@ -38,9 +42,6 @@ func Update(log *text.Logger) error {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
-	if err := settings.Default.EnsureDirsExist(); err != nil {
-		return fmt.Errorf("creating directories: %w", err)
-	}
 	sourceExists := sourceRepoExists()
 
 	if !sourceExists {

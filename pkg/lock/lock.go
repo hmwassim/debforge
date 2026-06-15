@@ -8,7 +8,7 @@ import (
 )
 
 func Acquire(path string) (func(), error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)

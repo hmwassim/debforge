@@ -17,6 +17,10 @@ import (
 func Repair(log *text.Logger) error {
 	log.Info("Repairing core system...")
 
+	if err := settings.Default.EnsureDirsExist(); err != nil {
+		return fmt.Errorf("creating directories: %w", err)
+	}
+
 	release, err := lock.Acquire(settings.Default.LockFile())
 	if err != nil {
 		return fmt.Errorf("cannot acquire lock: %w", err)
@@ -92,6 +96,10 @@ func Repair(log *text.Logger) error {
 
 func Update(log *text.Logger) error {
 	log.Info("Updating core packages...")
+
+	if err := settings.Default.EnsureDirsExist(); err != nil {
+		return fmt.Errorf("creating directories: %w", err)
+	}
 
 	release, err := lock.Acquire(settings.Default.LockFile())
 	if err != nil {
