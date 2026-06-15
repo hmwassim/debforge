@@ -67,12 +67,11 @@ func DownloadFile(path, url, desc string) error {
 		}
 		fmt.Fprintf(os.Stderr, "[i] %s...\n", desc)
 	} else {
-		start := time.Now()
-		pb := &progressWriter{total: total, start: start, desc: desc}
-		if _, err := io.Copy(f, io.TeeReader(resp.Body, pb)); err != nil {
+		p := text.NewProgress(os.Stderr, total, desc)
+		if _, err := io.Copy(f, io.TeeReader(resp.Body, p)); err != nil {
 			return err
 		}
-		pb.done()
+		p.Done()
 	}
 
 	if err := f.Close(); err != nil {
@@ -91,59 +90,4 @@ func ExtractTarGz(src, dest string) error {
 	extract := exec.Command("tar", "-xzf", src, "-C", dest)
 	extract.Stdout = io.Discard
 	return executil.Run(extract)
-}
-
-var spinnerFrames = []string{"|", "/", "-", "\\"}
-
-type progressWriter struct {
-	total     int64
-	current   int64
-	start     time.Time
-	lastPrint time.Time
-	desc      string
-	frameIdx  int
-}
-
-func (w *progressWriter) Write(p []byte) (int, error) {
-	n := len(p)
-	w.current += int64(n)
-	if time.Since(w.lastPrint) < 100*time.Millisecond {
-		return n, nil
-	}
-	w.lastPrint = time.Now()
-	w.print()
-	return n, nil
-}
-
-func (w *progressWriter) done() {
-	w.current = w.total
-	w.print()
-}
-
-func (w *progressWriter) print() {
-	if !text.IsTerminal(os.Stderr) {
-		return
-	}
-	if w.current >= w.total {
-		fmt.Fprintf(os.Stderr, "\r[i] %s...\033[K\n", w.desc)
-	} else {
-		frame := spinnerFrames[w.frameIdx%len(spinnerFrames)]
-		w.frameIdx++
-		cv, unit := formatSize(w.current)
-		tv, _ := formatSize(w.total)
-		fmt.Fprintf(os.Stderr, "\r[%s] %s... [%.0f/%.0f %s]\033[K", frame, w.desc, cv, tv, unit)
-	}
-}
-
-func formatSize(bytes int64) (float64, string) {
-	switch {
-	case bytes >= 1024*1024*1024:
-		return float64(bytes) / (1024 * 1024 * 1024), "GB"
-	case bytes >= 1024*1024:
-		return float64(bytes) / (1024 * 1024), "MB"
-	case bytes >= 1024:
-		return float64(bytes) / 1024, "KB"
-	default:
-		return float64(bytes), "B"
-	}
 }
