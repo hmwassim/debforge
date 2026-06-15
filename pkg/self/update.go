@@ -17,6 +17,11 @@ import (
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
+func run(cmd *exec.Cmd) error {
+	cmd.Stdout = io.Discard
+	return executil.Run(cmd)
+}
+
 func Update(log *text.Logger) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("self-update must be run as root")
@@ -44,9 +49,6 @@ func Update(log *text.Logger) error {
 			log.Info("Cancelled")
 			return nil
 		}
-		if err := cloneRepo(); err != nil {
-			return fmt.Errorf("cloning repository: %w", err)
-		}
 	} else {
 		if err := gitFetch(); err != nil {
 			return fmt.Errorf("fetching remote: %w", err)
@@ -64,27 +66,42 @@ func Update(log *text.Logger) error {
 			log.Info("Cancelled")
 			return nil
 		}
-		if err := gitPull(); err != nil {
-			return fmt.Errorf("pulling latest source: %w", err)
-		}
 	}
 
 	cfg := settings.Default
 	buildPath := filepath.Join(cfg.BinDir(), "debforge.new")
 	finalPath := filepath.Join(cfg.BinDir(), "debforge")
 
+	s := text.StartSpinner(os.Stderr, "Setting up debforge...")
+
+	if sourceExists {
+		if err := gitPull(); err != nil {
+			s.Fail()
+			return fmt.Errorf("pulling latest source: %w", err)
+		}
+	} else {
+		if err := cloneRepo(); err != nil {
+			s.Fail()
+			return fmt.Errorf("cloning repository: %w", err)
+		}
+	}
+
 	if err := buildBinary(buildPath); err != nil {
+		s.Fail()
 		return fmt.Errorf("build failed: %w", err)
 	}
 
 	if err := verifyBinary(buildPath); err != nil {
+		s.Fail()
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
-	log.Info("Installing binary...")
 	if err := installBinary(buildPath, finalPath); err != nil {
+		s.Fail()
 		return fmt.Errorf("installing binary: %w", err)
 	}
+
+	s.Done()
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	if st.InstalledAt == "" {
@@ -115,14 +132,12 @@ func cloneRepo() error {
 		return fmt.Errorf("removing existing source directory: %w", err)
 	}
 	cmd := exec.Command("git", "clone", "-q", "--depth", "1", "--branch", cfg.Branch, "--", cfg.RepoURL, cfg.SourceDir())
-	cmd.Stdout = io.Discard
-	return executil.RunWithSpinner(cmd, "Cloning repository...")
+	return run(cmd)
 }
 
 func gitFetch() error {
 	cmd := exec.Command("git", "fetch", "-q", "origin", settings.Default.Branch)
 	cmd.Dir = settings.Default.SourceDir()
-	cmd.Stdout = io.Discard
 	return executil.RunWithSpinner(cmd, "Checking for updates...")
 }
 
@@ -154,14 +169,12 @@ func gitPull() error {
 	cfg := settings.Default
 	cmd := exec.Command("git", "fetch", "--depth", "1", "origin", cfg.Branch)
 	cmd.Dir = cfg.SourceDir()
-	cmd.Stdout = io.Discard
-	if err := executil.RunWithSpinner(cmd, "Pulling latest source..."); err != nil {
+	if err := run(cmd); err != nil {
 		return err
 	}
 	cmd = exec.Command("git", "reset", "--hard", "origin/"+cfg.Branch)
 	cmd.Dir = cfg.SourceDir()
-	cmd.Stdout = io.Discard
-	return executil.Run(cmd)
+	return run(cmd)
 }
 
 func gitDescribe() (string, error) {
@@ -205,7 +218,7 @@ func buildBinary(dst string) error {
 			cmd.Env = append(cmd.Env, e)
 		}
 	}
-	if err := executil.RunWithSpinner(cmd, "Building debforge..."); err != nil {
+	if err := run(cmd); err != nil {
 		return err
 	}
 	settings.Default.GoCacheClean()
