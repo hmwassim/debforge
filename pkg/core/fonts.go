@@ -2,6 +2,7 @@ package core
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -189,7 +190,13 @@ func extractFonts(path, fontDir string, force bool) error {
 	}
 	defer f.Close()
 
-	tr := tar.NewReader(f)
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("decompressing font archive: %w", err)
+	}
+	defer gr.Close()
+
+	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
