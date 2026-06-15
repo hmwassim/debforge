@@ -29,7 +29,7 @@ func metaPath(cachePath string) string {
 	return cachePath + ".meta"
 }
 
-func installCodebergFonts(log *text.Logger, s *text.Spinner) error {
+func installCodebergFonts(log *text.Logger) error {
 	cachePath := settings.Default.CacheDir() + "/fonts.tar.gz"
 	fontDir := "/usr/local/share/fonts"
 
@@ -56,12 +56,9 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner) error {
 		return err
 	}
 
-	s.Pause()
 	if err := packages.DownloadFile(cachePath, fontsURL, "Downloading custom fonts"); err != nil {
-		s.Resume()
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
-	s.Resume()
 
 	if err := saveMeta(cachePath); err != nil {
 		return err
