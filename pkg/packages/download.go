@@ -6,11 +6,9 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/cli"
-	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
@@ -83,11 +81,4 @@ func DownloadFile(path, url, desc string) error {
 	return os.Rename(tmp, path)
 }
 
-func ExtractTarGz(src, dest string) error {
-	if err := os.MkdirAll(dest, 0755); err != nil {
-		return err
-	}
-	extract := exec.Command("tar", "-xzf", src, "-C", dest)
-	extract.Stdout = io.Discard
-	return executil.Run(extract)
-}
+

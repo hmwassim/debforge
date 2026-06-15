@@ -143,7 +143,12 @@ func headETag(url string) (string, error) {
 }
 
 func extractFonts(path, fontDir string) error {
-	if err := packages.ExtractTarGz(path, fontDir); err != nil {
+	if err := os.MkdirAll(fontDir, 0755); err != nil {
+		return err
+	}
+	extract := exec.Command("tar", "-xzf", path, "-C", fontDir)
+	extract.Stdout = io.Discard
+	if err := executil.RunWithSpinner(extract, "Extracting fonts..."); err != nil {
 		return fmt.Errorf("extracting fonts: %w", err)
 	}
 	return executil.RunWithSpinner(exec.Command("fc-cache", "-f"), "Updating font cache...")
