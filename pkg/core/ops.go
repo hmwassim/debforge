@@ -38,7 +38,7 @@ func Setup(log *text.Logger, force bool) error {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
-	cur := currentCommit()
+	cur := currentCommit(log)
 	if cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit {
 		log.Info("New source detected since last setup, reapplying...")
 	}
@@ -160,11 +160,12 @@ func desiredConfigs() []string {
 	return paths
 }
 
-func currentCommit() string {
+func currentCommit(log *text.Logger) string {
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	cmd.Dir = settings.Default.SourceDir()
 	out, err := cmd.Output()
 	if err != nil {
+		log.Warn("Could not check source commit: %s", err)
 		return ""
 	}
 	return strings.TrimSpace(string(out))
