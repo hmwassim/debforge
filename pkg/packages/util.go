@@ -15,9 +15,6 @@ func AptInstall(pkgs []string, backport bool, msg string, force bool) error {
 		return nil
 	}
 	args := []string{"install", "-y"}
-	if force {
-		args = append(args, "--reinstall")
-	}
 	if backport {
 		args = append(args, "-t", "trixie-backports")
 	}
