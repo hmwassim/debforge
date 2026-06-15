@@ -27,6 +27,9 @@ func AptInstall(pkgs []string, backport bool, msg string, force bool) error {
 }
 
 func DeployConfig(dest, content string, mode os.FileMode) error {
+	if existing, err := os.ReadFile(dest); err == nil && string(existing) == content {
+		return nil
+	}
 	i := strings.LastIndex(dest, "/")
 	if i < 0 {
 		return fmt.Errorf("invalid config path: %q", dest)
@@ -76,7 +79,12 @@ func AptRemove(pkgs []string) error {
 }
 
 func EnableService(name string, force bool) error {
-	if force {
+	if !force {
+		if executil.Run(exec.Command("systemctl", "is-enabled", "--quiet", name)) == nil &&
+			executil.Run(exec.Command("systemctl", "is-active", "--quiet", name)) == nil {
+			return nil
+		}
+	} else {
 		executil.Run(exec.Command("systemctl", "disable", name))
 	}
 	return executil.Run(exec.Command("systemctl", "enable", "--now", name))
