@@ -60,7 +60,7 @@ func Repair(log *text.Logger) error {
 		}
 
 		if g.postInstall != nil {
-			if err := g.postInstall(log); err != nil {
+			if err := g.postInstall(log, s); err != nil {
 				errs = append(errs, fmt.Errorf("post-install %s: %w", g.name, err))
 			}
 		}
@@ -174,7 +174,7 @@ func enablei386() error {
 	return executil.Run(exec.Command("dpkg", "--add-architecture", "i386"))
 }
 
-func installFlathub(log *text.Logger) error {
+func installFlathub(log *text.Logger, s *text.Spinner) error {
 	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
 }
 

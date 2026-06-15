@@ -46,6 +46,25 @@ func (s *Spinner) run() {
 	}
 }
 
+func (s *Spinner) Pause() {
+	if s.stop == nil {
+		return
+	}
+	close(s.stop)
+	<-s.done
+	s.stop = nil
+}
+
+func (s *Spinner) Resume() {
+	if s.stop != nil {
+		return
+	}
+	s.stop = make(chan struct{})
+	s.done = make(chan struct{})
+	s.color = useColor(s.w)
+	go s.run()
+}
+
 func (s *Spinner) Done() {
 	if s.stop == nil {
 		return
