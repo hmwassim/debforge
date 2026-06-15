@@ -49,6 +49,11 @@ func Setup(log *text.Logger, force bool) error {
 	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
 	staleConfigs := setDiff(st.ManagedConfigs, desiredConfigs)
 
+	if !force && st.ManagedPackages != nil && len(stalePkgs) == 0 && len(staleConfigs) == 0 {
+		log.Success("Core setup already up to date")
+		return nil
+	}
+
 	if len(stalePkgs) > 0 {
 		log.Info("Removing %d stale package(s)...", len(stalePkgs))
 		if err := packages.AptRemove(stalePkgs); err != nil {
