@@ -27,7 +27,11 @@ func Run(cmd *exec.Cmd) error {
 
 func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 	w := os.Stderr
+
 	msg := "[i] " + desc
+	if useColor() {
+		msg = "\033[1;34m[i]\033[0m " + desc
+	}
 
 	if cmd.Stdout == nil {
 		cmd.Stdout = io.Discard
@@ -51,7 +55,7 @@ func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 		for {
 			select {
 			case err := <-done:
-				fmt.Fprintf(w, "\r%s\n", msg)
+				fmt.Fprintf(w, "\r%s\033[K\n", msg)
 				if err != nil {
 					if s := strings.TrimSpace(stderr.String()); s != "" {
 						return fmt.Errorf("%s: %w", s, err)
@@ -83,4 +87,14 @@ func isTerminal(f *os.File) bool {
 		return false
 	}
 	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+func useColor() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	if os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	return true
 }
