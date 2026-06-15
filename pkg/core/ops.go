@@ -39,19 +39,23 @@ func Setup(log *text.Logger, force bool) error {
 	}
 
 	cur := currentCommit(log)
-	if cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit {
-		log.Info("New source detected since last setup, reapplying...")
-	}
-
 	desiredPkgs := desiredPackages()
 	desiredConfigs := desiredConfigs()
-
 	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
 	staleConfigs := setDiff(st.ManagedConfigs, desiredConfigs)
 
 	if !force && st.ManagedPackages != nil && len(stalePkgs) == 0 && len(staleConfigs) == 0 {
-		log.Success("Core setup already up to date")
-		return nil
+		s := text.StartSpinner(os.Stderr, "Verifying core...")
+		if verifySetup(log) {
+			s.Done()
+			log.Success("Core setup already up to date")
+			return nil
+		}
+		s.Fail()
+	}
+
+	if cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit {
+		log.Info("New source detected since last setup, reapplying...")
 	}
 
 	if len(stalePkgs) > 0 {
@@ -163,6 +167,52 @@ func desiredConfigs() []string {
 		}
 	}
 	return paths
+}
+
+func verifySetup(log *text.Logger) bool {
+	var allPkgs []string
+	type configCheck struct {
+		dest    string
+		content string
+	}
+	var configs []configCheck
+	var services []string
+
+	for _, g := range groups {
+		allPkgs = append(allPkgs, g.packages...)
+		for _, cf := range g.configs {
+			configs = append(configs, configCheck{cf.dest, cf.content})
+		}
+		services = append(services, g.services...)
+	}
+
+	installed, err := packages.CheckInstalled(allPkgs)
+	if err != nil {
+		return false
+	}
+	for _, pkg := range allPkgs {
+		if !installed[pkg] {
+			return false
+		}
+	}
+
+	for _, cf := range configs {
+		data, err := os.ReadFile(cf.dest)
+		if err != nil || string(data) != cf.content {
+			return false
+		}
+	}
+
+	for _, svc := range services {
+		if err := executil.Run(exec.Command("systemctl", "is-enabled", "--quiet", svc)); err != nil {
+			return false
+		}
+		if err := executil.Run(exec.Command("systemctl", "is-active", "--quiet", svc)); err != nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 func currentCommit(log *text.Logger) string {
