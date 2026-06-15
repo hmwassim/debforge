@@ -82,6 +82,13 @@ cat > "${DEBFORGE_VAR}/state.json" <<EOF
 EOF
 chmod 600 "${DEBFORGE_VAR}/state.json"
 
+info "Running core setup..."
+if [ ! -x "$DEBFORGE_BIN/debforge" ]; then
+	err "Binary not found at $DEBFORGE_BIN/debforge — build may have failed"
+	exit 1
+fi
+"$DEBFORGE_BIN/debforge" core setup
+
 echo ""
 ok "debforge installed at ${BINARY}"
 echo "  Run 'sudo debforge --self-update' to update."
