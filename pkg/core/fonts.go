@@ -35,7 +35,6 @@ func installCodebergFonts(log *text.Logger) error {
 
 	if _, err := os.Stat(cachePath); err == nil {
 		if fresh, err := cacheIsFresh(cachePath); err == nil && fresh {
-			log.Info("Using cached fonts...")
 			if err := extractFonts(cachePath, fontDir); err == nil {
 				return nil
 			}
@@ -52,12 +51,11 @@ func installCodebergFonts(log *text.Logger) error {
 		os.Remove(metaPath(cachePath))
 	}
 
-	log.Info("Downloading custom fonts...")
 	if err := os.MkdirAll(settings.Default.CacheDir(), 0755); err != nil {
 		return err
 	}
 
-	if err := packages.DownloadFile(cachePath, fontsURL); err != nil {
+	if err := packages.DownloadFile(cachePath, fontsURL, "Downloading custom fonts"); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 

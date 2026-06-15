@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/cli"
@@ -26,7 +25,7 @@ var httpClient = &http.Client{
 	Timeout: 0,
 }
 
-func DownloadFile(path, url string) error {
+func DownloadFile(path, url, desc string) error {
 	tmp := path + ".tmp"
 
 	f, err := os.Create(tmp)
@@ -66,16 +65,14 @@ func DownloadFile(path, url string) error {
 		if err != nil {
 			return err
 		}
+		fmt.Fprintf(os.Stderr, "[i] %s...\n", desc)
 	} else {
 		start := time.Now()
-		pb := &progressWriter{total: total, start: start}
+		pb := &progressWriter{total: total, start: start, desc: desc}
 		if _, err := io.Copy(f, io.TeeReader(resp.Body, pb)); err != nil {
 			return err
 		}
 		pb.done()
-		if text.IsTerminal(os.Stderr) {
-			fmt.Fprintln(os.Stderr)
-		}
 	}
 
 	if err := f.Close(); err != nil {
@@ -101,6 +98,7 @@ type progressWriter struct {
 	current   int64
 	start     time.Time
 	lastPrint time.Time
+	desc      string
 }
 
 func (w *progressWriter) Write(p []byte) (int, error) {
@@ -124,12 +122,6 @@ func (w *progressWriter) print() {
 		return
 	}
 	pct := float64(w.current) / float64(w.total) * 100
-	barWidth := 40
-	filled := int(float64(barWidth) * float64(w.current) / float64(w.total))
-	bar := strings.Repeat("=", filled) + strings.Repeat("-", barWidth-filled)
-	if filled < barWidth {
-		bar = bar[:filled] + ">" + bar[filled+1:]
-	}
 	elapsed := time.Since(w.start)
 	rate := float64(w.current) / elapsed.Seconds()
 	var etaStr string
@@ -139,5 +131,21 @@ func (w *progressWriter) print() {
 	} else {
 		etaStr = "?"
 	}
-	fmt.Fprintf(os.Stderr, "\033[2K\r  [%s] %3.0f%%  ETA %s", bar, pct, etaStr)
+	done := w.current >= w.total
+	if done {
+		fmt.Fprintf(os.Stderr, "\r[i] %s...\033[K\n", w.desc)
+	} else {
+		fmt.Fprintf(os.Stderr, "\r[i] %s... [%3.0f%% %s %s]\033[K", w.desc, pct, formatRate(rate), etaStr)
+	}
+}
+
+func formatRate(bytesPerSec float64) string {
+	switch {
+	case bytesPerSec >= 1024*1024:
+		return fmt.Sprintf("%.1fMB/s", bytesPerSec/(1024*1024))
+	case bytesPerSec >= 1024:
+		return fmt.Sprintf("%.0fKB/s", bytesPerSec/1024)
+	default:
+		return fmt.Sprintf("%.0fB/s", bytesPerSec)
+	}
 }
