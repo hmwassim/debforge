@@ -71,11 +71,11 @@ func (s *Spinner) Done() {
 		s.stop = nil
 	}
 	pre, suf := ansiPair(s.color, successColor)
-	cr := ""
 	if IsTerminal(s.w) {
-		cr = "\r"
+		fmt.Fprintf(s.w, "\r%s[*]%s %s\033[K\n", pre, suf, s.desc)
+	} else {
+		fmt.Fprintf(s.w, "[*] %s\n", s.desc)
 	}
-	fmt.Fprintf(s.w, "%s%s[*]%s %s\n", cr, pre, suf, s.desc)
 }
 
 func (s *Spinner) Fail() {
@@ -85,11 +85,11 @@ func (s *Spinner) Fail() {
 		s.stop = nil
 	}
 	pre, suf := ansiPair(s.color, errorColor)
-	cr := ""
 	if IsTerminal(s.w) {
-		cr = "\r"
+		fmt.Fprintf(s.w, "\r%s[x]%s %s\033[K\n", pre, suf, s.desc)
+	} else {
+		fmt.Fprintf(s.w, "[x] %s\n", s.desc)
 	}
-	fmt.Fprintf(s.w, "%s%s[x]%s %s\n", cr, pre, suf, s.desc)
 }
 
 func (s *Spinner) UpdateDesc(desc string) {

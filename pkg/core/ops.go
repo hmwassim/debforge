@@ -39,7 +39,8 @@ func Repair(log *text.Logger) error {
 	}
 
 	for _, g := range groups {
-		s := text.StartSpinner(os.Stderr, "Setting up "+g.name+"...")
+		groupDesc := "Setting up " + g.name + "..."
+		s := text.StartSpinner(os.Stderr, groupDesc)
 
 		if err := packages.AptInstall(g.packages, g.backport, ""); err != nil {
 			s.Fail()
@@ -68,6 +69,7 @@ func Repair(log *text.Logger) error {
 			}
 		}
 
+		s.UpdateDesc(groupDesc)
 		if failed {
 			s.Fail()
 		} else {
