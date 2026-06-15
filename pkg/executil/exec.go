@@ -26,7 +26,13 @@ func Run(cmd *exec.Cmd) error {
 }
 
 func RunWithSpinner(cmd *exec.Cmd, msg string) error {
-	terminal := isTerminal(os.Stderr)
+	w := os.Stderr
+	terminal := isTerminal(w)
+
+	if terminal {
+		fmt.Fprintf(w, "%s ", msg)
+	}
+
 	done := make(chan struct{})
 	go func() {
 		if !terminal {
@@ -38,10 +44,10 @@ func RunWithSpinner(cmd *exec.Cmd, msg string) error {
 		for {
 			select {
 			case <-done:
-				fmt.Fprintf(os.Stderr, "\r%s\r", strings.Repeat(" ", len(msg)+2))
+				fmt.Fprintf(w, "\r%s\n", msg)
 				return
 			default:
-				fmt.Fprintf(os.Stderr, "\r%s %s ", msg, chars[i%len(chars)])
+				fmt.Fprintf(w, "\r%s %s ", msg, chars[i%len(chars)])
 				i++
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -50,6 +56,9 @@ func RunWithSpinner(cmd *exec.Cmd, msg string) error {
 
 	err := Run(cmd)
 	close(done)
+	if terminal {
+		time.Sleep(10 * time.Millisecond)
+	}
 	return err
 }
 

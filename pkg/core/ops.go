@@ -33,16 +33,13 @@ func Repair(log *text.Logger) error {
 	}
 
 	if len(errs) == 0 {
-		log.Info("Updating package lists...")
 		if err := executil.RunWithSpinner(exec.Command("apt", "update"), "Updating package lists..."); err != nil {
 			errs = append(errs, fmt.Errorf("apt update: %w", err))
 		}
 	}
 
 	for _, g := range groups {
-		log.Info("Installing %s...", g.name)
-
-		if err := packages.AptInstall(g.packages, g.backport); err != nil {
+		if err := packages.AptInstall(g.packages, g.backport, g.name); err != nil {
 			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
 			continue
 		}
@@ -82,8 +79,6 @@ func Repair(log *text.Logger) error {
 }
 
 func Update(log *text.Logger) error {
-	log.Info("Updating core packages...")
-
 	release, err := lock.Acquire(settings.Default.LockFile())
 	if err != nil {
 		return fmt.Errorf("cannot acquire lock: %w", err)
@@ -103,10 +98,10 @@ func Update(log *text.Logger) error {
 		}
 	}
 
-	if err := packages.AptInstall(defaultPkgs, false); err != nil {
+	if err := packages.AptInstall(defaultPkgs, false, "core"); err != nil {
 		return fmt.Errorf("upgrading core: %w", err)
 	}
-	if err := packages.AptInstall(backportPkgs, true); err != nil {
+	if err := packages.AptInstall(backportPkgs, true, "backports"); err != nil {
 		return fmt.Errorf("upgrading backports: %w", err)
 	}
 

@@ -10,7 +10,7 @@ import (
 	"github.com/hmwassim/debforge/pkg/executil"
 )
 
-func AptInstall(pkgs []string, backport bool) error {
+func AptInstall(pkgs []string, backport bool, name string) error {
 	if len(pkgs) == 0 {
 		return nil
 	}
@@ -19,7 +19,7 @@ func AptInstall(pkgs []string, backport bool) error {
 		args = append(args, "-t", "trixie-backports")
 	}
 	args = append(args, pkgs...)
-	msg := fmt.Sprintf("Installing %d packages...", len(pkgs))
+	msg := fmt.Sprintf("Installing %s...", name)
 	return executil.RunWithSpinner(exec.Command("apt", args...), msg)
 }
 
