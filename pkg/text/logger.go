@@ -8,46 +8,50 @@ import (
 
 type Logger struct {
 	debug bool
+	color bool
 }
 
 func New() *Logger {
-	return &Logger{debug: os.Getenv("DEBFORGE_DEBUG") == "1"}
+	return &Logger{
+		debug: os.Getenv("DEBFORGE_DEBUG") == "1",
+		color: useColor(os.Stderr),
+	}
 }
 
 func (l *Logger) Info(format string, args ...interface{}) {
-	l.print(os.Stderr, blue, "i", format, args...)
+	l.print(blue, "i", format, args...)
 }
 
 func (l *Logger) Success(format string, args ...interface{}) {
-	l.print(os.Stderr, green, "*", format, args...)
+	l.print(green, "*", format, args...)
 }
 
 func (l *Logger) Warn(format string, args ...interface{}) {
-	l.print(os.Stderr, yellow, "!", format, args...)
+	l.print(yellow, "!", format, args...)
 }
 
 func (l *Logger) Error(format string, args ...interface{}) {
-	l.print(os.Stderr, red, "x", format, args...)
+	l.print(red, "x", format, args...)
 }
 
 func (l *Logger) Debug(format string, args ...interface{}) {
 	if !l.debug {
 		return
 	}
-	l.print(os.Stderr, gray, "-", format, args...)
+	l.print(gray, "-", format, args...)
 }
 
-func (l *Logger) print(w io.Writer, color, symbol, format string, args ...interface{}) {
+func (l *Logger) print(color, symbol, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	if useColor(w) {
-		fmt.Fprintf(w, "%s[%s]%s %s\n", bold+color, symbol, reset, msg)
+	if l.color {
+		fmt.Fprintf(os.Stderr, "%s[%s]%s %s\n", bold+color, symbol, reset, msg)
 	} else {
-		fmt.Fprintf(w, "[%s] %s\n", symbol, msg)
+		fmt.Fprintf(os.Stderr, "[%s] %s\n", symbol, msg)
 	}
 }
 
 func (l *Logger) Prompt(msg string) bool {
-	if useColor(os.Stderr) {
+	if l.color {
 		fmt.Fprintf(os.Stderr, "%s[?]%s %s [y/N] ", bold+yellow, reset, msg)
 	} else {
 		fmt.Fprintf(os.Stderr, "[?] %s [y/N] ", msg)

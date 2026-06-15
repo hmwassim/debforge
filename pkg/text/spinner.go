@@ -77,19 +77,15 @@ func (s *Spinner) doneFail(ok bool) {
 		s.stop = nil
 	}
 
-	s.mu.Lock()
-	desc := s.desc
-	s.mu.Unlock()
-
 	mark, pair := "[*]", successColor
 	if !ok {
 		mark, pair = "[x]", errorColor
 	}
 	pre, suf := ansiPair(s.color, pair)
 	if IsTerminal(s.w) {
-		fmt.Fprintf(s.w, "\r%s%s%s %s\033[K\n", pre, mark, suf, desc)
+		fmt.Fprintf(s.w, "\r%s%s%s %s\033[K\n", pre, mark, suf, s.desc)
 	} else {
-		fmt.Fprintf(s.w, "%s %s\n", mark, desc)
+		fmt.Fprintf(s.w, "%s %s\n", mark, s.desc)
 	}
 }
 

@@ -57,7 +57,7 @@ func Repair(log *text.Logger) error {
 
 		for _, svc := range g.services {
 			if err := packages.EnableService(svc); err != nil {
-				log.Warn("Failed to enable %s (non-fatal, will retry on next repair): %s", svc, err)
+				log.Warn("Could not enable %s (non-fatal, will retry on next repair): %s", svc, err)
 			}
 		}
 
@@ -91,6 +91,8 @@ func Repair(log *text.Logger) error {
 }
 
 func Update(log *text.Logger) error {
+	log.Info("Updating core packages...")
+
 	release, err := lock.Acquire(settings.Default.LockFile())
 	if err != nil {
 		return fmt.Errorf("cannot acquire lock: %w", err)
@@ -200,7 +202,7 @@ func ensureResolvSymlink(log *text.Logger) error {
 		return err
 	}
 	if _, err := os.Stat(target); os.IsNotExist(err) {
-		log.Warn("systemd-resolved is not yet running; /etc/resolv.conf symlink is dangling and will resolve once the service starts")
+		log.Warn("/etc/resolv.conf symlink created but systemd-resolved is not running yet; DNS will work once the service starts")
 	}
 	return nil
 }
