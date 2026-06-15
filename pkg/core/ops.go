@@ -92,6 +92,12 @@ func Setup(log *text.Logger, force bool) error {
 		}
 	}
 
+	if len(errs) == 0 {
+		if err := executil.RunWithSpinner(exec.Command("apt-get", "upgrade", "-y"), "Upgrading system packages..."); err != nil {
+			errs = append(errs, fmt.Errorf("apt-get upgrade: %w", err))
+		}
+	}
+
 	for _, g := range groups {
 		s := text.StartSpinner(os.Stderr, "Setting up "+g.name+"...")
 
