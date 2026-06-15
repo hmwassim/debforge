@@ -23,9 +23,11 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+apt-get update -qq
+apt-get upgrade -y -qq
+
 if ! command -v git &>/dev/null || ! command -v go &>/dev/null; then
     info "Installing build dependencies..."
-    apt-get update
     apt-get install -y git golang-go
 fi
 
