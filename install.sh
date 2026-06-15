@@ -41,7 +41,13 @@ rm -rf "$DEBFORGE_SRC"
 git clone --depth 1 "$REMOTE" "$DEBFORGE_SRC"
 
 info "Building debforge..."
-(cd "$DEBFORGE_SRC" && go build -o "$DEBFORGE_BIN/debforge" ./cmd/debforge/)
+GO_DIRS="/opt/debforge/var/gopath /opt/debforge/var/gopath/mod /opt/debforge/var/gopath/buildcache"
+mkdir -p $GO_DIRS
+(cd "$DEBFORGE_SRC" && \
+ GOPATH=/opt/debforge/var/gopath \
+ GOMODCACHE=/opt/debforge/var/gopath/mod \
+ GOCACHE=/opt/debforge/var/gopath/buildcache \
+ go build -o "$DEBFORGE_BIN/debforge" ./cmd/debforge/)
 
 chmod +x "${DEBFORGE_BIN}/debforge"
 
