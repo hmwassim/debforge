@@ -25,12 +25,13 @@ func Run(cmd *exec.Cmd) error {
 	return nil
 }
 
-func RunWithSpinner(cmd *exec.Cmd, msg string) error {
+func RunWithSpinner(cmd *exec.Cmd, desc string) error {
 	w := os.Stderr
+	msg := "[i] " + desc
 	terminal := isTerminal(w)
 
 	if terminal {
-		fmt.Fprintf(w, "%s ", msg)
+		fmt.Fprintf(w, "%s [ ]", msg)
 	}
 
 	done := make(chan struct{})
@@ -47,7 +48,7 @@ func RunWithSpinner(cmd *exec.Cmd, msg string) error {
 				fmt.Fprintf(w, "\r%s\n", msg)
 				return
 			default:
-				fmt.Fprintf(w, "\r%s %s ", msg, chars[i%len(chars)])
+				fmt.Fprintf(w, "\r%s [%s]", msg, chars[i%len(chars)])
 				i++
 				time.Sleep(100 * time.Millisecond)
 			}

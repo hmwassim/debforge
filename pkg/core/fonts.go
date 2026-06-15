@@ -148,5 +148,5 @@ func extractFonts(path, fontDir string) error {
 	if err := packages.ExtractTarGz(path, fontDir); err != nil {
 		return fmt.Errorf("extracting fonts: %w", err)
 	}
-	return executil.Run(exec.Command("fc-cache", "-f"))
+	return executil.RunWithSpinner(exec.Command("fc-cache", "-f"), "Updating font cache...")
 }

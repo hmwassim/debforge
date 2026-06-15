@@ -39,7 +39,7 @@ func Repair(log *text.Logger) error {
 	}
 
 	for _, g := range groups {
-		if err := packages.AptInstall(g.packages, g.backport, g.name); err != nil {
+		if err := packages.AptInstall(g.packages, g.backport, "Installing "+g.name+"..."); err != nil {
 			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
 			continue
 		}
@@ -98,10 +98,10 @@ func Update(log *text.Logger) error {
 		}
 	}
 
-	if err := packages.AptInstall(defaultPkgs, false, "core"); err != nil {
+	if err := packages.AptInstall(defaultPkgs, false, "Upgrading core packages..."); err != nil {
 		return fmt.Errorf("upgrading core: %w", err)
 	}
-	if err := packages.AptInstall(backportPkgs, true, "backports"); err != nil {
+	if err := packages.AptInstall(backportPkgs, true, "Upgrading backports..."); err != nil {
 		return fmt.Errorf("upgrading backports: %w", err)
 	}
 
@@ -170,8 +170,7 @@ func enablei386() error {
 }
 
 func installFlathub(log *text.Logger) error {
-	log.Info("Adding Flathub remote...")
-	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
+	return executil.RunWithSpinner(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"), "Adding Flathub remote...")
 }
 
 func ensureResolvSymlink() error {

@@ -25,11 +25,11 @@ func New() *Logger {
 }
 
 func (l *Logger) Info(format string, args ...interface{}) {
-	l.print(os.Stdout, blue, "i", format, args...)
+	l.print(os.Stderr, blue, "i", format, args...)
 }
 
 func (l *Logger) Success(format string, args ...interface{}) {
-	l.print(os.Stdout, green, "*", format, args...)
+	l.print(os.Stderr, green, "*", format, args...)
 }
 
 func (l *Logger) Warn(format string, args ...interface{}) {
