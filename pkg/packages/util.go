@@ -70,6 +70,13 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 	return installed, nil
 }
 
+func AptRemove(pkgs []string) error {
+	if len(pkgs) == 0 {
+		return nil
+	}
+	return executil.Run(exec.Command("apt", append([]string{"remove", "-y"}, pkgs...)...))
+}
+
 func EnableService(name string, force bool) error {
 	if force {
 		executil.Run(exec.Command("systemctl", "disable", name))

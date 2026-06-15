@@ -17,6 +17,11 @@ import (
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
+type debforgeState struct {
+	InstalledAt string `json:"installed_at"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+}
+
 func run(cmd *exec.Cmd) error {
 	cmd.Stdout = io.Discard
 	return executil.Run(cmd)
@@ -37,8 +42,9 @@ func Update(log *text.Logger) error {
 	}
 	defer release()
 
-	st, err := state.Load()
-	if err != nil {
+	st := &debforgeState{}
+	store := state.New("debforge")
+	if err := store.Load(st); err != nil {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
@@ -109,7 +115,7 @@ func Update(log *text.Logger) error {
 		st.InstalledAt = now
 	}
 	st.UpdatedAt = now
-	if err := st.Save(); err != nil {
+	if err := store.Save(st); err != nil {
 		return fmt.Errorf("saving state: %w", err)
 	}
 

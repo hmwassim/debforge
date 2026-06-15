@@ -15,7 +15,7 @@ type Handler struct{}
 func (Handler) Type() string { return "core" }
 
 func (Handler) Install(string) error {
-	return fmt.Errorf("core packages are managed via 'debforge core setup' or 'debforge core update'")
+	return fmt.Errorf("core packages are managed via 'debforge core setup'")
 }
 
 func (Handler) Remove(string) error {

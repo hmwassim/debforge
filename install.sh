@@ -74,13 +74,13 @@ fi
 ln -sf "$DEBFORGE_BIN/debforge" "$BINARY"
 
 info "Writing state..."
-cat > "${DEBFORGE_VAR}/state.json" <<EOF
+mkdir -p "${DEBFORGE_VAR}/states"
+cat > "${DEBFORGE_VAR}/states/debforge.state.json" <<EOF
 {
-  "_version": 1,
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
-chmod 600 "${DEBFORGE_VAR}/state.json"
+chmod 600 "${DEBFORGE_VAR}/states/debforge.state.json"
 
 info "Running core setup..."
 if [ ! -x "$DEBFORGE_BIN/debforge" ]; then

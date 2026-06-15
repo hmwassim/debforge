@@ -54,17 +54,6 @@ func main() {
 				log.Error("%s", err)
 				os.Exit(1)
 			}
-		case "repair":
-			log.Warn("'core repair' is deprecated, use 'core setup'")
-			if err := core.Setup(log, hasFlag(rest, "-f", "--force")); err != nil {
-				log.Error("%s", err)
-				os.Exit(1)
-			}
-		case "update":
-			if err := core.Update(log); err != nil {
-				log.Error("%s", err)
-				os.Exit(1)
-			}
 		case "list":
 			core.List(log)
 		default:

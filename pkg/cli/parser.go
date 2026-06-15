@@ -40,7 +40,7 @@ func Parse() (*ParseResult, error) {
 		return &ParseResult{Op: OpHelp}, nil
 	case "core":
 		if len(args) < 2 {
-			return nil, fmt.Errorf("core requires a subcommand: setup, update, list")
+			return nil, fmt.Errorf("core requires a subcommand: setup, list")
 		}
 		return &ParseResult{Op: OpCore, Args: args[1:]}, nil
 	default:
@@ -57,7 +57,6 @@ Usage:
   %[1]s --self-remove            Remove debforge and all data
   %[1]s core setup               Set up core packages and configs
   %[1]s core setup -f            Force re-apply all core packages and configs
-  %[1]s core update              Update core packages
   %[1]s core list                List core packages and status
   %[1]s --version, -V            Show version
   %[1]s --help, -h               Show this help message

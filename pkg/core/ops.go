@@ -11,8 +11,15 @@ import (
 	"github.com/hmwassim/debforge/pkg/lock"
 	"github.com/hmwassim/debforge/pkg/packages"
 	"github.com/hmwassim/debforge/pkg/settings"
+	"github.com/hmwassim/debforge/pkg/state"
 	"github.com/hmwassim/debforge/pkg/text"
 )
+
+type coreState struct {
+	LastSetupCommit string   `json:"last_setup_commit,omitempty"`
+	ManagedPackages []string `json:"managed_packages,omitempty"`
+	ManagedConfigs  []string `json:"managed_configs,omitempty"`
+}
 
 func Setup(log *text.Logger, force bool) error {
 	if force {
@@ -23,6 +30,36 @@ func Setup(log *text.Logger, force bool) error {
 
 	if err := settings.Default.EnsureDirsExist(); err != nil {
 		return fmt.Errorf("creating directories: %w", err)
+	}
+
+	st := &coreState{}
+	store := state.New("core")
+	if err := store.Load(st); err != nil {
+		return fmt.Errorf("loading state: %w", err)
+	}
+
+	cur := currentCommit()
+	if cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit {
+		log.Info("New source detected since last setup, reapplying...")
+	}
+
+	desiredPkgs := desiredPackages()
+	desiredConfigs := desiredConfigs()
+
+	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
+	staleConfigs := setDiff(st.ManagedConfigs, desiredConfigs)
+
+	if len(stalePkgs) > 0 {
+		log.Info("Removing %d stale package(s)...", len(stalePkgs))
+		if err := packages.AptRemove(stalePkgs); err != nil {
+			return fmt.Errorf("removing stale packages: %w", err)
+		}
+	}
+	for _, path := range staleConfigs {
+		log.Info("Removing stale config: %s", path)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			log.Warn("Could not remove %s: %s", path, err)
+		}
 	}
 
 	release, err := lock.Acquire(settings.Default.LockFile())
@@ -94,46 +131,60 @@ func Setup(log *text.Logger, force bool) error {
 		return fmt.Errorf("setup completed with %d error(s)", len(errs))
 	}
 
+	st.LastSetupCommit = cur
+	st.ManagedPackages = desiredPkgs
+	st.ManagedConfigs = desiredConfigs
+	if err := store.Save(st); err != nil {
+		log.Warn("Could not save state: %s", err)
+	}
+
 	log.Success("Core setup complete")
 	return nil
 }
 
-func Update(log *text.Logger) error {
-	log.Info("Updating core packages...")
-
-	if err := settings.Default.EnsureDirsExist(); err != nil {
-		return fmt.Errorf("creating directories: %w", err)
-	}
-
-	release, err := lock.Acquire(settings.Default.LockFile())
-	if err != nil {
-		return fmt.Errorf("cannot acquire lock: %w", err)
-	}
-	defer release()
-
-	if err := executil.RunWithSpinner(exec.Command("apt", "update"), "Updating package lists..."); err != nil {
-		return fmt.Errorf("apt update: %w", err)
-	}
-
-	var defaultPkgs, backportPkgs []string
+func desiredPackages() []string {
+	var pkgs []string
 	for _, g := range groups {
-		if g.backport {
-			backportPkgs = append(backportPkgs, g.packages...)
-		} else {
-			defaultPkgs = append(defaultPkgs, g.packages...)
+		pkgs = append(pkgs, g.packages...)
+	}
+	return pkgs
+}
+
+func desiredConfigs() []string {
+	var paths []string
+	for _, g := range groups {
+		for _, cf := range g.configs {
+			paths = append(paths, cf.dest)
 		}
 	}
+	return paths
+}
 
-	if err := packages.AptInstall(defaultPkgs, false, "Upgrading core packages...", false); err != nil {
-		return fmt.Errorf("upgrading core: %w", err)
+func currentCommit() string {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = settings.Default.SourceDir()
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
 	}
-	if err := packages.AptInstall(backportPkgs, true, "Upgrading backports...", false); err != nil {
-		return fmt.Errorf("upgrading backports: %w", err)
-	}
-	// postInstall hooks are intentionally skipped here; run 'core setup' for first-time setup.
+	return strings.TrimSpace(string(out))
+}
 
-	log.Success("Core packages up to date")
-	return nil
+func setDiff(prev, cur []string) []string {
+	if len(prev) == 0 {
+		return nil
+	}
+	curSet := make(map[string]bool, len(cur))
+	for _, s := range cur {
+		curSet[s] = true
+	}
+	var diff []string
+	for _, s := range prev {
+		if !curSet[s] {
+			diff = append(diff, s)
+		}
+	}
+	return diff
 }
 
 func List(log *text.Logger) {
