@@ -272,20 +272,21 @@ func List(log *text.Logger) {
 }
 
 func ensureSourcesList(force bool) error {
-	const path = "/etc/apt/sources.list.d/debforge.sources"
-	const checkPath = "/etc/apt/sources.list"
+	const path = "/etc/apt/sources.list"
+	const backupPath = "/etc/apt/sources.list.debforge-backup"
 	if !force {
-		if data, err := os.ReadFile(path); err == nil && string(data) == sourcesList {
+		data, err := os.ReadFile(path)
+		if err == nil && strings.Contains(string(data), "trixie") {
 			return nil
 		}
-		if _, err := os.Stat(checkPath); err == nil {
-			if data, err := os.ReadFile(checkPath); err == nil && strings.Contains(string(data), "trixie") {
-				return nil
+	}
+	if _, err := os.Stat(path); err == nil {
+		if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+			data, err := os.ReadFile(path)
+			if err == nil && string(data) != sourcesList {
+				os.WriteFile(backupPath, data, 0644)
 			}
 		}
-	}
-	if err := os.MkdirAll("/etc/apt/sources.list.d", 0755); err != nil {
-		return err
 	}
 	return os.WriteFile(path, []byte(sourcesList), 0644)
 }

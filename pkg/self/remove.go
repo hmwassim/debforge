@@ -3,9 +3,11 @@ package self
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/lock"
 	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/text"
@@ -41,8 +43,41 @@ func Remove(log *text.Logger) error {
 		return fmt.Errorf("removing binary: %w", err)
 	}
 
+	restoreSourcesBackup(log)
+
 	log.Success("debforge has been removed")
 	return nil
+}
+
+func restoreSourcesBackup(log *text.Logger) {
+	const backupPath = "/etc/apt/sources.list.debforge-backup"
+	const sourcesPath = "/etc/apt/sources.list"
+
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		return
+	}
+
+	data, err := os.ReadFile(backupPath)
+	if err != nil {
+		log.Warn("Could not read sources.list backup: %s", err)
+		return
+	}
+
+	if err := os.WriteFile(sourcesPath, data, 0644); err != nil {
+		log.Warn("Could not restore sources.list: %s", err)
+		return
+	}
+	os.Remove(backupPath)
+
+	log.Info("Original sources.list restored")
+	log.Info("Updating package lists...")
+	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
+		log.Warn("apt-get update failed: %s", err)
+	}
+	log.Info("Upgrading system packages...")
+	if err := executil.Run(exec.Command("apt-get", "upgrade", "-y")); err != nil {
+		log.Warn("apt-get upgrade failed: %s", err)
+	}
 }
 
 var dangerousRoots = []string{
