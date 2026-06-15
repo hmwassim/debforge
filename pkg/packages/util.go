@@ -19,7 +19,8 @@ func AptInstall(pkgs []string, backport bool) error {
 		args = append(args, "-t", "trixie-backports")
 	}
 	args = append(args, pkgs...)
-	return executil.Run(exec.Command("apt", args...))
+	msg := fmt.Sprintf("Installing %d packages...", len(pkgs))
+	return executil.RunWithSpinner(exec.Command("apt", args...), msg)
 }
 
 func DeployConfig(dest, content string, mode os.FileMode) error {

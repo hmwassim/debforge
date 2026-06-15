@@ -34,7 +34,7 @@ func Repair(log *text.Logger) error {
 
 	if len(errs) == 0 {
 		log.Info("Updating package lists...")
-		if err := executil.Run(exec.Command("apt", "update")); err != nil {
+		if err := executil.RunWithSpinner(exec.Command("apt", "update"), "Updating package lists..."); err != nil {
 			errs = append(errs, fmt.Errorf("apt update: %w", err))
 		}
 	}
@@ -90,7 +90,7 @@ func Update(log *text.Logger) error {
 	}
 	defer release()
 
-	if err := executil.Run(exec.Command("apt", "update")); err != nil {
+	if err := executil.RunWithSpinner(exec.Command("apt", "update"), "Updating package lists..."); err != nil {
 		return fmt.Errorf("apt update: %w", err)
 	}
 
