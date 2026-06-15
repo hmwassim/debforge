@@ -43,32 +43,6 @@ info "Building debforge..."
 
 chmod +x "${DEBFORGE_BIN}/debforge"
 
-if [ ! -f /etc/systemd/system/debforge.timer ]; then
-    info "Creating systemd timer for periodic setup..."
-    cat > /etc/systemd/system/debforge.service <<'EOF'
-[Unit]
-Description=debforge
-
-[Service]
-Type=oneshot
-ExecStart=/opt/debforge/bin/debforge core setup
-EOF
-    cat > /etc/systemd/system/debforge.timer <<'EOF'
-[Unit]
-Description=Run debforge setup daily
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
-    systemctl daemon-reload
-    systemctl enable --now debforge.timer
-    success "Systemd timer created and enabled"
-fi
-
 "${DEBFORGE_BIN}/debforge" core setup
 
 success "debforge is installed and up to date"
