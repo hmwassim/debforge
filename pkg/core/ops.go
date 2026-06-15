@@ -184,7 +184,6 @@ func enablei386() error {
 }
 
 func installFlathub(log *text.Logger, s *text.Spinner) error {
-	s.UpdateDesc("Adding Flathub remote...")
 	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
 }
 
