@@ -34,24 +34,20 @@ func installCodebergFonts(log *text.Logger) error {
 	fontDir := "/usr/local/share/fonts"
 
 	if _, err := os.Stat(cachePath); err == nil {
-		s := text.StartSpinner(os.Stderr, "Installing fonts...")
 		fresh, err := cacheIsFresh(cachePath)
 		if err == nil && fresh {
 			if err := extractFonts(cachePath, fontDir); err == nil {
-				s.Done()
 				return nil
 			}
 			log.Warn("Cached fonts are corrupt, re-downloading...")
 		} else if _, metaErr := os.Stat(metaPath(cachePath)); os.IsNotExist(metaErr) {
 			if err := saveMeta(cachePath); err == nil {
 				if err := extractFonts(cachePath, fontDir); err == nil {
-					s.Done()
 					return nil
 				}
 			}
 			log.Warn("Cached fonts are corrupt, re-downloading...")
 		}
-		s.Fail()
 		os.Remove(cachePath)
 		os.Remove(metaPath(cachePath))
 	}
@@ -68,10 +64,7 @@ func installCodebergFonts(log *text.Logger) error {
 		return err
 	}
 
-	s := text.StartSpinner(os.Stderr, "Installing fonts...")
-	err := extractFonts(cachePath, fontDir)
-	s.Done()
-	return err
+	return extractFonts(cachePath, fontDir)
 }
 
 func cacheIsFresh(path string) (bool, error) {

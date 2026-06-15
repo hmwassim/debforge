@@ -39,7 +39,10 @@ func Repair(log *text.Logger) error {
 	}
 
 	for _, g := range groups {
-		if err := packages.AptInstall(g.packages, g.backport, "Installing "+g.name+"..."); err != nil {
+		s := text.StartSpinner(os.Stderr, "Setting up "+g.name+"...")
+
+		if err := packages.AptInstall(g.packages, g.backport, ""); err != nil {
+			s.Fail()
 			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
 			continue
 		}
@@ -61,6 +64,8 @@ func Repair(log *text.Logger) error {
 				errs = append(errs, fmt.Errorf("post-install %s: %w", g.name, err))
 			}
 		}
+
+		s.Done()
 	}
 
 	if err := ensureResolvSymlink(); err != nil {
@@ -170,7 +175,7 @@ func enablei386() error {
 }
 
 func installFlathub(log *text.Logger) error {
-	return executil.RunWithSpinner(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"), "Adding Flathub remote...")
+	return executil.Run(exec.Command("flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo"))
 }
 
 func ensureResolvSymlink() error {

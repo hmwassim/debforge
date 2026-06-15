@@ -19,6 +19,9 @@ func AptInstall(pkgs []string, backport bool, msg string) error {
 		args = append(args, "-t", "trixie-backports")
 	}
 	args = append(args, pkgs...)
+	if msg == "" {
+		return executil.Run(exec.Command("apt", args...))
+	}
 	return executil.RunWithSpinner(exec.Command("apt", args...), msg)
 }
 
