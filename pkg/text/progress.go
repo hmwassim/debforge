@@ -1,7 +1,6 @@
 package text
 
 import (
-	"fmt"
 	"io"
 	"time"
 )
@@ -43,9 +42,9 @@ func (p *Progress) Done() {
 func (p *Progress) Fail() {
 	pre, suf := ansiPair(p.color, errorColor)
 	if IsTerminal(p.w) {
-		fmt.Fprintf(p.w, "\r%s[x]%s %s...\033[K\n", pre, suf, p.desc)
+		ConsoleWritef(p.w, "\r%s[x]%s %s...\033[K\n", pre, suf, p.desc)
 	} else {
-		fmt.Fprintf(p.w, "[x] %s...\n", p.desc)
+		ConsoleWritef(p.w, "[x] %s...\n", p.desc)
 	}
 }
 
@@ -53,13 +52,16 @@ func (p *Progress) write() {
 	if p.current >= p.total {
 		pre, suf := ansiPair(p.color, successColor)
 		if IsTerminal(p.w) {
-			fmt.Fprintf(p.w, "\r%s[*]%s %s...\033[K\n", pre, suf, p.desc)
+			ConsoleWritef(p.w, "\r%s[*]%s %s...\033[K\n", pre, suf, p.desc)
 		} else {
-			fmt.Fprintf(p.w, "[*] %s...\n", p.desc)
+			ConsoleWritef(p.w, "[*] %s...\n", p.desc)
 		}
 		return
 	}
 	if !IsTerminal(p.w) {
+		return
+	}
+	if p.total <= 0 {
 		return
 	}
 	frame := spinFrames[p.frameIdx%len(spinFrames)]
@@ -68,7 +70,7 @@ func (p *Progress) write() {
 	divisor := float64(p.total) / tv
 	cv := float64(p.current) / divisor
 	pre, suf := ansiPair(p.color, frameColor)
-	fmt.Fprintf(p.w, "\r%s[%s]%s %s... [%.0f/%.0f %s]\033[K", pre, frame, suf, p.desc, cv, tv, unit)
+	ConsoleWritef(p.w, "\r%s[%s]%s %s... [%.0f/%.0f %s]\033[K", pre, frame, suf, p.desc, cv, tv, unit)
 }
 
 func formatSize(bytes int64) (float64, string) {

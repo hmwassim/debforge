@@ -44,17 +44,17 @@ func (l *Logger) Debug(format string, args ...interface{}) {
 func (l *Logger) print(color, symbol, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if l.color {
-		fmt.Fprintf(os.Stderr, "%s[%s]%s %s\n", bold+color, symbol, reset, msg)
+		ConsoleWritef(os.Stderr, "%s[%s]%s %s\n", bold+color, symbol, reset, msg)
 	} else {
-		fmt.Fprintf(os.Stderr, "[%s] %s\n", symbol, msg)
+		ConsoleWritef(os.Stderr, "[%s] %s\n", symbol, msg)
 	}
 }
 
 func (l *Logger) Prompt(msg string) bool {
 	if l.color {
-		fmt.Fprintf(os.Stderr, "%s[?]%s %s [y/N] ", bold+yellow, reset, msg)
+		ConsoleWritef(os.Stderr, "%s[?]%s %s [y/N] ", bold+yellow, reset, msg)
 	} else {
-		fmt.Fprintf(os.Stderr, "[?] %s [y/N] ", msg)
+		ConsoleWritef(os.Stderr, "[?] %s [y/N] ", msg)
 	}
 	var resp string
 	tty, err := os.Open("/dev/tty")

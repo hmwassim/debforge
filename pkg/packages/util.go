@@ -1,10 +1,10 @@
 package packages
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -27,17 +27,56 @@ func AptInstall(pkgs []string, backport bool, msg string) error {
 }
 
 func DeployConfig(dest, content string, mode os.FileMode) error {
-	if existing, err := os.ReadFile(dest); err == nil && string(existing) == content {
-		return nil
+	if existing, err := os.ReadFile(dest); err == nil {
+		contentMatch := string(existing) == content
+		var modeMatch bool
+		if fi, statErr := os.Stat(dest); statErr == nil {
+			modeMatch = fi.Mode().Perm() == mode
+		}
+		if contentMatch && modeMatch {
+			return nil
+		}
+		if contentMatch {
+			return os.Chmod(dest, mode)
+		}
 	}
-	i := strings.LastIndex(dest, "/")
-	if i < 0 {
-		return fmt.Errorf("invalid config path: %q", dest)
-	}
-	if err := os.MkdirAll(dest[:i], 0755); err != nil {
+
+	dir := filepath.Dir(dest)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(dest, []byte(content), mode)
+
+	tmp := dest + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			f.Close()
+			os.Remove(tmp)
+		}
+	}()
+
+	if _, err := f.WriteString(content); err != nil {
+		return err
+	}
+	if err := f.Chmod(mode); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tmp, dest); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
 }
 
 func CheckInstalled(pkgs []string) (map[string]bool, error) {
@@ -50,11 +89,23 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	installed := make(map[string]bool, len(pkgs))
-	for _, pkg := range pkgs {
+	return parseDpkgSelections(string(out), pkgs), nil
+}
+
+// parseDpkgSelections parses dpkg --get-selections output and returns a map of
+// requested package names to installed status (true = "install" state).
+//
+// Architecture-qualified packages (e.g. "package:i386") are matched directly.
+// When dpkg returns an architecture-qualified name for an unqualified request
+// (e.g. "package:amd64" for requested "package"), the architecture suffix is
+// stripped before matching. This ensures consistency regardless of how dpkg
+// formats its output for the native architecture.
+func parseDpkgSelections(out string, requested []string) map[string]bool {
+	installed := make(map[string]bool, len(requested))
+	for _, pkg := range requested {
 		installed[pkg] = false
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		if line == "" {
 			continue
 		}
@@ -62,13 +113,20 @@ func CheckInstalled(pkgs []string) (map[string]bool, error) {
 		if len(parts) < 2 || parts[1] != "install" {
 			continue
 		}
-		name := parts[0]
-		if _, ok := installed[name]; !ok {
-			name, _, _ = strings.Cut(name, ":")
+	name := parts[0]
+	if _, ok := installed[name]; !ok {
+		// Name from dpkg wasn't requested directly — strip the
+		// architecture suffix (e.g. ":amd64", ":i386") and retry.
+		if before, _, found := strings.Cut(name, ":"); found {
+			name = before
 		}
-		installed[name] = true
+		if _, ok := installed[name]; !ok {
+			continue
+		}
 	}
-	return installed, nil
+	installed[name] = true
+	}
+	return installed
 }
 
 func AptRemove(pkgs []string) error {
