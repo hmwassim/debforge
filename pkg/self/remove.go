@@ -49,11 +49,18 @@ func Remove(log *text.Logger) error {
 	return nil
 }
 
+func chattrOp(path string, op string) {
+	if err := exec.Command("chattr", op, path).Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", op, path, err)
+	}
+}
+
 func restoreSourcesBackup(log *text.Logger) {
 	const backupPath = "/etc/apt/sources.list.debforge-backup"
 	const sourcesPath = "/etc/apt/sources.list"
 
 	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		log.Warn("No sources.list backup found — original not restored")
 		return
 	}
 
@@ -67,6 +74,7 @@ func restoreSourcesBackup(log *text.Logger) {
 		log.Warn("Could not restore sources.list: %s", err)
 		return
 	}
+	chattrOp(backupPath, "-i")
 	os.Remove(backupPath)
 
 	log.Info("Original sources.list restored")

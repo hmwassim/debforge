@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -271,27 +272,84 @@ func List(log *text.Logger) {
 	}
 }
 
+func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path))
+	if err != nil {
+		return err
+	}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
+}
+
+func setImmutable(path string, lock bool) {
+	op := "+i"
+	verb := "lock"
+	if !lock {
+		op = "-i"
+		verb = "unlock"
+	}
+	if err := exec.Command("chattr", op, path).Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", verb, path, err)
+	}
+}
+
+func createSourcesBackupOnce(backupPath, path string) error {
+	if _, err := os.Stat(backupPath); err == nil {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	if string(data) == sourcesList {
+		return nil
+	}
+	if err := atomicWriteFile(backupPath, data, 0644); err != nil {
+		return err
+	}
+	setImmutable(backupPath, true)
+	return nil
+}
+
 func ensureSourcesList(force bool) error {
 	const path = "/etc/apt/sources.list"
 	const backupPath = "/etc/apt/sources.list.debforge-backup"
+
+	if err := createSourcesBackupOnce(backupPath, path); err != nil {
+		return fmt.Errorf("backup: %w", err)
+	}
+
 	if !force {
 		data, err := os.ReadFile(path)
 		if err == nil && strings.Contains(string(data), "trixie") {
 			return nil
 		}
 	}
-	if _, err := os.Stat(path); err == nil {
-		if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-			data, err := os.ReadFile(path)
-			if err == nil && string(data) != sourcesList {
-				os.WriteFile(backupPath, data, 0644)
-				return os.WriteFile(path, []byte(sourcesList), 0644)
-			}
-		} else if err == nil {
-			os.Remove(backupPath)
-		}
-	}
-	return os.WriteFile(path, []byte(sourcesList), 0644)
+
+	return atomicWriteFile(path, []byte(sourcesList), 0644)
 }
 
 func enablei386(force bool) error {
