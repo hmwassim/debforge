@@ -188,7 +188,7 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 
 	if p.PostInstall != "" {
 		if err := executil.Run(userCmd("sh", "-c", p.PostInstall)); err != nil {
-			return fmt.Errorf("post-install: %w", err)
+			log.Warn("post-install: %s", err)
 		}
 	}
 
@@ -219,7 +219,7 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 
 	if p.PostRemove != "" {
 		if err := executil.Run(userCmd("sh", "-c", p.PostRemove)); err != nil {
-			return fmt.Errorf("post-remove: %w", err)
+			log.Warn("post-remove: %s", err)
 		}
 	}
 
