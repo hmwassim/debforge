@@ -1,0 +1,14 @@
+name: google-chrome
+type: apt
+packages:
+  - google-chrome-stable
+key_url: https://dl.google.com/linux/linux_signing_key.pub
+key_path: /etc/apt/keyrings/google-chrome.gpg
+source_path: /etc/apt/sources.list.d/google-chrome.sources
+sources: |
+  Types: deb
+  URIs: https://dl.google.com/linux/chrome/deb/
+  Suites: stable
+  Components: main
+  Architectures: amd64
+  Signed-By: /etc/apt/keyrings/google-chrome.gpg
