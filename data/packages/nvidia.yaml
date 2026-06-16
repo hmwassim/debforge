@@ -14,12 +14,13 @@ configs:
     # SkipMemoryZero: don't zero GPU allocations on alloc.
     # AggressiveVblank: lower-latency display-interrupt handling.
     # DynamicPowerManagement 0x02: allow dGPU idle power-down.
-    options nvidia NVreg_UsePageAttributeTable=1 
-    options NVreg_InitializeSystemMemoryAllocations=0 
-    options NVreg_RegistryDwords=RmEnableAggressiveVblank=1 
-    options NVreg_DynamicPowerManagement=0x02
+    options nvidia NVreg_UsePageAttributeTable=1
+    options nvidia NVreg_InitializeSystemMemoryAllocations=0
+    options nvidia NVreg_RegistryDwords=RmEnableAggressiveVblank=1
+    options nvidia NVreg_DynamicPowerManagement=0x02
 key_url: https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/8793F200.pub
-key_path: /usr/share/keyrings/nvidia-cuda.asc
+key_path: /etc/apt/trusted.gpg.d/nvidia-cuda.gpg
+key_dearmor: true
 source_path: /etc/apt/sources.list.d/nvidia-cuda.list
 sources: |
-  deb [signed-by=/usr/share/keyrings/nvidia-cuda.asc] https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/ /
+  deb https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/ /

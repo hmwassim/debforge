@@ -21,6 +21,7 @@ type RepoPackage struct {
 	Conflicts  []string          `yaml:"conflicts,omitempty"`
 	KeyURL     string            `yaml:"key_url"`
 	KeyPath    string            `yaml:"key_path"`
+	KeyDearmor bool              `yaml:"key_dearmor,omitempty"`
 	Sources    string            `yaml:"sources"`
 	SourcePath string            `yaml:"source_path"`
 	Backports  []string          `yaml:"backports,omitempty"`
@@ -74,8 +75,20 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 	}
 
 	if needDownload(p.KeyPath) {
-		if err := packages.DownloadFile(p.KeyPath, p.KeyURL, "Adding repository key..."); err != nil {
-			return fmt.Errorf("downloading key: %w", err)
+		if p.KeyDearmor {
+			tmpPath := p.KeyPath + ".part"
+			if err := packages.DownloadFile(tmpPath, p.KeyURL, "Adding repository key..."); err != nil {
+				return fmt.Errorf("downloading key: %w", err)
+			}
+			if err := executil.Run(exec.Command("gpg", "--dearmor", "--output", p.KeyPath, tmpPath)); err != nil {
+				os.Remove(tmpPath)
+				return fmt.Errorf("dearmoring key: %w", err)
+			}
+			os.Remove(tmpPath)
+		} else {
+			if err := packages.DownloadFile(p.KeyPath, p.KeyURL, "Adding repository key..."); err != nil {
+				return fmt.Errorf("downloading key: %w", err)
+			}
 		}
 		if err := os.Chmod(p.KeyPath, 0644); err != nil {
 			return fmt.Errorf("setting key permissions: %w", err)
