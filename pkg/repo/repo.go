@@ -285,7 +285,7 @@ func promptVariant(log *text.Logger, variants map[string]string) string {
 func ensureExtrepoConfig() error {
 	const path = "/etc/extrepo/config.yaml"
 	data, err := os.ReadFile(path)
-	if err == nil && bytes.Contains(data, []byte("license_inclusion_policies:")) {
+	if err == nil && bytes.Contains(data, []byte("enabled_policies:")) {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -296,6 +296,6 @@ func ensureExtrepoConfig() error {
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString("\nlicense_inclusion_policies:\n  - non-free\n  - non-free-firmware\n  - contrib\n  - main\n")
+	_, err = f.WriteString("\nenabled_policies:\n  - non-free\n  - non-free-firmware\n  - contrib\n  - main\n")
 	return err
 }
