@@ -96,6 +96,12 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 		return nil
 	}
 
+	log.Info("Removing %s...", p.Name)
+	if !log.Prompt("Continue?") {
+		log.Info("Cancelled")
+		return nil
+	}
+
 	s := text.StartSpinner(os.Stderr, "Removing "+p.Name+"...")
 
 	args := append([]string{"purge", "-y"}, p.Packages...)
