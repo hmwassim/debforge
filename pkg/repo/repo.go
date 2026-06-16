@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -188,7 +189,7 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 	}
 
 	if p.PostInstall != "" {
-		if err := executil.Run(exec.Command("sh", "-c", p.PostInstall)); err != nil {
+		if err := executil.Run(userCmd("sh", "-c", p.PostInstall)); err != nil {
 			return fmt.Errorf("post-install: %w", err)
 		}
 	}
@@ -219,7 +220,7 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 	}
 
 	if p.PostRemove != "" {
-		if err := executil.Run(exec.Command("sh", "-c", p.PostRemove)); err != nil {
+		if err := executil.Run(userCmd("sh", "-c", p.PostRemove)); err != nil {
 			return fmt.Errorf("post-remove: %w", err)
 		}
 	}
@@ -390,7 +391,37 @@ func deployUserConfigs(configs map[string]string) error {
 			return fmt.Errorf("writing %s: %w", path, err)
 		}
 	}
+	chownUserConfigs(configs)
 	return nil
+}
+
+func chownUserConfigs(configs map[string]string) {
+	uid, _ := strconv.Atoi(os.Getenv("SUDO_UID"))
+	gid, _ := strconv.Atoi(os.Getenv("SUDO_GID"))
+	if uid == 0 {
+		return
+	}
+	home, err := userHomeDir()
+	if err != nil {
+		return
+	}
+	for path := range configs {
+		os.Chown(filepath.Join(home, path), uid, gid)
+	}
+}
+
+func userCmd(name string, arg ...string) *exec.Cmd {
+	cmd := exec.Command(name, arg...)
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		uid := os.Getenv("SUDO_UID")
+		cmd = exec.Command("sudo", append([]string{"-u", sudoUser, "-H", name}, arg...)...)
+		cmd.Env = os.Environ()
+		if uid != "" {
+			cmd.Env = append(cmd.Env, "XDG_RUNTIME_DIR=/run/user/"+uid)
+			cmd.Env = append(cmd.Env, "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/"+uid+"/bus")
+		}
+	}
+	return cmd
 }
 
 func removeUserConfigs(log *text.Logger, configs map[string]string) {
