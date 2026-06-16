@@ -5,10 +5,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/lock"
+	"github.com/hmwassim/debforge/pkg/repo"
 	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/text"
 )
@@ -29,6 +32,8 @@ func Remove(log *text.Logger) error {
 		log.Info("Cancelled")
 		return nil
 	}
+
+	uninstallManagedPackages(log)
 
 	if err := verifyRemovablePath(settings.Default.RootDir); err != nil {
 		return fmt.Errorf("refusing to remove %s: %w", settings.Default.RootDir, err)
@@ -86,6 +91,106 @@ func restoreSourcesBackup(log *text.Logger) {
 	if err := executil.Run(exec.Command("apt-get", "upgrade", "-y")); err != nil {
 		log.Warn("apt-get upgrade failed: %s", err)
 	}
+}
+
+func uninstallManagedPackages(log *text.Logger) {
+	state := repo.LoadState()
+	if len(state.Packages) == 0 {
+		return
+	}
+
+	log.Info("The following packages are managed by debforge:")
+	names := make([]string, 0, len(state.Packages))
+	for name := range state.Packages {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for i, name := range names {
+		log.Info("  %d. %s", i+1, name)
+	}
+
+	input := log.PromptLine("Select packages to remove (e.g. 1, 1-3, or 0 to skip):")
+	selected := parseSelection(input, len(names))
+	if len(selected) == 0 {
+		log.Info("Skipping package removal")
+		return
+	}
+
+	var toRemove []string
+	for _, idx := range selected {
+		toRemove = append(toRemove, names[idx])
+	}
+
+	log.Warn("Removing %s", strings.Join(toRemove, ", "))
+	if !log.Prompt("Continue?") {
+		log.Info("Skipping package removal")
+		return
+	}
+
+	for _, name := range toRemove {
+		pkg := repo.Lookup(name)
+		if pkg == nil {
+			log.Warn("Package definition for %s not found, skipping", name)
+			continue
+		}
+		if err := pkg.Remove(log); err != nil {
+			log.Warn("Could not remove %s: %s", name, err)
+		}
+	}
+}
+
+func parseSelection(input string, max int) []int {
+	if input == "0" || input == "" {
+		return nil
+	}
+	seen := map[int]bool{}
+	var selected []int
+	for _, part := range strings.Split(input, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "-") {
+			bounds := strings.SplitN(part, "-", 2)
+			if len(bounds) != 2 {
+				continue
+			}
+			start := parseInt(strings.TrimSpace(bounds[0]))
+			end := parseInt(strings.TrimSpace(bounds[1]))
+			if start == -1 || end == -1 {
+				continue
+			}
+			if start > end {
+				start, end = end, start
+			}
+			for i := start; i <= end; i++ {
+				if i >= 1 && i <= max && !seen[i] {
+					selected = append(selected, i)
+					seen[i] = true
+				}
+			}
+		} else {
+			n := parseInt(part)
+			if n >= 1 && n <= max && !seen[n] {
+				selected = append(selected, n)
+				seen[n] = true
+			}
+		}
+	}
+	result := make([]int, len(selected))
+	for i, v := range selected {
+		result[i] = v - 1
+	}
+	sort.Ints(result)
+	return result
+}
+
+func parseInt(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return -1
+	}
+	return n
 }
 
 var dangerousRoots = []string{

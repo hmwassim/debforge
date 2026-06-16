@@ -1,9 +1,11 @@
 package text
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type Logger struct {
@@ -65,6 +67,24 @@ func (l *Logger) Prompt(msg string) bool {
 		fmt.Fscanln(tty, &resp)
 	}
 	return resp == "y" || resp == "Y" || resp == "yes" || resp == "YES" || resp == "Yes"
+}
+
+func (l *Logger) PromptLine(msg string) string {
+	if l.color {
+		ConsoleWritef(os.Stderr, "%s[?]%s %s ", bold+yellow, reset, msg)
+	} else {
+		ConsoleWritef(os.Stderr, "[?] %s ", msg)
+	}
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		var s string
+		fmt.Scanln(&s)
+		return strings.TrimSpace(s)
+	}
+	defer tty.Close()
+	reader := bufio.NewReader(tty)
+	line, _ := reader.ReadString('\n')
+	return strings.TrimSpace(line)
 }
 
 func IsTerminal(w io.Writer) bool {
