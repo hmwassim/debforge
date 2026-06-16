@@ -1,0 +1,51 @@
+name: audio-settings
+type: apt
+configs:
+  /etc/modprobe.d/99-audio-disable-powersave.conf: |
+    options snd_hda_intel power_save=0 power_save_controller=N
+user_configs:
+  .config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf: |
+    monitor.alsa.rules = [
+      {
+        matches = [
+          { node.name = "~alsa_output.*" }
+          { node.name = "~alsa_input.*"  }
+        ]
+        actions = {
+          update-props = {
+            session.suspend-timeout-seconds = 0
+          }
+        }
+      }
+    ]
+  .config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf: |
+    monitor.alsa.rules = [
+      {
+        matches = [{ node.name = "~alsa_output.*hdmi*" }]
+        actions = {
+          update-props = {
+            priority.driver  = 100
+            priority.session = 100
+          }
+        }
+      }
+    ]
+  .config/pipewire/pipewire.conf.d/10-clock.conf: |
+    context.properties = {
+        default.clock.rate           = 48000
+        default.clock.allowed-rates  = [ 44100 48000 96000 ]
+        default.clock.quantum        = 256
+        default.clock.min-quantum    = 256
+        default.clock.max-quantum    = 2048
+    }
+  .config/pipewire/pipewire-pulse.conf.d/10-pulse.conf: |
+    pulse.properties = {
+        pulse.min.req     = 256/48000
+        pulse.default.req = 256/48000
+        pulse.max.req     = 2048/48000
+    }
+post_install: |
+  systemctl --user enable --now pipewire pipewire-pulse wireplumber
+  systemctl --user restart pipewire pipewire-pulse wireplumber
+post_remove: |
+  systemctl --user disable --now pipewire pipewire-pulse wireplumber

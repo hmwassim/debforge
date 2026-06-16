@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -29,7 +30,10 @@ type RepoPackage struct {
 	Primary    string            `yaml:"primary,omitempty"`
 	Backports  []string          `yaml:"backports,omitempty"`
 	Variants   map[string]string `yaml:"variants,omitempty"`
-	Configs    map[string]string `yaml:"configs,omitempty"`
+	Configs     map[string]string `yaml:"configs,omitempty"`
+	UserConfigs map[string]string `yaml:"user_configs,omitempty"`
+	PostInstall string            `yaml:"post_install,omitempty"`
+	PostRemove  string            `yaml:"post_remove,omitempty"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger, force bool) error {
@@ -125,53 +129,67 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 		}
 	}
 
-	s := text.StartSpinner(os.Stderr, "Installing "+p.Name+"...")
+	hasApt := len(p.Packages) > 0 || len(p.Conflicts) > 0 || len(p.Backports) > 0 || switching
 
-	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
-		s.Fail()
-		return fmt.Errorf("apt-get update: %w", err)
-	}
+	if hasApt {
+		s := text.StartSpinner(os.Stderr, "Installing "+p.Name+"...")
 
-	if switching {
-		oldPkg := p.Variants[state.Packages[p.Name].Variant]
-		oldArgs := append([]string{"purge", "-y"}, oldPkg)
-		if err := executil.Run(exec.Command("apt-get", oldArgs...)); err != nil {
+		if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
 			s.Fail()
-			return fmt.Errorf("removing previous %s variant: %w", p.Name, err)
+			return fmt.Errorf("apt-get update: %w", err)
 		}
-	}
 
-	if len(p.Conflicts) > 0 {
-		args := append([]string{"autopurge", "-y"}, p.Conflicts...)
+		if switching {
+			oldPkg := p.Variants[state.Packages[p.Name].Variant]
+			oldArgs := append([]string{"purge", "-y"}, oldPkg)
+			if err := executil.Run(exec.Command("apt-get", oldArgs...)); err != nil {
+				s.Fail()
+				return fmt.Errorf("removing previous %s variant: %w", p.Name, err)
+			}
+		}
+
+		if len(p.Conflicts) > 0 {
+			args := append([]string{"autopurge", "-y"}, p.Conflicts...)
+			if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
+				s.Fail()
+				return fmt.Errorf("removing conflicting packages: %w", err)
+			}
+		}
+
+		installPkgs := p.Packages
+		if selectedVariant != "" {
+			installPkgs = append([]string{p.Variants[selectedVariant]}, installPkgs...)
+		}
+		args := append([]string{"install", "-y"}, installPkgs...)
 		if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
 			s.Fail()
-			return fmt.Errorf("removing conflicting packages: %w", err)
+			return fmt.Errorf("installing %s: %w", p.Name, err)
 		}
-	}
 
-	installPkgs := p.Packages
-	if selectedVariant != "" {
-		installPkgs = append([]string{p.Variants[selectedVariant]}, installPkgs...)
-	}
-	args := append([]string{"install", "-y"}, installPkgs...)
-	if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
-		s.Fail()
-		return fmt.Errorf("installing %s: %w", p.Name, err)
-	}
-
-	if len(p.Backports) > 0 {
-		bpArgs := append([]string{"install", "-y", "-t", "trixie-backports"}, p.Backports...)
-		if err := executil.Run(exec.Command("apt-get", bpArgs...)); err != nil {
-			s.Fail()
-			return fmt.Errorf("installing backports for %s: %w", p.Name, err)
+		if len(p.Backports) > 0 {
+			bpArgs := append([]string{"install", "-y", "-t", "trixie-backports"}, p.Backports...)
+			if err := executil.Run(exec.Command("apt-get", bpArgs...)); err != nil {
+				s.Fail()
+				return fmt.Errorf("installing backports for %s: %w", p.Name, err)
+			}
 		}
-	}
 
-	s.Done()
+		s.Done()
+	}
 
 	for path, content := range p.Configs {
 		if err := packages.DeployConfig(path, content, 0644); err != nil {
 			return fmt.Errorf("deploying %s: %w", path, err)
+		}
+	}
+
+	if err := deployUserConfigs(p.UserConfigs); err != nil {
+		return err
+	}
+
+	if p.PostInstall != "" {
+		if err := executil.Run(exec.Command("sh", "-c", p.PostInstall)); err != nil {
+			return fmt.Errorf("post-install: %w", err)
 		}
 	}
 
@@ -200,57 +218,75 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 		return nil
 	}
 
-	s := text.StartSpinner(os.Stderr, "Removing "+p.Name+"...")
+	if p.PostRemove != "" {
+		if err := executil.Run(exec.Command("sh", "-c", p.PostRemove)); err != nil {
+			return fmt.Errorf("post-remove: %w", err)
+		}
+	}
 
 	entry := state.Packages[p.Name]
-	if p.Primary != "" {
-		primary := p.Primary
-		if entry.Variant != "" {
-			if vpkg, ok := p.Variants[entry.Variant]; ok {
-				primary = vpkg
+	hasApt := len(p.Packages) > 0 || p.Primary != ""
+
+	if hasApt {
+		s := text.StartSpinner(os.Stderr, "Removing "+p.Name+"...")
+
+		if p.Primary != "" {
+			primary := p.Primary
+			if entry.Variant != "" {
+				if vpkg, ok := p.Variants[entry.Variant]; ok {
+					primary = vpkg
+				}
+			}
+			rArgs := []string{"remove", "-y", primary}
+			if err := executil.Run(exec.Command("apt-get", rArgs...)); err != nil {
+				s.Fail()
+				return fmt.Errorf("removing %s: %w", primary, err)
+			}
+			if err := executil.Run(exec.Command("apt-get", "autoremove", "-y")); err != nil {
+				s.Fail()
+				return fmt.Errorf("autoremove: %w", err)
+			}
+		} else {
+			if err := executil.Run(exec.Command("apt-get", "autoremove", "-y")); err != nil {
+				s.Fail()
+				return fmt.Errorf("autoremove: %w", err)
 			}
 		}
-		rArgs := []string{"remove", "-y", primary}
-		if err := executil.Run(exec.Command("apt-get", rArgs...)); err != nil {
-			s.Fail()
-			return fmt.Errorf("removing %s: %w", primary, err)
+
+		if p.Extrepo != "" {
+			if err := executil.Run(exec.Command("extrepo", "disable", p.Extrepo)); err != nil {
+				log.Warn("extrepo disable %s: %s", p.Extrepo, err)
+			}
+		} else if p.SourcePath != "" {
+			if err := os.Remove(p.SourcePath); err != nil && !os.IsNotExist(err) {
+				log.Warn("Could not remove sources list: %s", err)
+			}
+			if err := os.Remove(p.KeyPath); err != nil && !os.IsNotExist(err) {
+				log.Warn("Could not remove key file: %s", err)
+			}
 		}
-		if err := executil.Run(exec.Command("apt-get", "autoremove", "-y")); err != nil {
-			s.Fail()
-			return fmt.Errorf("autoremove: %w", err)
+
+		for path := range p.Configs {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				log.Warn("Could not remove %s: %s", path, err)
+			}
 		}
+		removeUserConfigs(log, p.UserConfigs)
+
+		if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
+			s.Fail()
+			return fmt.Errorf("apt-get update: %w", err)
+		}
+
+		s.Done()
 	} else {
-		if err := executil.Run(exec.Command("apt-get", "autoremove", "-y")); err != nil {
-			s.Fail()
-			return fmt.Errorf("autoremove: %w", err)
+		for path := range p.Configs {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				log.Warn("Could not remove %s: %s", path, err)
+			}
 		}
+		removeUserConfigs(log, p.UserConfigs)
 	}
-
-	if p.Extrepo != "" {
-		if err := executil.Run(exec.Command("extrepo", "disable", p.Extrepo)); err != nil {
-			log.Warn("extrepo disable %s: %s", p.Extrepo, err)
-		}
-	} else if p.SourcePath != "" {
-		if err := os.Remove(p.SourcePath); err != nil && !os.IsNotExist(err) {
-			log.Warn("Could not remove sources list: %s", err)
-		}
-		if err := os.Remove(p.KeyPath); err != nil && !os.IsNotExist(err) {
-			log.Warn("Could not remove key file: %s", err)
-		}
-	}
-
-	for path := range p.Configs {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			log.Warn("Could not remove %s: %s", path, err)
-		}
-	}
-
-	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
-		s.Fail()
-		return fmt.Errorf("apt-get update: %w", err)
-	}
-
-	s.Done()
 
 	delete(state.Packages, p.Name)
 	if err := saveState(state); err != nil {
@@ -325,4 +361,50 @@ func ensureExtrepoConfig() error {
 		return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 	}
 	return nil
+}
+
+func userHomeDir() (string, error) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		u, err := user.Lookup(sudoUser)
+		if err == nil {
+			return u.HomeDir, nil
+		}
+	}
+	return os.UserHomeDir()
+}
+
+func deployUserConfigs(configs map[string]string) error {
+	if len(configs) == 0 {
+		return nil
+	}
+	home, err := userHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolving home directory: %w", err)
+	}
+	for path, content := range configs {
+		fullPath := filepath.Join(home, path)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			return fmt.Errorf("creating directory for %s: %w", path, err)
+		}
+		if err := writeutil.AtomicFile(fullPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func removeUserConfigs(log *text.Logger, configs map[string]string) {
+	if len(configs) == 0 {
+		return
+	}
+	home, err := userHomeDir()
+	if err != nil {
+		return
+	}
+	for path := range configs {
+		fullPath := filepath.Join(home, path)
+		if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
+			log.Warn("Could not remove %s: %s", path, err)
+		}
+	}
 }
