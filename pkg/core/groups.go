@@ -36,7 +36,7 @@ var groups = []group{
 			"vulkan-tools", "vulkan-validationlayers", "vainfo", "vdpauinfo",
 			"build-essential", "git", "curl", "wget", "unzip", "p7zip-full", "gzip",
 			"pkg-config", "cmake", "nvme-cli", "smartmontools", "pciutils", "usbutils",
-			"cabextract", "zenity", "jq", "lm-sensors", "ddcutil", "hwloc",
+			"cabextract", "extrepo", "zenity", "jq", "lm-sensors", "ddcutil", "hwloc",
 			"hunspell-en-us", "hunspell-fr",
 		},
 	},

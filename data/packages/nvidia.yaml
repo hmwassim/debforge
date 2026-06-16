@@ -1,5 +1,6 @@
 name: nvidia
 type: apt
+extrepo: nvidia-cuda
 packages:
   - nvtop
 variants:
@@ -18,9 +19,3 @@ configs:
     options nvidia NVreg_InitializeSystemMemoryAllocations=0
     options nvidia NVreg_RegistryDwords=RmEnableAggressiveVblank=1
     options nvidia NVreg_DynamicPowerManagement=0x02
-key_url: https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/8793F200.pub
-key_path: /etc/apt/trusted.gpg.d/nvidia-cuda.gpg
-key_dearmor: true
-source_path: /etc/apt/sources.list.d/nvidia-cuda.list
-sources: |
-  deb https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/ /

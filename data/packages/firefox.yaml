@@ -1,15 +1,7 @@
 name: firefox
 type: apt
+extrepo: mozilla
 packages:
   - firefox
 conflicts:
   - firefox-esr
-key_url: https://packages.mozilla.org/apt/repo-signing-key.gpg
-key_path: /etc/apt/keyrings/packages.mozilla.org.asc
-source_path: /etc/apt/sources.list.d/mozilla.sources
-sources: |
-  Types: deb
-  URIs: https://packages.mozilla.org/apt
-  Suites: mozilla
-  Components: main
-  Signed-By: /etc/apt/keyrings/packages.mozilla.org.asc

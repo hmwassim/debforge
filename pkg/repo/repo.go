@@ -19,11 +19,12 @@ type RepoPackage struct {
 	Type       string            `yaml:"type"`
 	Packages   []string          `yaml:"packages"`
 	Conflicts  []string          `yaml:"conflicts,omitempty"`
-	KeyURL     string            `yaml:"key_url"`
-	KeyPath    string            `yaml:"key_path"`
+	Extrepo    string            `yaml:"extrepo,omitempty"`
+	KeyURL     string            `yaml:"key_url,omitempty"`
+	KeyPath    string            `yaml:"key_path,omitempty"`
 	KeyDearmor bool              `yaml:"key_dearmor,omitempty"`
-	Sources    string            `yaml:"sources"`
-	SourcePath string            `yaml:"source_path"`
+	Sources    string            `yaml:"sources,omitempty"`
+	SourcePath string            `yaml:"source_path,omitempty"`
 	Backports  []string          `yaml:"backports,omitempty"`
 	Variants   map[string]string `yaml:"variants,omitempty"`
 	Configs    map[string]string `yaml:"configs,omitempty"`
@@ -75,35 +76,47 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 		return nil
 	}
 
-	keyringsDir := filepath.Dir(p.KeyPath)
-	if err := os.MkdirAll(keyringsDir, 0755); err != nil {
-		return fmt.Errorf("creating keyrings dir: %w", err)
-	}
-
-	if needDownload(p.KeyPath) {
-		if p.KeyDearmor {
-			tmpPath := p.KeyPath + ".part"
-			if err := packages.DownloadFile(tmpPath, p.KeyURL, "Adding repository key..."); err != nil {
-				return fmt.Errorf("downloading key: %w", err)
+	if p.Extrepo != "" {
+		if _, err := exec.LookPath("extrepo"); err != nil {
+			log.Info("extrepo not found, installing...")
+			if err := executil.Run(exec.Command("apt-get", "install", "-y", "extrepo")); err != nil {
+				return fmt.Errorf("installing extrepo: %w", err)
 			}
-			if err := executil.Run(exec.Command("gpg", "--dearmor", "--output", p.KeyPath, tmpPath)); err != nil {
+		}
+		if err := executil.Run(exec.Command("extrepo", "enable", p.Extrepo)); err != nil {
+			return fmt.Errorf("extrepo enable %s: %w", p.Extrepo, err)
+		}
+	} else {
+		keyringsDir := filepath.Dir(p.KeyPath)
+		if err := os.MkdirAll(keyringsDir, 0755); err != nil {
+			return fmt.Errorf("creating keyrings dir: %w", err)
+		}
+
+		if needDownload(p.KeyPath) {
+			if p.KeyDearmor {
+				tmpPath := p.KeyPath + ".part"
+				if err := packages.DownloadFile(tmpPath, p.KeyURL, "Adding repository key..."); err != nil {
+					return fmt.Errorf("downloading key: %w", err)
+				}
+				if err := executil.Run(exec.Command("gpg", "--dearmor", "--output", p.KeyPath, tmpPath)); err != nil {
+					os.Remove(tmpPath)
+					return fmt.Errorf("dearmoring key: %w", err)
+				}
 				os.Remove(tmpPath)
-				return fmt.Errorf("dearmoring key: %w", err)
+			} else {
+				if err := packages.DownloadFile(p.KeyPath, p.KeyURL, "Adding repository key..."); err != nil {
+					return fmt.Errorf("downloading key: %w", err)
+				}
 			}
-			os.Remove(tmpPath)
-		} else {
-			if err := packages.DownloadFile(p.KeyPath, p.KeyURL, "Adding repository key..."); err != nil {
-				return fmt.Errorf("downloading key: %w", err)
+			if err := os.Chmod(p.KeyPath, 0644); err != nil {
+				return fmt.Errorf("setting key permissions: %w", err)
 			}
 		}
-		if err := os.Chmod(p.KeyPath, 0644); err != nil {
-			return fmt.Errorf("setting key permissions: %w", err)
-		}
-	}
 
-	if existing, err := os.ReadFile(p.SourcePath); err != nil || string(existing) != p.Sources {
-		if err := writeutil.AtomicFile(p.SourcePath, []byte(p.Sources), 0644); err != nil {
-			return fmt.Errorf("writing sources: %w", err)
+		if existing, err := os.ReadFile(p.SourcePath); err != nil || string(existing) != p.Sources {
+			if err := writeutil.AtomicFile(p.SourcePath, []byte(p.Sources), 0644); err != nil {
+				return fmt.Errorf("writing sources: %w", err)
+			}
 		}
 	}
 
@@ -197,11 +210,17 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 		return fmt.Errorf("purging %s: %w", p.Name, err)
 	}
 
-	if err := os.Remove(p.SourcePath); err != nil && !os.IsNotExist(err) {
-		log.Warn("Could not remove sources list: %s", err)
-	}
-	if err := os.Remove(p.KeyPath); err != nil && !os.IsNotExist(err) {
-		log.Warn("Could not remove key file: %s", err)
+	if p.Extrepo != "" {
+		if err := executil.Run(exec.Command("extrepo", "disable", p.Extrepo)); err != nil {
+			log.Warn("extrepo disable %s: %s", p.Extrepo, err)
+		}
+	} else {
+		if err := os.Remove(p.SourcePath); err != nil && !os.IsNotExist(err) {
+			log.Warn("Could not remove sources list: %s", err)
+		}
+		if err := os.Remove(p.KeyPath); err != nil && !os.IsNotExist(err) {
+			log.Warn("Could not remove key file: %s", err)
+		}
 	}
 
 	for path := range p.Configs {
