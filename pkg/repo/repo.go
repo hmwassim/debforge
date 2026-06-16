@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -82,6 +83,9 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 			if err := executil.Run(exec.Command("apt-get", "install", "-y", "extrepo")); err != nil {
 				return fmt.Errorf("installing extrepo: %w", err)
 			}
+		}
+		if err := ensureExtrepoConfig(); err != nil {
+			return fmt.Errorf("extrepo config: %w", err)
 		}
 		if err := executil.Run(exec.Command("extrepo", "enable", p.Extrepo)); err != nil {
 			return fmt.Errorf("extrepo enable %s: %w", p.Extrepo, err)
@@ -276,4 +280,22 @@ func promptVariant(log *text.Logger, variants map[string]string) string {
 		return ""
 	}
 	return keys[n-1]
+}
+
+func ensureExtrepoConfig() error {
+	const path = "/etc/extrepo/config.yaml"
+	data, err := os.ReadFile(path)
+	if err == nil && bytes.Contains(data, []byte("license_inclusion_policies:")) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString("\nlicense_inclusion_policies:\n  - non-free\n  - non-free-firmware\n  - contrib\n  - main\n")
+	return err
 }
