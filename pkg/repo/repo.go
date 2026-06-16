@@ -91,7 +91,7 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 		if err := executil.Run(exec.Command("extrepo", "enable", p.Extrepo)); err != nil {
 			return fmt.Errorf("extrepo enable %s: %w", p.Extrepo, err)
 		}
-	} else {
+	} else if p.KeyURL != "" {
 		keyringsDir := filepath.Dir(p.KeyPath)
 		if err := os.MkdirAll(keyringsDir, 0755); err != nil {
 			return fmt.Errorf("creating keyrings dir: %w", err)
@@ -230,7 +230,7 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 		if err := executil.Run(exec.Command("extrepo", "disable", p.Extrepo)); err != nil {
 			log.Warn("extrepo disable %s: %s", p.Extrepo, err)
 		}
-	} else {
+	} else if p.SourcePath != "" {
 		if err := os.Remove(p.SourcePath); err != nil && !os.IsNotExist(err) {
 			log.Warn("Could not remove sources list: %s", err)
 		}
