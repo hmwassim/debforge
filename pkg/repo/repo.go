@@ -29,7 +29,7 @@ type RepoPackage struct {
 	Configs    map[string]string `yaml:"configs,omitempty"`
 }
 
-func (p *RepoPackage) Install(log *text.Logger) error {
+func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 	state, err := LoadState()
 	if err != nil {
 		return fmt.Errorf("loading state: %w", err)
@@ -45,8 +45,11 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 			return nil
 		}
 		if exists && entry.Variant == selectedVariant {
-			log.Info("%s (%s) already installed", p.Name, selectedVariant)
-			return nil
+			if !force {
+				log.Info("%s (%s) already installed", p.Name, selectedVariant)
+				return nil
+			}
+			log.Info("Reinstalling %s (%s)", p.Name, selectedVariant)
 		}
 		if exists && entry.Variant != "" {
 			switching = true
@@ -54,8 +57,11 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 		}
 	} else {
 		if _, ok := state.Packages[p.Name]; ok {
-			log.Info("%s already installed", p.Name)
-			return nil
+			if !force {
+				log.Info("%s already installed", p.Name)
+				return nil
+			}
+			log.Info("Reinstalling %s", p.Name)
 		}
 	}
 

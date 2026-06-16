@@ -68,13 +68,17 @@ func main() {
 			os.Exit(1)
 		}
 	case cli.OpInstall:
+		force := hasFlag(result.Args, "-f", "--force")
 		for _, name := range result.Args {
+			if name == "-f" || name == "--force" {
+				continue
+			}
 			pkg := repo.Lookup(name)
 			if pkg == nil {
 				log.Error("unknown package: %s", name)
 				os.Exit(1)
 			}
-			if err := pkg.Install(log); err != nil {
+			if err := pkg.Install(log, force); err != nil {
 				log.Error("%s", err)
 				os.Exit(1)
 			}
