@@ -2,10 +2,23 @@ name: gaming-meta
 type: apt
 packages:
   - fizmo-sdl2
-  - libsdl2-2.0-0 libsdl2-dev
-  - libsdl2-gfx-1.0-0 libsdl2-gfx-dev
-  - libsdl2-image-2.0-0 libsdl2-mixer-2.0-0 libsdl2-net-2.0-0
-  - winetricks scummvm gamemode
-  - mangohud mangohud:i386 goverlay
-  - unrar gvfs gvfs:i386
-  - mono-complete smpeg-plaympeg mjpegtools libxvidcore4
+  - libsdl2-2.0-0
+  - libsdl2-dev
+  - libsdl2-gfx-1.0-0
+  - libsdl2-gfx-dev
+  - libsdl2-image-2.0-0
+  - libsdl2-mixer-2.0-0
+  - libsdl2-net-2.0-0
+  - winetricks
+  - scummvm
+  - gamemode
+  - mangohud
+  - mangohud:i386
+  - goverlay
+  - unrar
+  - gvfs
+  - gvfs:i386
+  - mono-complete
+  - smpeg-plaympeg
+  - mjpegtools
+  - libxvidcore4
