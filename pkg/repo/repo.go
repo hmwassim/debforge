@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -18,19 +16,19 @@ import (
 )
 
 type RepoPackage struct {
-	Name       string            `yaml:"name"`
-	Type       string            `yaml:"type"`
-	Packages   []string          `yaml:"packages"`
-	Conflicts  []string          `yaml:"conflicts,omitempty"`
-	Extrepo    string            `yaml:"extrepo,omitempty"`
-	KeyURL     string            `yaml:"key_url,omitempty"`
-	KeyPath    string            `yaml:"key_path,omitempty"`
-	KeyDearmor bool              `yaml:"key_dearmor,omitempty"`
-	Sources    string            `yaml:"sources,omitempty"`
-	SourcePath string            `yaml:"source_path,omitempty"`
-	Primary    string            `yaml:"primary,omitempty"`
-	Backports  []string          `yaml:"backports,omitempty"`
-	Variants   map[string]string `yaml:"variants,omitempty"`
+	Name        string            `yaml:"name"`
+	Type        string            `yaml:"type"`
+	Packages    []string          `yaml:"packages"`
+	Conflicts   []string          `yaml:"conflicts,omitempty"`
+	Extrepo     string            `yaml:"extrepo,omitempty"`
+	KeyURL      string            `yaml:"key_url,omitempty"`
+	KeyPath     string            `yaml:"key_path,omitempty"`
+	KeyDearmor  bool              `yaml:"key_dearmor,omitempty"`
+	Sources     string            `yaml:"sources,omitempty"`
+	SourcePath  string            `yaml:"source_path,omitempty"`
+	Primary     string            `yaml:"primary,omitempty"`
+	Backports   []string          `yaml:"backports,omitempty"`
+	Variants    map[string]string `yaml:"variants,omitempty"`
 	Configs     map[string]string `yaml:"configs,omitempty"`
 	UserConfigs map[string]string `yaml:"user_configs,omitempty"`
 	PostInstall string            `yaml:"post_install,omitempty"`
@@ -362,83 +360,4 @@ func ensureExtrepoConfig() error {
 		return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 	}
 	return nil
-}
-
-func userHomeDir() (string, error) {
-	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
-		u, err := user.Lookup(sudoUser)
-		if err == nil {
-			return u.HomeDir, nil
-		}
-	}
-	return os.UserHomeDir()
-}
-
-func deployUserConfigs(configs map[string]string) error {
-	if len(configs) == 0 {
-		return nil
-	}
-	home, err := userHomeDir()
-	if err != nil {
-		return fmt.Errorf("resolving home directory: %w", err)
-	}
-	for path, content := range configs {
-		fullPath := filepath.Join(home, path)
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			return fmt.Errorf("creating directory for %s: %w", path, err)
-		}
-		if err := writeutil.AtomicFile(fullPath, []byte(content), 0644); err != nil {
-			return fmt.Errorf("writing %s: %w", path, err)
-		}
-	}
-	chownUserConfigs(configs)
-	return nil
-}
-
-func chownUserConfigs(configs map[string]string) {
-	uid, _ := strconv.Atoi(os.Getenv("SUDO_UID"))
-	gid, _ := strconv.Atoi(os.Getenv("SUDO_GID"))
-	if uid == 0 {
-		return
-	}
-	home, err := userHomeDir()
-	if err != nil {
-		return
-	}
-	for path := range configs {
-		os.Chown(filepath.Join(home, path), uid, gid)
-	}
-}
-
-func userCmd(name string, arg ...string) *exec.Cmd {
-	cmd := exec.Command(name, arg...)
-	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
-		uid := os.Getenv("SUDO_UID")
-		if uid != "" {
-			cmd = exec.Command("sudo", "-u", sudoUser, "-H", "sh", "-c",
-				"export XDG_RUNTIME_DIR=/run/user/"+uid+
-					" DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/"+uid+"/bus; "+
-					arg[1])
-		} else {
-			cmd = exec.Command("sudo", "-u", sudoUser, "-H", "sh", "-c", arg[1])
-		}
-		cmd.Env = os.Environ()
-	}
-	return cmd
-}
-
-func removeUserConfigs(log *text.Logger, configs map[string]string) {
-	if len(configs) == 0 {
-		return
-	}
-	home, err := userHomeDir()
-	if err != nil {
-		return
-	}
-	for path := range configs {
-		fullPath := filepath.Join(home, path)
-		if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
-			log.Warn("Could not remove %s: %s", path, err)
-		}
-	}
 }
