@@ -131,7 +131,7 @@ func Setup(log *text.Logger, force bool) error {
 	for _, g := range groups {
 		s := text.StartSpinner(os.Stderr, "Setting up "+g.name+"...")
 
-		if err := packages.AptInstall(g.packages, g.backport, ""); err != nil {
+		if err := packages.AptInstall(g.packages, g.backport); err != nil {
 			s.Fail()
 			errs = append(errs, fmt.Errorf("installing %s: %w", g.name, err))
 			continue
@@ -279,16 +279,6 @@ func List(log *text.Logger) {
 	}
 }
 
-func setImmutable(path string, lock bool) {
-	verb := "lock"
-	if !lock {
-		verb = "unlock"
-	}
-	if err := writeutil.SetImmutable(path, lock); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", verb, path, err)
-	}
-}
-
 func createSourcesBackupOnce(backupPath, path string) error {
 	if _, err := os.Stat(backupPath); err == nil {
 		return nil
@@ -303,7 +293,9 @@ func createSourcesBackupOnce(backupPath, path string) error {
 	if err := writeutil.AtomicFile(backupPath, data, 0644); err != nil {
 		return err
 	}
-	setImmutable(backupPath, true)
+	if err := writeutil.SetImmutable(backupPath, true); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not lock %s: %v\n", backupPath, err)
+	}
 	return nil
 }
 

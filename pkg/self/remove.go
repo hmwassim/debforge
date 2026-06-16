@@ -55,16 +55,6 @@ func Remove(log *text.Logger) error {
 	return nil
 }
 
-func chattrOp(path string, op string) {
-	verb := "unlock"
-	if op == "+i" {
-		verb = "lock"
-	}
-	if err := writeutil.SetImmutable(path, op == "+i"); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", verb, path, err)
-	}
-}
-
 func restoreSourcesBackup(log *text.Logger) {
 	const backupPath = "/etc/apt/sources.list.debforge-backup"
 	const sourcesPath = "/etc/apt/sources.list"
@@ -80,21 +70,21 @@ func restoreSourcesBackup(log *text.Logger) {
 		return
 	}
 
-	if err := os.WriteFile(sourcesPath, data, 0644); err != nil {
+	if err := writeutil.AtomicFile(sourcesPath, data, 0644); err != nil {
 		log.Warn("Could not restore sources.list: %s", err)
 		return
 	}
-	chattrOp(backupPath, "-i")
-	os.Remove(backupPath)
+	if err := writeutil.SetImmutable(backupPath, false); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not unlock backup %s: %v\n", backupPath, err)
+	}
+	if err := os.Remove(backupPath); err != nil {
+		log.Warn("Could not remove backup: %s", err)
+	}
 
 	log.Info("Original sources.list restored")
 	log.Info("Updating package lists...")
 	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
 		log.Warn("apt-get update failed: %s", err)
-	}
-	log.Info("Upgrading system packages...")
-	if err := executil.Run(exec.Command("apt-get", "upgrade", "-y")); err != nil {
-		log.Warn("apt-get upgrade failed: %s", err)
 	}
 }
 

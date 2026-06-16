@@ -11,7 +11,7 @@ import (
 	"github.com/hmwassim/debforge/pkg/writeutil"
 )
 
-func AptInstall(pkgs []string, backport bool, msg string) error {
+func AptInstall(pkgs []string, backport bool) error {
 	if len(pkgs) == 0 {
 		return nil
 	}
@@ -20,11 +20,7 @@ func AptInstall(pkgs []string, backport bool, msg string) error {
 		args = append(args, "-t", "trixie-backports")
 	}
 	args = append(args, pkgs...)
-	cmd := exec.Command("apt-get", args...)
-	if msg == "" {
-		return executil.Run(cmd)
-	}
-	return executil.RunWithSpinner(cmd, msg)
+	return executil.Run(exec.Command("apt-get", args...))
 }
 
 func DeployConfig(dest, content string, mode os.FileMode) error {

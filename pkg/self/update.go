@@ -47,7 +47,8 @@ func Update(log *text.Logger) error {
 	st := &debforgeState{}
 	store := state.New("debforge")
 	if err := store.Load(st); err != nil {
-		return fmt.Errorf("loading state: %w", err)
+		log.Warn("State file corrupt, resetting: %s", err)
+		st = &debforgeState{}
 	}
 
 	sourceExists := sourceRepoExists()
@@ -257,20 +258,35 @@ func installBinary(buildPath, finalPath string) error {
 		if err != nil {
 			return err
 		}
-		defer src.Close()
-		dst, err := os.OpenFile(finalPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		defer func() {
+			src.Close()
+			os.Remove(buildPath)
+		}()
+		dir := filepath.Dir(finalPath)
+		tmp, err := os.CreateTemp(dir, filepath.Base(finalPath))
 		if err != nil {
 			return err
 		}
-		if _, err := io.Copy(dst, src); err != nil {
-			dst.Close()
+		cleanup := true
+		defer func() {
+			if cleanup {
+				tmp.Close()
+				os.Remove(tmp.Name())
+			}
+		}()
+		if _, err := io.Copy(tmp, src); err != nil {
 			return err
 		}
-		if err := dst.Close(); err != nil {
+		if err := tmp.Chmod(0755); err != nil {
 			return err
 		}
-		src.Close()
-		os.Remove(buildPath)
+		if err := tmp.Close(); err != nil {
+			return err
+		}
+		if err := os.Rename(tmp.Name(), finalPath); err != nil {
+			return err
+		}
+		cleanup = false
 	}
 
 	// Verify the installed binary exists and is executable.
@@ -311,6 +327,8 @@ func ensureSymlink(target, link string) error {
 	}
 
 	// Broken or incorrect symlink — replace it.
-	os.Remove(link)
+	if err := os.Remove(link); err != nil {
+		return fmt.Errorf("removing old symlink %s: %w", link, err)
+	}
 	return os.Symlink(target, link)
 }

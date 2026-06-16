@@ -117,8 +117,12 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 		return fmt.Errorf("purging %s: %w", p.Name, err)
 	}
 
-	os.Remove(p.SourcePath)
-	os.Remove(p.KeyPath)
+	if err := os.Remove(p.SourcePath); err != nil && !os.IsNotExist(err) {
+		log.Warn("Could not remove sources list: %s", err)
+	}
+	if err := os.Remove(p.KeyPath); err != nil && !os.IsNotExist(err) {
+		log.Warn("Could not remove key file: %s", err)
+	}
 
 	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
 		s.Fail()
@@ -137,9 +141,6 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 }
 
 func needDownload(path string) bool {
-	if _, err := os.Stat(path); err != nil {
-		return true
-	}
 	fi, err := os.Stat(path)
 	if err != nil || fi.Size() == 0 {
 		return true

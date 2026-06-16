@@ -59,15 +59,23 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 					return nil
 				}
 				log.Warn("Cached fonts are corrupt, re-downloading...")
-				os.Remove(cachePath)
-				os.Remove(metaPath(cachePath))
+				if err := os.Remove(cachePath); err != nil {
+					log.Debug("Could not remove corrupt cache: %s", err)
+				}
+				if err := os.Remove(metaPath(cachePath)); err != nil {
+					log.Debug("Could not remove cache meta: %s", err)
+				}
 			} else if fresh {
 				if err := extractFonts(cachePath, fontDir, false); err == nil {
 					return nil
 				}
 				log.Warn("Cached fonts are corrupt, re-downloading...")
-				os.Remove(cachePath)
-				os.Remove(metaPath(cachePath))
+				if err := os.Remove(cachePath); err != nil {
+					log.Debug("Could not remove corrupt cache: %s", err)
+				}
+				if err := os.Remove(metaPath(cachePath)); err != nil {
+					log.Debug("Could not remove cache meta: %s", err)
+				}
 			}
 		}
 	}
@@ -83,9 +91,14 @@ func installCodebergFonts(log *text.Logger, s *text.Spinner, force bool) error {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
-	os.Remove(metaPath(cachePath))
+	if err := os.Remove(metaPath(cachePath)); err != nil {
+		log.Debug("Could not remove old cache meta: %s", err)
+	}
 
-	etag, _ := headETag(fontsURL)
+	etag, err := headETag(fontsURL)
+	if err != nil {
+		log.Debug("Could not fetch font ETag: %s", err)
+	}
 	if err := saveMeta(cachePath, etag); err != nil {
 		os.Remove(cachePath)
 		return err
