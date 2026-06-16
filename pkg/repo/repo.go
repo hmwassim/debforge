@@ -33,6 +33,7 @@ type RepoPackage struct {
 	UserConfigs map[string]string `yaml:"user_configs,omitempty"`
 	PostInstall string            `yaml:"post_install,omitempty"`
 	PostRemove  string            `yaml:"post_remove,omitempty"`
+	ConfigDir   string            `yaml:"-"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger, force bool) error {
@@ -176,23 +177,31 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 		s.Done()
 	}
 
-	for path, content := range p.Configs {
-		if err := packages.DeployConfig(path, content, 0644); err != nil {
-			return fmt.Errorf("deploying %s: %w", path, err)
+	if p.Type == "config" {
+		if err := deployConfigs(p.Configs, p.ConfigDir); err != nil {
+			return err
+		}
+		if err := deployUserConfigs(p.UserConfigs, p.ConfigDir); err != nil {
+			return err
+		}
+	} else {
+		for path, content := range p.Configs {
+			if err := packages.DeployConfig(path, content, 0644); err != nil {
+				return fmt.Errorf("deploying %s: %w", path, err)
+			}
+		}
+		if err := deployUserConfigs(p.UserConfigs, ""); err != nil {
+			return err
 		}
 	}
 
-	if err := deployUserConfigs(p.UserConfigs); err != nil {
-		return err
-	}
-
 	if p.PostInstall != "" {
-		if err := executil.Run(userCmd("sh", "-c", p.PostInstall)); err != nil {
+		if err := executil.Run(exec.Command("sh", "-c", p.PostInstall)); err != nil {
 			log.Warn("post-install: %s", err)
 		}
 	}
 
-	state.Packages[p.Name] = PkgEntry{Type: "apt", Variant: selectedVariant}
+	state.Packages[p.Name] = PkgEntry{Type: p.Type, Variant: selectedVariant}
 	if err := saveState(state); err != nil {
 		return fmt.Errorf("%s installed but state not saved: %w", p.Name, err)
 	}
@@ -218,7 +227,7 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 	}
 
 	if p.PostRemove != "" {
-		if err := executil.Run(userCmd("sh", "-c", p.PostRemove)); err != nil {
+		if err := executil.Run(exec.Command("sh", "-c", p.PostRemove)); err != nil {
 			log.Warn("post-remove: %s", err)
 		}
 	}

@@ -1,0 +1,37 @@
+name: system-settings
+type: config
+configs:
+  /etc/sysctl.d/99-desktop.conf.template: sysctl-99-desktop.conf
+  /etc/systemd/system.conf.d/00-timeout.conf: systemd-00-timeout.conf
+  /etc/systemd/system.conf.d/10-limits.conf: systemd-10-limits.conf
+  /etc/systemd/user.conf.d/10-limits.conf: user-10-limits.conf
+  /etc/systemd/journald.conf.d/00-journal-size.conf: journald-00-size.conf
+  /etc/modules-load.d/storage-schedulers.conf: modules-load-storage.conf
+  /etc/udev/rules.d/60-scheduler.rules: udev-60-scheduler.rules
+  /etc/udev/rules.d/99-desktop.rules: udev-99-desktop.rules
+  /etc/tmpfiles.d/ksm.conf: tmpfiles-ksm.conf
+  /etc/tmpfiles.d/thp.conf: tmpfiles-thp.conf
+  /etc/tmpfiles.d/thp-shrinker.conf: tmpfiles-thp-shrinker.conf
+  /etc/tmpfiles.d/coredump.conf: tmpfiles-coredump.conf
+post_install: |
+  MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+  MEM_TOTAL_MB=$(( MEM_TOTAL_KB / 1024 ))
+  DIRTY_BG=$(( MEM_TOTAL_MB * 5 / 100 ))
+  (( DIRTY_BG > 1024 )) && DIRTY_BG=1024
+  DIRTY_MAX=$(( MEM_TOTAL_MB * 20 / 100 ))
+  (( DIRTY_MAX > 4096 )) && DIRTY_MAX=4096
+  mkdir -p /etc/sysctl.d
+  sed -e "s/{{DIRTY_BG_BYTES}}/$(( DIRTY_BG * 1024 * 1024 ))/g" \
+      -e "s/{{DIRTY_MAX_BYTES}}/$(( DIRTY_MAX * 1024 * 1024 ))/g" \
+      /etc/sysctl.d/99-desktop.conf.template > /etc/sysctl.d/99-desktop.conf
+  rm /etc/sysctl.d/99-desktop.conf.template
+  sysctl --system
+  udevadm control --reload-rules
+  udevadm trigger
+  systemctl daemon-reexec
+  systemctl restart systemd-journald
+  journalctl --vacuum-size=3G > /dev/null
+  journalctl --vacuum-time=3months > /dev/null
+post_remove: |
+  rm -f /etc/sysctl.d/99-desktop.conf
+  sysctl --system

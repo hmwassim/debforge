@@ -22,7 +22,23 @@ func userHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
-func deployUserConfigs(configs map[string]string) error {
+func deployConfigs(configs map[string]string, cfgDir string) error {
+	for path, filename := range configs {
+		data, err := os.ReadFile(filepath.Join(cfgDir, filename))
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", filename, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return fmt.Errorf("creating directory for %s: %w", path, err)
+		}
+		if err := writeutil.AtomicFile(path, data, 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func deployUserConfigs(configs map[string]string, cfgDir string) error {
 	if len(configs) == 0 {
 		return nil
 	}
@@ -30,32 +46,31 @@ func deployUserConfigs(configs map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("resolving home directory: %w", err)
 	}
-	for path, content := range configs {
+	uid, _ := strconv.Atoi(os.Getenv("SUDO_UID"))
+	gid, _ := strconv.Atoi(os.Getenv("SUDO_GID"))
+
+	for path, source := range configs {
+		var data []byte
+		if cfgDir != "" {
+			data, err = os.ReadFile(filepath.Join(cfgDir, source))
+			if err != nil {
+				return fmt.Errorf("reading %s: %w", source, err)
+			}
+		} else {
+			data = []byte(source)
+		}
 		fullPath := filepath.Join(home, path)
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 			return fmt.Errorf("creating directory for %s: %w", path, err)
 		}
-		if err := writeutil.AtomicFile(fullPath, []byte(content), 0644); err != nil {
+		if err := writeutil.AtomicFile(fullPath, data, 0644); err != nil {
 			return fmt.Errorf("writing %s: %w", path, err)
 		}
+		if uid != 0 {
+			os.Chown(fullPath, uid, gid)
+		}
 	}
-	chownUserConfigs(configs)
 	return nil
-}
-
-func chownUserConfigs(configs map[string]string) {
-	uid, _ := strconv.Atoi(os.Getenv("SUDO_UID"))
-	gid, _ := strconv.Atoi(os.Getenv("SUDO_GID"))
-	if uid == 0 {
-		return
-	}
-	home, err := userHomeDir()
-	if err != nil {
-		return
-	}
-	for path := range configs {
-		os.Chown(filepath.Join(home, path), uid, gid)
-	}
 }
 
 func removeUserConfigs(log *text.Logger, configs map[string]string) {

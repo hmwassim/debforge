@@ -29,9 +29,10 @@ func LoadFromDir(dir string) error {
 		if err := yaml.Unmarshal(data, &pkg); err != nil {
 			return fmt.Errorf("parsing %s: %w", entry.Name(), err)
 		}
-		if pkg.Name == "" || pkg.Type != "apt" {
+		if pkg.Name == "" || (pkg.Type != "apt" && pkg.Type != "config") {
 			continue
 		}
+		pkg.ConfigDir = filepath.Join(dir, "..", "configs", pkg.Name)
 		if err := Register(&pkg); err != nil {
 			return fmt.Errorf("registering %s: %w", entry.Name(), err)
 		}
