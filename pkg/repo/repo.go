@@ -285,17 +285,51 @@ func promptVariant(log *text.Logger, variants map[string]string) string {
 func ensureExtrepoConfig() error {
 	const path = "/etc/extrepo/config.yaml"
 	data, err := os.ReadFile(path)
-	if err == nil && bytes.Contains(data, []byte("enabled_policies:")) {
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	if bytes.Contains(data, []byte("\n  - non-free")) {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
+
+	lines := strings.Split(string(data), "\n")
+	inPolicies := false
+	changed := false
+	hasNonFree := false
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "enabled_policies:") {
+			inPolicies = true
+			continue
+		}
+		if inPolicies {
+			if trimmed == "" || (!strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "#")) {
+				break
+			}
+			stripped := strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+			if strings.HasPrefix(stripped, "- non-free") {
+				hasNonFree = true
+				if strings.HasPrefix(trimmed, "#") {
+					lines[i] = strings.Replace(line, "#", "", 1)
+					changed = true
+				}
+			}
+			if strings.HasPrefix(trimmed, "#") && strings.HasPrefix(stripped, "- ") {
+				lines[i] = strings.Replace(line, "#", "", 1)
+				changed = true
+			}
+		}
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
+
+	if !hasNonFree {
+		lines = append(lines, "  - non-free")
+		changed = true
 	}
-	defer f.Close()
-	_, err = f.WriteString("\nenabled_policies:\n  - non-free\n  - non-free-firmware\n  - contrib\n  - main\n")
-	return err
+
+	if changed {
+		return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+	}
+	return nil
 }
