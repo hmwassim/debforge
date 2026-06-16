@@ -2,11 +2,13 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/hmwassim/debforge/pkg/cli"
 	"github.com/hmwassim/debforge/pkg/core"
 	"github.com/hmwassim/debforge/pkg/repo"
 	"github.com/hmwassim/debforge/pkg/self"
+	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
@@ -23,6 +25,10 @@ func hasFlag(args []string, flags ...string) bool {
 
 func main() {
 	log := text.New()
+
+	if err := repo.LoadFromDir(filepath.Join(settings.Default.SourceDir(), "data", "packages")); err != nil {
+		log.Warn("Could not load package definitions: %s", err)
+	}
 
 	result, err := cli.Parse()
 	if err != nil {

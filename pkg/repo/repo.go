@@ -13,13 +13,14 @@ import (
 )
 
 type RepoPackage struct {
-	Name       string
-	Packages   []string
-	Conflicts  []string
-	KeyURL     string
-	KeyPath    string
-	Sources    string
-	SourcePath string
+	Name       string   `yaml:"name"`
+	Type       string   `yaml:"type"`
+	Packages   []string `yaml:"packages"`
+	Conflicts  []string `yaml:"conflicts,omitempty"`
+	KeyURL     string   `yaml:"key_url"`
+	KeyPath    string   `yaml:"key_path"`
+	Sources    string   `yaml:"sources"`
+	SourcePath string   `yaml:"source_path"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger) error {
@@ -79,7 +80,7 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 
 	s.Done()
 
-	state.Packages[p.Name] = PkgEntry{Type: "repo"}
+	state.Packages[p.Name] = PkgEntry{Type: "apt"}
 	if err := saveState(state); err != nil {
 		log.Warn("Could not save state: %s", err)
 	}

@@ -4,11 +4,12 @@ import "fmt"
 
 var manifest = map[string]*RepoPackage{}
 
-func Register(p *RepoPackage) {
+func Register(p *RepoPackage) error {
 	if _, ok := manifest[p.Name]; ok {
-		panic(fmt.Sprintf("repo package %q already registered", p.Name))
+		return fmt.Errorf("package %q already registered", p.Name)
 	}
 	manifest[p.Name] = p
+	return nil
 }
 
 func Lookup(name string) *RepoPackage {
@@ -21,21 +22,4 @@ func List() []string {
 		names = append(names, n)
 	}
 	return names
-}
-
-func init() {
-	Register(&RepoPackage{
-		Name:       "firefox",
-		Packages:   []string{"firefox"},
-		Conflicts:  []string{"firefox-esr"},
-		KeyURL:     "https://packages.mozilla.org/apt/repo-signing-key.gpg",
-		KeyPath:    "/etc/apt/keyrings/packages.mozilla.org.asc",
-		SourcePath: "/etc/apt/sources.list.d/mozilla.sources",
-		Sources: `Types: deb
-URIs: https://packages.mozilla.org/apt
-Suites: mozilla
-Components: main
-Signed-By: /etc/apt/keyrings/packages.mozilla.org.asc
-`,
-	})
 }
