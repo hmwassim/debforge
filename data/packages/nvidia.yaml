@@ -1,0 +1,29 @@
+name: nvidia
+type: apt
+packages:
+  - nvtop
+variants:
+  open: nvidia-open
+  proprietary: cuda-drivers
+backports:
+  - nvidia-vaapi-driver
+configs:
+  /etc/modprobe.d/99-nvidia.conf: |
+    # NVIDIA kernel module tunables
+    # PAT: better CPU memory management for GPU buffers (faster).
+    # SkipMemoryZero: don't zero GPU allocations on alloc.
+    # AggressiveVblank: lower-latency display-interrupt handling.
+    # DynamicPowerManagement 0x02: allow dGPU idle power-down.
+    options nvidia NVreg_UsePageAttributeTable=1 
+    options NVreg_InitializeSystemMemoryAllocations=0 
+    options NVreg_RegistryDwords=RmEnableAggressiveVblank=1 
+    options NVreg_DynamicPowerManagement=0x02
+key_url: https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/3bf863cc.pub
+key_path: /usr/share/keyrings/nvidia-cuda.asc
+source_path: /etc/apt/sources.list.d/nvidia-cuda.sources
+sources: |
+  Types: deb
+  URIs: https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/
+  Suites: /
+  Components: /
+  Signed-By: /usr/share/keyrings/nvidia-cuda.asc

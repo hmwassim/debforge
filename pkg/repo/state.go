@@ -5,7 +5,8 @@ import (
 )
 
 type PkgEntry struct {
-	Type string `json:"type"`
+	Type    string `json:"type"`
+	Variant string `json:"variant,omitempty"`
 }
 
 type PackagesState struct {

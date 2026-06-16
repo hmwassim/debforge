@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -14,14 +15,17 @@ import (
 )
 
 type RepoPackage struct {
-	Name       string   `yaml:"name"`
-	Type       string   `yaml:"type"`
-	Packages   []string `yaml:"packages"`
-	Conflicts  []string `yaml:"conflicts,omitempty"`
-	KeyURL     string   `yaml:"key_url"`
-	KeyPath    string   `yaml:"key_path"`
-	Sources    string   `yaml:"sources"`
-	SourcePath string   `yaml:"source_path"`
+	Name       string            `yaml:"name"`
+	Type       string            `yaml:"type"`
+	Packages   []string          `yaml:"packages"`
+	Conflicts  []string          `yaml:"conflicts,omitempty"`
+	KeyURL     string            `yaml:"key_url"`
+	KeyPath    string            `yaml:"key_path"`
+	Sources    string            `yaml:"sources"`
+	SourcePath string            `yaml:"source_path"`
+	Backports  []string          `yaml:"backports,omitempty"`
+	Variants   map[string]string `yaml:"variants,omitempty"`
+	Configs    map[string]string `yaml:"configs,omitempty"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger) error {
@@ -29,13 +33,33 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 	if err != nil {
 		return fmt.Errorf("loading state: %w", err)
 	}
-	if _, ok := state.Packages[p.Name]; ok {
-		log.Info("%s already installed", p.Name)
-		return nil
+
+	var selectedVariant string
+	var switching bool
+
+	if len(p.Variants) > 0 {
+		entry, exists := state.Packages[p.Name]
+		selectedVariant = promptVariant(log, p.Variants)
+		if selectedVariant == "" {
+			return nil
+		}
+		if exists && entry.Variant == selectedVariant {
+			log.Info("%s (%s) already installed", p.Name, selectedVariant)
+			return nil
+		}
+		if exists && entry.Variant != "" {
+			switching = true
+			log.Info("Switching from %s to %s variant", entry.Variant, selectedVariant)
+		}
+	} else {
+		if _, ok := state.Packages[p.Name]; ok {
+			log.Info("%s already installed", p.Name)
+			return nil
+		}
 	}
 
 	if len(p.Conflicts) > 0 {
-		log.Info("Installing %s will delete %s", p.Name, strings.Join(p.Conflicts, ", "))
+		log.Info("Installing %s will remove %s", p.Name, strings.Join(p.Conflicts, ", "))
 	} else {
 		log.Info("Installing %s...", p.Name)
 	}
@@ -71,6 +95,15 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 		return fmt.Errorf("apt-get update: %w", err)
 	}
 
+	if switching {
+		oldPkg := p.Variants[state.Packages[p.Name].Variant]
+		oldArgs := append([]string{"purge", "-y"}, oldPkg)
+		if err := executil.Run(exec.Command("apt-get", oldArgs...)); err != nil {
+			s.Fail()
+			return fmt.Errorf("removing previous %s variant: %w", p.Name, err)
+		}
+	}
+
 	if len(p.Conflicts) > 0 {
 		args := append([]string{"autopurge", "-y"}, p.Conflicts...)
 		if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
@@ -79,15 +112,33 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 		}
 	}
 
-	args := append([]string{"install", "-y"}, p.Packages...)
+	installPkgs := p.Packages
+	if selectedVariant != "" {
+		installPkgs = append([]string{p.Variants[selectedVariant]}, installPkgs...)
+	}
+	args := append([]string{"install", "-y"}, installPkgs...)
 	if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
 		s.Fail()
 		return fmt.Errorf("installing %s: %w", p.Name, err)
 	}
 
+	if len(p.Backports) > 0 {
+		bpArgs := append([]string{"install", "-y", "-t", "trixie-backports"}, p.Backports...)
+		if err := executil.Run(exec.Command("apt-get", bpArgs...)); err != nil {
+			s.Fail()
+			return fmt.Errorf("installing backports for %s: %w", p.Name, err)
+		}
+	}
+
 	s.Done()
 
-	state.Packages[p.Name] = PkgEntry{Type: "apt"}
+	for path, content := range p.Configs {
+		if err := packages.DeployConfig(path, content, 0644); err != nil {
+			return fmt.Errorf("deploying %s: %w", path, err)
+		}
+	}
+
+	state.Packages[p.Name] = PkgEntry{Type: "apt", Variant: selectedVariant}
 	if err := saveState(state); err != nil {
 		return fmt.Errorf("%s installed but state not saved: %w", p.Name, err)
 	}
@@ -114,7 +165,14 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 
 	s := text.StartSpinner(os.Stderr, "Removing "+p.Name+"...")
 
-	args := append([]string{"purge", "-y"}, p.Packages...)
+	purgePkgs := p.Packages
+	entry := state.Packages[p.Name]
+	if entry.Variant != "" {
+		if vpkg, ok := p.Variants[entry.Variant]; ok {
+			purgePkgs = append([]string{vpkg}, purgePkgs...)
+		}
+	}
+	args := append([]string{"purge", "-y"}, purgePkgs...)
 	if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
 		s.Fail()
 		return fmt.Errorf("purging %s: %w", p.Name, err)
@@ -125,6 +183,12 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 	}
 	if err := os.Remove(p.KeyPath); err != nil && !os.IsNotExist(err) {
 		log.Warn("Could not remove key file: %s", err)
+	}
+
+	for path := range p.Configs {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			log.Warn("Could not remove %s: %s", path, err)
+		}
 	}
 
 	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
@@ -149,4 +213,29 @@ func needDownload(path string) bool {
 		return true
 	}
 	return false
+}
+
+func promptVariant(log *text.Logger, variants map[string]string) string {
+	keys := make([]string, 0, len(variants))
+	for k := range variants {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	log.Info("Select variant:")
+	for i, k := range keys {
+		log.Info("  %d) %s — %s", i+1, k, variants[k])
+	}
+
+	input := log.PromptLine(fmt.Sprintf("Enter number [1-%d] or 0 to cancel:", len(keys)))
+	var n int
+	if _, err := fmt.Sscanf(input, "%d", &n); err != nil || n < 0 || n > len(keys) {
+		log.Warn("Invalid selection")
+		return ""
+	}
+	if n == 0 {
+		log.Info("Cancelled")
+		return ""
+	}
+	return keys[n-1]
 }
