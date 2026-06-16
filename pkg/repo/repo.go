@@ -26,6 +26,7 @@ type RepoPackage struct {
 	KeyDearmor bool              `yaml:"key_dearmor,omitempty"`
 	Sources    string            `yaml:"sources,omitempty"`
 	SourcePath string            `yaml:"source_path,omitempty"`
+	Primary    string            `yaml:"primary,omitempty"`
 	Backports  []string          `yaml:"backports,omitempty"`
 	Variants   map[string]string `yaml:"variants,omitempty"`
 	Configs    map[string]string `yaml:"configs,omitempty"`
@@ -201,17 +202,28 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 
 	s := text.StartSpinner(os.Stderr, "Removing "+p.Name+"...")
 
-	purgePkgs := p.Packages
 	entry := state.Packages[p.Name]
-	if entry.Variant != "" {
-		if vpkg, ok := p.Variants[entry.Variant]; ok {
-			purgePkgs = append([]string{vpkg}, purgePkgs...)
+	if p.Primary != "" {
+		primary := p.Primary
+		if entry.Variant != "" {
+			if vpkg, ok := p.Variants[entry.Variant]; ok {
+				primary = vpkg
+			}
 		}
-	}
-	args := append([]string{"purge", "-y"}, purgePkgs...)
-	if err := executil.Run(exec.Command("apt-get", args...)); err != nil {
-		s.Fail()
-		return fmt.Errorf("purging %s: %w", p.Name, err)
+		rArgs := []string{"remove", "-y", primary}
+		if err := executil.Run(exec.Command("apt-get", rArgs...)); err != nil {
+			s.Fail()
+			return fmt.Errorf("removing %s: %w", primary, err)
+		}
+		if err := executil.Run(exec.Command("apt-get", "autoremove", "-y")); err != nil {
+			s.Fail()
+			return fmt.Errorf("autoremove: %w", err)
+		}
+	} else {
+		if err := executil.Run(exec.Command("apt-get", "autoremove", "-y")); err != nil {
+			s.Fail()
+			return fmt.Errorf("autoremove: %w", err)
+		}
 	}
 
 	if p.Extrepo != "" {
