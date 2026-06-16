@@ -5,6 +5,7 @@ import (
 
 	"github.com/hmwassim/debforge/pkg/cli"
 	"github.com/hmwassim/debforge/pkg/core"
+	"github.com/hmwassim/debforge/pkg/repo"
 	"github.com/hmwassim/debforge/pkg/self"
 	"github.com/hmwassim/debforge/pkg/text"
 )
@@ -59,6 +60,39 @@ func main() {
 		default:
 			log.Error("unknown core subcommand: %s", sub)
 			os.Exit(1)
+		}
+	case cli.OpInstall:
+		for _, name := range result.Args {
+			pkg := repo.Lookup(name)
+			if pkg == nil {
+				log.Error("unknown package: %s", name)
+				os.Exit(1)
+			}
+			if err := pkg.Install(log); err != nil {
+				log.Error("%s", err)
+				os.Exit(1)
+			}
+		}
+	case cli.OpRemove:
+		for _, name := range result.Args {
+			pkg := repo.Lookup(name)
+			if pkg == nil {
+				log.Error("unknown package: %s", name)
+				os.Exit(1)
+			}
+			if err := pkg.Remove(log); err != nil {
+				log.Error("%s", err)
+				os.Exit(1)
+			}
+		}
+	case cli.OpList:
+		state := repo.LoadState()
+		for _, name := range repo.List() {
+			if _, ok := state.Packages[name]; ok {
+				log.Success("  %s — installed", name)
+			} else {
+				log.Info("  %s — not installed", name)
+			}
 		}
 	default:
 		log.Error("unhandled operation: %s", result.Op)
