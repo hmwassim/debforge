@@ -415,8 +415,10 @@ func userCmd(name string, arg ...string) *exec.Cmd {
 	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
 		uid := os.Getenv("SUDO_UID")
 		if uid != "" {
-			envPrefix := "XDG_RUNTIME_DIR=/run/user/" + uid + " DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/" + uid + "/bus "
-			cmd = exec.Command("sudo", "-u", sudoUser, "-H", "sh", "-c", envPrefix+arg[1])
+			cmd = exec.Command("sudo", "-u", sudoUser, "-H", "sh", "-c",
+				"export XDG_RUNTIME_DIR=/run/user/"+uid+
+					" DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/"+uid+"/bus; "+
+					arg[1])
 		} else {
 			cmd = exec.Command("sudo", "-u", sudoUser, "-H", "sh", "-c", arg[1])
 		}
