@@ -18,12 +18,8 @@ configs:
     options NVreg_InitializeSystemMemoryAllocations=0 
     options NVreg_RegistryDwords=RmEnableAggressiveVblank=1 
     options NVreg_DynamicPowerManagement=0x02
-key_url: https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/3bf863cc.pub
+key_url: https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/8793F200.pub
 key_path: /usr/share/keyrings/nvidia-cuda.asc
-source_path: /etc/apt/sources.list.d/nvidia-cuda.sources
+source_path: /etc/apt/sources.list.d/nvidia-cuda.list
 sources: |
-  Types: deb
-  URIs: https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/
-  Suites: /
-  Components: /
-  Signed-By: /usr/share/keyrings/nvidia-cuda.asc
+  deb [signed-by=/usr/share/keyrings/nvidia-cuda.asc] https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/ /
