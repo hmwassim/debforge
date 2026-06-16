@@ -25,6 +25,7 @@ type coreState struct {
 type configCheck struct {
 	dest    string
 	content string
+	mode    os.FileMode
 }
 
 type plan struct {
@@ -38,7 +39,7 @@ func buildPlan() plan {
 	for _, g := range groups {
 		p.pkgs = append(p.pkgs, g.packages...)
 		for _, cf := range g.configs {
-			p.configs = append(p.configs, configCheck{cf.dest, cf.content})
+			p.configs = append(p.configs, configCheck{cf.dest, cf.content, cf.mode})
 		}
 		p.svcs = append(p.svcs, g.services...)
 	}
@@ -202,11 +203,17 @@ func verifySetup(p plan) bool {
 		if err != nil || string(data) != cf.content {
 			return false
 		}
+		fi, err := os.Stat(cf.dest)
+		if err != nil || fi.Mode().Perm() != cf.mode {
+			return false
+		}
 	}
 
-	if len(p.svcs) > 0 {
-		args := append([]string{"is-active", "--quiet"}, p.svcs...)
-		if err := executil.Run(exec.Command("systemctl", args...)); err != nil {
+	for _, svc := range p.svcs {
+		if err := executil.Run(exec.Command("systemctl", "is-active", "--quiet", svc)); err != nil {
+			return false
+		}
+		if err := executil.Run(exec.Command("systemctl", "is-enabled", "--quiet", svc)); err != nil {
 			return false
 		}
 	}
