@@ -289,43 +289,24 @@ func ensureExtrepoConfig() error {
 		return fmt.Errorf("reading %s: %w", path, err)
 	}
 
-	if bytes.Contains(data, []byte("\n  - non-free")) {
+	if bytes.Contains(data, []byte("\n- non-free")) {
 		return nil
 	}
 
 	lines := strings.Split(string(data), "\n")
-	inPolicies := false
 	changed := false
-	hasNonFree := false
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "enabled_policies:") {
-			inPolicies = true
+		if !strings.HasPrefix(trimmed, "#") {
 			continue
 		}
-		if inPolicies {
-			if trimmed == "" || (!strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "#")) {
-				break
-			}
-			stripped := strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
-			if strings.HasPrefix(stripped, "- non-free") {
-				hasNonFree = true
-				if strings.HasPrefix(trimmed, "#") {
-					lines[i] = strings.Replace(line, "#", "", 1)
-					changed = true
-				}
-			}
-			if strings.HasPrefix(trimmed, "#") && strings.HasPrefix(stripped, "- ") {
-				lines[i] = strings.Replace(line, "#", "", 1)
-				changed = true
-			}
+		content := strings.TrimSpace(strings.TrimPrefix(trimmed, "#"))
+		if strings.HasPrefix(content, "- ") {
+			indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+			lines[i] = indent + content
+			changed = true
 		}
-	}
-
-	if !hasNonFree {
-		lines = append(lines, "  - non-free")
-		changed = true
 	}
 
 	if changed {
