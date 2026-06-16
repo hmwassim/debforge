@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hmwassim/debforge/pkg/settings"
+	"github.com/hmwassim/debforge/pkg/writeutil"
 )
 
 type Store struct {
@@ -35,9 +36,5 @@ func (s *Store) Save(v any) error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return writeutil.AtomicFile(s.path, data, 0600)
 }

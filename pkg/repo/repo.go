@@ -10,6 +10,7 @@ import (
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/packages"
 	"github.com/hmwassim/debforge/pkg/text"
+	"github.com/hmwassim/debforge/pkg/writeutil"
 )
 
 type RepoPackage struct {
@@ -24,7 +25,10 @@ type RepoPackage struct {
 }
 
 func (p *RepoPackage) Install(log *text.Logger) error {
-	state := LoadState()
+	state, err := LoadState()
+	if err != nil {
+		return fmt.Errorf("loading state: %w", err)
+	}
 	if _, ok := state.Packages[p.Name]; ok {
 		log.Info("%s already installed", p.Name)
 		return nil
@@ -52,7 +56,7 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 	}
 
 	if existing, err := os.ReadFile(p.SourcePath); err != nil || string(existing) != p.Sources {
-		if err := atomicWrite(p.SourcePath, p.Sources); err != nil {
+		if err := writeutil.AtomicFile(p.SourcePath, []byte(p.Sources), 0644); err != nil {
 			return fmt.Errorf("writing sources: %w", err)
 		}
 	}
@@ -82,7 +86,7 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 
 	state.Packages[p.Name] = PkgEntry{Type: "apt"}
 	if err := saveState(state); err != nil {
-		log.Warn("Could not save state: %s", err)
+		return fmt.Errorf("%s installed but state not saved: %w", p.Name, err)
 	}
 
 	log.Success("%s installed", p.Name)
@@ -90,7 +94,10 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 }
 
 func (p *RepoPackage) Remove(log *text.Logger) error {
-	state := LoadState()
+	state, err := LoadState()
+	if err != nil {
+		return fmt.Errorf("loading state: %w", err)
+	}
 	if _, ok := state.Packages[p.Name]; !ok {
 		log.Warn("%s is not installed", p.Name)
 		return nil
@@ -122,7 +129,7 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 
 	delete(state.Packages, p.Name)
 	if err := saveState(state); err != nil {
-		log.Warn("Could not save state: %s", err)
+		return fmt.Errorf("%s removed but state not saved: %w", p.Name, err)
 	}
 
 	log.Info("%s removed", p.Name)
@@ -138,39 +145,4 @@ func needDownload(path string) bool {
 		return true
 	}
 	return false
-}
-
-func atomicWrite(path, content string) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, filepath.Base(path))
-	if err != nil {
-		return err
-	}
-	cleanup := true
-	defer func() {
-		if cleanup {
-			tmp.Close()
-			os.Remove(tmp.Name())
-		}
-	}()
-	if _, err := tmp.WriteString(content); err != nil {
-		return err
-	}
-	if err := tmp.Chmod(0644); err != nil {
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return err
-	}
-	cleanup = false
-	return nil
 }

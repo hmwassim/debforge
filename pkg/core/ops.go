@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/lock"
+	"github.com/hmwassim/debforge/pkg/writeutil"
 	"github.com/hmwassim/debforge/pkg/packages"
 	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/state"
@@ -179,7 +179,7 @@ func Setup(log *text.Logger, force bool) error {
 	st.ManagedPackages = desiredPkgs
 	st.ManagedConfigs = desiredConfigs
 	if err := store.Save(st); err != nil {
-		log.Warn("Could not save state: %s", err)
+		return fmt.Errorf("saving state: %w", err)
 	}
 
 	log.Success("Core setup complete")
@@ -272,46 +272,12 @@ func List(log *text.Logger) {
 	}
 }
 
-func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, filepath.Base(path))
-	if err != nil {
-		return err
-	}
-	cleanup := true
-	defer func() {
-		if cleanup {
-			tmp.Close()
-			os.Remove(tmp.Name())
-		}
-	}()
-	if _, err := tmp.Write(data); err != nil {
-		return err
-	}
-	if err := tmp.Chmod(mode); err != nil {
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return err
-	}
-	cleanup = false
-	return nil
-}
-
 func setImmutable(path string, lock bool) {
-	op := "+i"
 	verb := "lock"
 	if !lock {
-		op = "-i"
 		verb = "unlock"
 	}
-	if err := exec.Command("chattr", op, path).Run(); err != nil {
+	if err := writeutil.SetImmutable(path, lock); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", verb, path, err)
 	}
 }
@@ -327,7 +293,7 @@ func createSourcesBackupOnce(backupPath, path string) error {
 	if string(data) == sourcesList {
 		return nil
 	}
-	if err := atomicWriteFile(backupPath, data, 0644); err != nil {
+	if err := writeutil.AtomicFile(backupPath, data, 0644); err != nil {
 		return err
 	}
 	setImmutable(backupPath, true)
@@ -349,7 +315,7 @@ func ensureSourcesList(force bool) error {
 		}
 	}
 
-	return atomicWriteFile(path, []byte(sourcesList), 0644)
+	return writeutil.AtomicFile(path, []byte(sourcesList), 0644)
 }
 
 func enablei386(force bool) error {

@@ -2,10 +2,12 @@ package text
 
 import (
 	"io"
+	"sync"
 	"time"
 )
 
 type Progress struct {
+	mu       sync.Mutex
 	total    int64
 	current  int64
 	desc     string
@@ -21,6 +23,8 @@ func NewProgress(w io.Writer, total int64, desc string) *Progress {
 }
 
 func (p *Progress) Write(buf []byte) (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	n := len(buf)
 	p.current += int64(n)
 	if p.current >= p.total {
@@ -35,6 +39,8 @@ func (p *Progress) Write(buf []byte) (int, error) {
 }
 
 func (p *Progress) Done() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.current = p.total
 	p.write()
 }

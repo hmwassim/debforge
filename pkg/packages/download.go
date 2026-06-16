@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/cli"
@@ -24,12 +25,14 @@ var httpClient = &http.Client{
 }
 
 func DownloadFile(path, url, desc string) error {
-	tmp := path + ".tmp"
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
 
-	f, err := os.Create(tmp)
+	f, err := os.CreateTemp(dir, base)
 	if err != nil {
 		return err
 	}
+	tmp := f.Name()
 
 	abort := true
 	defer func() {
@@ -75,6 +78,9 @@ func DownloadFile(path, url, desc string) error {
 		sp.Done()
 	}
 
+	if err := f.Sync(); err != nil {
+		return err
+	}
 	if err := f.Close(); err != nil {
 		return err
 	}

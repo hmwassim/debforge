@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/pkg/executil"
+	"github.com/hmwassim/debforge/pkg/writeutil"
 )
 
 func AptInstall(pkgs []string, backport bool, msg string) error {
@@ -46,37 +47,7 @@ func DeployConfig(dest, content string, mode os.FileMode) error {
 		return err
 	}
 
-	tmp := dest + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
-	if err != nil {
-		return err
-	}
-	cleanup := true
-	defer func() {
-		if cleanup {
-			f.Close()
-			os.Remove(tmp)
-		}
-	}()
-
-	if _, err := f.WriteString(content); err != nil {
-		return err
-	}
-	if err := f.Chmod(mode); err != nil {
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	if err := os.Rename(tmp, dest); err != nil {
-		return err
-	}
-	cleanup = false
-	return nil
+	return writeutil.AtomicFile(dest, []byte(content), mode)
 }
 
 func CheckInstalled(pkgs []string) (map[string]bool, error) {

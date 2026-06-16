@@ -14,6 +14,7 @@ import (
 	"github.com/hmwassim/debforge/pkg/repo"
 	"github.com/hmwassim/debforge/pkg/settings"
 	"github.com/hmwassim/debforge/pkg/text"
+	"github.com/hmwassim/debforge/pkg/writeutil"
 )
 
 func Remove(log *text.Logger) error {
@@ -55,8 +56,12 @@ func Remove(log *text.Logger) error {
 }
 
 func chattrOp(path string, op string) {
-	if err := exec.Command("chattr", op, path).Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", op, path, err)
+	verb := "unlock"
+	if op == "+i" {
+		verb = "lock"
+	}
+	if err := writeutil.SetImmutable(path, op == "+i"); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not %s %s: %v\n", verb, path, err)
 	}
 }
 
@@ -94,7 +99,11 @@ func restoreSourcesBackup(log *text.Logger) {
 }
 
 func uninstallManagedPackages(log *text.Logger) {
-	state := repo.LoadState()
+	state, err := repo.LoadState()
+	if err != nil {
+		log.Warn("Could not load package state: %s", err)
+		return
+	}
 	if len(state.Packages) == 0 {
 		return
 	}

@@ -2,12 +2,14 @@ package self
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hmwassim/debforge/pkg/executil"
@@ -248,7 +250,27 @@ func verifyBinary(path string) error {
 
 func installBinary(buildPath, finalPath string) error {
 	if err := os.Rename(buildPath, finalPath); err != nil {
-		return err
+		if !errors.Is(err, syscall.EXDEV) {
+			return err
+		}
+		src, err := os.Open(buildPath)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+		dst, err := os.OpenFile(finalPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(dst, src); err != nil {
+			dst.Close()
+			return err
+		}
+		if err := dst.Close(); err != nil {
+			return err
+		}
+		src.Close()
+		os.Remove(buildPath)
 	}
 
 	// Verify the installed binary exists and is executable.

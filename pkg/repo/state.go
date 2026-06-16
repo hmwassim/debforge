@@ -13,16 +13,16 @@ type PackagesState struct {
 	Packages map[string]PkgEntry `json:"packages"`
 }
 
-func LoadState() *PackagesState {
+func LoadState() (*PackagesState, error) {
 	s := &PackagesState{Version: 1, Packages: map[string]PkgEntry{}}
 	store := state.New("packages")
 	if err := store.Load(s); err != nil {
-		return &PackagesState{Version: 1, Packages: map[string]PkgEntry{}}
+		return nil, err
 	}
 	if s.Packages == nil {
 		s.Packages = map[string]PkgEntry{}
 	}
-	return s
+	return s, nil
 }
 
 func saveState(s *PackagesState) error {

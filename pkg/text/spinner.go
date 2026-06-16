@@ -13,8 +13,9 @@ type Spinner struct {
 	done  chan struct{}
 	color bool
 
-	mu     sync.Mutex
-	paused bool
+	mu       sync.Mutex
+	paused   bool
+	doneOnce sync.Once
 }
 
 func StartSpinner(w io.Writer, desc string) *Spinner {
@@ -78,8 +79,10 @@ func (s *Spinner) doneFail(ok bool) {
 	s.mu.Unlock()
 
 	if s.stop != nil {
-		close(s.stop)
-		<-s.done
+		s.doneOnce.Do(func() {
+			close(s.stop)
+			<-s.done
+		})
 		s.stop = nil
 	}
 

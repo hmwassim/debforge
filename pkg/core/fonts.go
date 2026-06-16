@@ -226,6 +226,7 @@ func extractFonts(path, fontDir string, force bool) error {
 			}
 			if _, err := io.Copy(fw, tr); err != nil {
 				fw.Close()
+				os.Remove(clean)
 				return err
 			}
 			fw.Close()

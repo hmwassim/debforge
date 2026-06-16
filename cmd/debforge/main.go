@@ -92,7 +92,11 @@ func main() {
 			}
 		}
 	case cli.OpList:
-		state := repo.LoadState()
+		state, err := repo.LoadState()
+		if err != nil {
+			log.Warn("Could not load state: %s", err)
+			state = &repo.PackagesState{Packages: map[string]repo.PkgEntry{}}
+		}
 		for _, name := range repo.List() {
 			if _, ok := state.Packages[name]; ok {
 				log.Success("  %s — installed", name)
