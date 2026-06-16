@@ -285,7 +285,10 @@ func ensureSourcesList(force bool) error {
 			data, err := os.ReadFile(path)
 			if err == nil && string(data) != sourcesList {
 				os.WriteFile(backupPath, data, 0644)
+				return os.WriteFile(path, []byte(sourcesList), 0644)
 			}
+		} else if err == nil {
+			os.Remove(backupPath)
 		}
 	}
 	return os.WriteFile(path, []byte(sourcesList), 0644)
