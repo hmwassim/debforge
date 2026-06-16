@@ -53,6 +53,9 @@ func (p *RepoPackage) Install(log *text.Logger) error {
 		if err := packages.DownloadFile(p.KeyPath, p.KeyURL, "Adding repository key..."); err != nil {
 			return fmt.Errorf("downloading key: %w", err)
 		}
+		if err := os.Chmod(p.KeyPath, 0644); err != nil {
+			return fmt.Errorf("setting key permissions: %w", err)
+		}
 	}
 
 	if existing, err := os.ReadFile(p.SourcePath); err != nil || string(existing) != p.Sources {

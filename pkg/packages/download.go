@@ -89,6 +89,9 @@ func DownloadFile(path, url, desc string) error {
 	if err := os.Rename(tmp, path); err != nil {
 		return err
 	}
+	if err := os.Chmod(path, 0644); err != nil {
+		return err
+	}
 	abort = false
 	return nil
 }
