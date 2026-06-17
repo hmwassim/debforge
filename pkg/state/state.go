@@ -25,7 +25,13 @@ func (s *Store) Load(v any) error {
 		}
 		return err
 	}
-	return json.Unmarshal(data, v)
+	if err := json.Unmarshal(data, v); err != nil {
+		return err
+	}
+	if os.Geteuid() == 0 {
+		os.Chmod(s.path, 0644)
+	}
+	return nil
 }
 
 func (s *Store) Save(v any) error {
