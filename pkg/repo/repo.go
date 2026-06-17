@@ -366,7 +366,7 @@ func ensureExtrepoConfig() error {
 	}
 
 	if changed {
-		return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+		return writeutil.AtomicFile(path, []byte(strings.Join(lines, "\n")), 0644)
 	}
 	return nil
 }

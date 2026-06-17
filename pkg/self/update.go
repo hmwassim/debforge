@@ -215,7 +215,7 @@ func buildBinary(dst string) error {
 		"./cmd/debforge/")
 	cmd.Dir = cfg.SourceDir()
 	cmd.Env = []string{
-		"PATH=/usr/local/go/bin:/usr/bin:/bin",
+		"PATH=" + os.Getenv("PATH"),
 		"GOPATH=" + cfg.GoPathDir(),
 		"GOMODCACHE=" + cfg.GoPathDir() + "/mod",
 		"GOCACHE=" + cfg.GoCacheDir(),

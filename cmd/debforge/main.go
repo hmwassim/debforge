@@ -23,6 +23,23 @@ func hasFlag(args []string, flags ...string) bool {
 	return false
 }
 
+func filterArgs(args []string, flags ...string) []string {
+	var out []string
+	for _, a := range args {
+		skip := false
+		for _, f := range flags {
+			if a == f {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 func main() {
 	log := text.New()
 
@@ -68,11 +85,9 @@ func main() {
 			os.Exit(1)
 		}
 	case cli.OpInstall:
-		force := hasFlag(result.Args, "-f", "--force")
-		for _, name := range result.Args {
-			if name == "-f" || name == "--force" {
-				continue
-			}
+		names := filterArgs(result.Args, "-f", "--force")
+		force := len(names) != len(result.Args)
+		for _, name := range names {
 			pkg := repo.Lookup(name)
 			if pkg == nil {
 				log.Error("unknown package: %s", name)

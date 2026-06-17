@@ -47,7 +47,7 @@ func (c *Config) EnsureDirsExist() error {
 func (c *Config) GoCacheClean() error {
 	cmd := exec.Command("go", "clean", "-cache")
 	cmd.Env = []string{
-		"PATH=/usr/local/go/bin:/usr/bin:/bin",
+		"PATH=" + os.Getenv("PATH"),
 		"GOPATH=" + c.GoPathDir(),
 		"GOMODCACHE=" + c.GoPathDir() + "/mod",
 		"GOCACHE=" + c.GoCacheDir(),
