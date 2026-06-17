@@ -13,19 +13,7 @@ import (
 )
 
 func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, force bool) error {
-	if entry, ok := state.Packages[p.Name]; ok {
-		if !force {
-			if len(entry.Version) >= 8 {
-				log.Info("%s %s already installed", p.Name, entry.Version[:8])
-			} else if entry.Version != "" {
-				log.Info("%s %s already installed", p.Name, entry.Version)
-			} else {
-				log.Info("%s already installed", p.Name)
-			}
-			return nil
-		}
-		log.Info("Reinstalling %s", p.Name)
-	}
+	_, installed := state.Packages[p.Name]
 
 	for _, check := range p.Checks {
 		if _, err := exec.LookPath(check); err != nil {
@@ -40,6 +28,9 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 
 	if p.SkipClone {
 		if p.PostInstall != "" {
+			if installed && !force {
+				log.Info("Updating %s...", p.Name)
+			}
 			s := text.StartSpinner(os.Stderr, "Installing "+p.Name+"...")
 			if err := executil.Run(exec.Command("sh", "-c", p.PostInstall)); err != nil {
 				s.Fail()
@@ -66,7 +57,7 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 		}
 		defer os.RemoveAll(tmpDir)
 
-		s := text.StartSpinner(os.Stderr, "Cloning "+p.Name+"...")
+		s := text.StartSpinner(os.Stderr, "Checking latest version...")
 		clone := exec.Command("git", "clone", "--depth=1", p.Repo, tmpDir)
 		if out, err := clone.CombinedOutput(); err != nil {
 			s.Fail()
@@ -95,6 +86,15 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 				return fmt.Errorf("getting commit hash: %w", err)
 			}
 			version = strings.TrimSpace(string(out))
+		}
+
+		if installed && !force {
+			entry := state.Packages[p.Name]
+			if entry.Version == version {
+				log.Info("%s %s is already the latest version", p.Name, version[:8])
+				return nil
+			}
+			log.Info("Updating %s %s → %s", p.Name, entry.Version[:8], version[:8])
 		}
 
 		s = text.StartSpinner(os.Stderr, "Running install script...")
