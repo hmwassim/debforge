@@ -116,7 +116,7 @@ func main() {
 		names := filterArgs(result.Args, "--all")
 		all := len(names) != len(result.Args)
 
-		if err := repo.SystemUpdate(log); err != nil {
+		if err := repo.SystemUpdate(); err != nil {
 			log.Error("%s", err)
 			os.Exit(1)
 		}

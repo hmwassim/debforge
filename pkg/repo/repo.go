@@ -335,7 +335,7 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 	return nil
 }
 
-func SystemUpdate(log *text.Logger) error {
+func SystemUpdate() error {
 	if err := executil.RunWithSpinner(exec.Command("apt-get", "update"), "Updating package lists..."); err != nil {
 		return fmt.Errorf("apt-get update: %w", err)
 	}

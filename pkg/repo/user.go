@@ -67,7 +67,9 @@ func deployUserConfigs(configs map[string]string, cfgDir string) error {
 			return fmt.Errorf("writing %s: %w", path, err)
 		}
 		if uid != 0 {
-			os.Chown(fullPath, uid, gid)
+			if err := os.Chown(fullPath, uid, gid); err != nil {
+				return fmt.Errorf("chown %s: %w", path, err)
+			}
 		}
 	}
 	return nil
