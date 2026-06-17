@@ -80,6 +80,7 @@ var groups = []group{
 			{"/etc/systemd/timesyncd.conf.d/10-timesyncd.conf", timesyncdConfig, 0644},
 		},
 		services: []string{"systemd-resolved", "systemd-timesyncd"},
+		postInstall: setupResolved,
 	},
 	{
 		name: "multimedia",

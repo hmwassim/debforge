@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/lock"
@@ -367,5 +368,26 @@ func ensureResolvSymlink(log *text.Logger) error {
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		log.Warn("/etc/resolv.conf symlink created but systemd-resolved is not running yet; DNS will work once the service starts")
 	}
+	return nil
+}
+
+func setupResolved(log *text.Logger, s *text.Spinner, force bool) error {
+	s.Pause()
+	defer s.Resume()
+
+	if err := ensureResolvSymlink(log); err != nil {
+		return fmt.Errorf("resolv.conf symlink: %w", err)
+	}
+	executil.Run(exec.Command("nmcli", "general", "reload"))
+	executil.Run(exec.Command("systemctl", "restart", "systemd-resolved"))
+
+	for i := 0; i < 15; i++ {
+		if executil.Run(exec.Command("resolvectl", "query", "debian.org")) == nil {
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	log.Warn("DNS resolution check failed after configuring systemd-resolved — check /etc/resolv.conf and systemd-resolved status")
 	return nil
 }
