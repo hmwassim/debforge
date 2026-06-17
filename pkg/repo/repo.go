@@ -15,6 +15,9 @@ import (
 	"github.com/hmwassim/debforge/pkg/writeutil"
 )
 
+// tracks force-installed deps to avoid redundant transitive installs
+var doneForce = map[string]bool{}
+
 type RepoPackage struct {
 	Name        string            `yaml:"name"`
 	Type        string            `yaml:"type"`
@@ -51,7 +54,8 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 	if p.Type == "deb" {
 		for _, dep := range p.Depends {
 			_, ok := state.Packages[dep]
-			if !ok || force {
+			if !ok || (force && !doneForce[dep]) {
+				doneForce[dep] = true
 				depPkg := Lookup(dep)
 				if depPkg == nil {
 					return fmt.Errorf("unknown dependency: %s", dep)
