@@ -3,7 +3,7 @@ type: source
 skip_clone: true
 checks:
   - curl
-version_cmd: curl -sL https://api.github.com/repos/v1cont/yad/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p'
+version_cmd: "curl -sL https://api.github.com/repos/v1cont/yad/releases/latest | sed -n 's/.*\"tag_name\": *\"v\\([^\"]*\\)\".*/\\1/p'"
 post_install: |
   set -eu
   apt-get install -y yad build-essential autoconf automake libtool pkg-config intltool libgtk-3-dev libwebkit2gtk-4.1-dev libgspell-1-dev libgtksourceview-3.0-dev gettext
