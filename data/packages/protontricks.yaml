@@ -3,10 +3,11 @@ type: source
 skip_clone: true
 checks:
   - pipx
+  - winetricks
+  - zenity
 version_cmd: sudo -u "$SUDO_USER" pipx list --short 2>/dev/null | grep "^protontricks " | awk '{print $2}' | tr -d '()'
 post_install: |
-  set -e
-  apt-get install -y pipx winetricks zenity
+  set -eu
   sudo -u "$SUDO_USER" pipx install --force protontricks
   apps_dir="$(sudo -u "$SUDO_USER" sh -c 'echo "$HOME"')/.local/share/applications"
   venv_share="$(sudo -u "$SUDO_USER" sh -c 'echo "$HOME"')/.local/share/pipx/venvs/protontricks/share/applications"
