@@ -10,10 +10,13 @@ checks:
 version_cmd: curl -sL https://raw.githubusercontent.com/sonic2kk/steamtinkerlaunch/master/steamtinkerlaunch | sed -n 's/^PROGVERS="\(.*\)"/\1/p'
 post_install: |
   set -eu
-  apt-get install -y bash procps unzip wget xdotool x11-utils x11-xserver-utils xxd xdg-utils
+  apt-get update -qq
+  apt-get install -y -qq gawk bash procps unzip wget xdotool x11-utils x11-xserver-utils xxd jq xdg-utils
   VERSION=$(curl -sL https://raw.githubusercontent.com/sonic2kk/steamtinkerlaunch/master/steamtinkerlaunch | sed -n 's/^PROGVERS="\(.*\)"/\1/p')
+  TARBALL_URL="https://api.github.com/repos/sonic2kk/steamtinkerlaunch/tarball/master"
   TMPDIR=$(mktemp -d)
-  curl -sL "https://api.github.com/repos/sonic2kk/steamtinkerlaunch/tarball/master" | tar -xz --strip-components=1 -C "$TMPDIR"
+  trap 'rm -rf "${TMPDIR:-}"' EXIT
+  curl -sL "$TARBALL_URL" | tar -xz --strip-components=1 -C "$TMPDIR"
   cd "$TMPDIR"
   install -Dm755 steamtinkerlaunch -t /usr/bin
   install -d /usr/share/steamtinkerlaunch
@@ -21,13 +24,19 @@ post_install: |
   install -Dm644 README.md -t /usr/share/doc/steamtinkerlaunch
   install -Dm644 misc/steamtinkerlaunch.desktop -t /usr/share/applications
   install -Dm644 misc/steamtinkerlaunch.svg -t /usr/share/icons/hicolor/scalable/apps
+  mkdir -p /usr/share/steamtinkerlaunch
   echo "$VERSION" > /usr/share/steamtinkerlaunch/installed-version
-  steamtinkerlaunch yad "$(command -v yad)" 2>/dev/null || true
+  if command -v steamtinkerlaunch &>/dev/null && command -v yad &>/dev/null; then
+    steamtinkerlaunch yad "$(command -v yad)" 2>/dev/null || true
+  fi
   gtk-update-icon-cache -ftq /usr/share/icons/hicolor 2>/dev/null || true
   update-desktop-database -q /usr/share/applications 2>/dev/null || true
-  rm -rf "$TMPDIR"
+  ksycoca=$(command -v kbuildsycoca6 2>/dev/null || command -v kbuildsycoca5 2>/dev/null || find /usr/lib -name 'kbuildsycoca*' -type f 2>/dev/null | head -1)
+  if [ -n "$ksycoca" ]; then "$ksycoca" --noincremental 2>/dev/null || true; fi
 post_remove: |
   rm -f /usr/bin/steamtinkerlaunch
   rm -rf /usr/share/steamtinkerlaunch /usr/share/doc/steamtinkerlaunch
   rm -f /usr/share/applications/steamtinkerlaunch.desktop
   rm -f /usr/share/icons/hicolor/scalable/apps/steamtinkerlaunch.svg
+  gtk-update-icon-cache -ftq /usr/share/icons/hicolor 2>/dev/null || true
+  update-desktop-database -q /usr/share/applications 2>/dev/null || true
