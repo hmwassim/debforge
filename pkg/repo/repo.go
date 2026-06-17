@@ -43,6 +43,9 @@ type RepoPackage struct {
 	VersionPrefix string           `yaml:"version_prefix,omitempty"`
 	AssetMatch   string            `yaml:"asset_match,omitempty"`
 	AssetArch    string            `yaml:"asset_arch,omitempty"`
+	Repo         string            `yaml:"repo,omitempty"`
+	SourceSubdir string            `yaml:"source_subdir,omitempty"`
+	Checks       []string          `yaml:"checks,omitempty"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger, force bool) error {
@@ -51,7 +54,7 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 		return fmt.Errorf("loading state: %w", err)
 	}
 
-	if p.Type == "deb" {
+	if p.Type == "deb" || p.Type == "source" {
 		for _, dep := range p.Depends {
 			_, ok := state.Packages[dep]
 			if !ok || (force && !doneForce[dep]) {
@@ -78,7 +81,10 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 		if err != nil {
 			return fmt.Errorf("reloading state: %w", err)
 		}
-		return p.debInstall(log, state, force)
+		if p.Type == "deb" {
+			return p.debInstall(log, state, force)
+		}
+		return p.sourceInstall(log, state, force)
 	}
 
 	var selectedVariant string
@@ -261,6 +267,9 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 
 	if p.Type == "deb" {
 		return p.debRemove(log, state)
+	}
+	if p.Type == "source" {
+		return p.sourceRemove(log, state)
 	}
 
 	log.Info("Removing %s...", p.Name)

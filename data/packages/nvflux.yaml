@@ -1,0 +1,5 @@
+name: nvflux
+type: source
+repo: https://github.com/hmwassim/NvFlux
+checks:
+  - nvidia-smi
