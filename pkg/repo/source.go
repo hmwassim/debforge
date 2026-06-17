@@ -29,7 +29,7 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 
 	for _, check := range p.Checks {
 		if _, err := exec.LookPath(check); err != nil {
-			return fmt.Errorf("%s requires %s (install with: sudo debforge install nvidia)", p.Name, check)
+			return fmt.Errorf("%s not found in PATH", check)
 		}
 	}
 
