@@ -26,7 +26,7 @@ post_install: |
   install -Dm644 misc/steamtinkerlaunch.svg -t /usr/share/icons/hicolor/scalable/apps
   mkdir -p /usr/share/steamtinkerlaunch
   echo "$VERSION" > /usr/share/steamtinkerlaunch/installed-version
-  if command -v steamtinkerlaunch &>/dev/null && command -v yad &>/dev/null; then
+  if command -v steamtinkerlaunch >/dev/null 2>&1 && command -v yad >/dev/null 2>&1; then
     steamtinkerlaunch yad "$(command -v yad)" 2>/dev/null || true
   fi
   gtk-update-icon-cache -ftq /usr/share/icons/hicolor 2>/dev/null || true
