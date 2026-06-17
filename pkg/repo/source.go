@@ -17,10 +17,12 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 
 	for _, check := range p.Checks {
 		if _, err := exec.LookPath(check); err != nil {
-			log.Info("Installing %s...", check)
+			s := text.StartSpinner(os.Stderr, "Installing "+check+"...")
 			if err := executil.Run(exec.Command("apt-get", "install", "-y", check)); err != nil {
+				s.Fail()
 				return fmt.Errorf("%s not found in PATH and apt-get install failed", check)
 			}
+			s.Done()
 		}
 	}
 
@@ -29,16 +31,20 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 	if p.SkipClone {
 		if installed && !force {
 			if p.VersionCmd != "" {
+				s := text.StartSpinner(os.Stderr, "Checking latest version...")
 				var out bytes.Buffer
 				cmd := exec.Command("sh", "-c", p.VersionCmd)
 				cmd.Stdout = &out
 				if err := cmd.Run(); err == nil {
 					version = strings.TrimSpace(out.String())
+					s.Done()
 					entry := state.Packages[p.Name]
 					if entry.Version == version {
-						log.Info("%s %s already installed", p.Name, version)
+						log.Info("%s %s is already the latest version", p.Name, version)
 						return nil
 					}
+				} else {
+					s.Fail()
 				}
 			}
 			log.Info("Updating %s...", p.Name)
