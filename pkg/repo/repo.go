@@ -319,12 +319,10 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 }
 
 func SystemUpdate(log *text.Logger) error {
-	log.Info("Updating package lists...")
-	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
+	if err := executil.RunWithSpinner(exec.Command("apt-get", "update"), "Updating package lists..."); err != nil {
 		return fmt.Errorf("apt-get update: %w", err)
 	}
-	log.Info("Upgrading packages...")
-	if err := executil.Run(exec.Command("apt-get", "upgrade", "-y")); err != nil {
+	if err := executil.RunWithSpinner(exec.Command("apt-get", "upgrade", "-y"), "Upgrading packages..."); err != nil {
 		return fmt.Errorf("apt-get upgrade: %w", err)
 	}
 	return nil

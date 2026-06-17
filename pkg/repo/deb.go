@@ -62,10 +62,13 @@ func (p *RepoPackage) debInstall(log *text.Logger, state *PackagesState, force b
 	if isDebURL(p.URL) {
 		debURL = p.URL
 	} else {
+		s := text.StartSpinner(os.Stderr, "Checking latest version...")
 		info, err := fetchReleaseInfo(p.URL)
 		if err != nil {
+			s.Fail()
 			return fmt.Errorf("fetching release info: %w", err)
 		}
+		s.Done()
 
 		latestVersion = info.TagName
 		if p.VersionPrefix != "" && strings.HasPrefix(latestVersion, p.VersionPrefix) {
