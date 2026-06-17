@@ -101,12 +101,6 @@ func (p *RepoPackage) debInstall(log *text.Logger, state *PackagesState, force b
 		}
 	}
 
-	log.Info("Installing %s...", p.Name)
-	if !log.Prompt("Continue?") {
-		log.Info("Cancelled")
-		return nil
-	}
-
 	tmpDir, err := os.MkdirTemp("", "debforge-"+p.Name+"-*")
 	if err != nil {
 		return fmt.Errorf("creating temp dir: %w", err)

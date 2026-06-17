@@ -1,0 +1,6 @@
+name: scx-scheds
+type: deb
+url: https://api.github.com/repos/hmwassim/scx-bundler/releases/latest
+package: scx-scheds
+version_prefix: v
+asset_match: scx-scheds.*\.deb$

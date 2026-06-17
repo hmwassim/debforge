@@ -20,6 +20,7 @@ type RepoPackage struct {
 	Type        string            `yaml:"type"`
 	Packages    []string          `yaml:"packages"`
 	Conflicts   []string          `yaml:"conflicts,omitempty"`
+	Depends     []string          `yaml:"depends,omitempty"`
 	Extrepo     string            `yaml:"extrepo,omitempty"`
 	KeyURL      string            `yaml:"key_url,omitempty"`
 	KeyPath     string            `yaml:"key_path,omitempty"`
@@ -48,6 +49,22 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 	}
 
 	if p.Type == "deb" {
+		for _, dep := range p.Depends {
+			if _, ok := state.Packages[dep]; !ok {
+				depPkg := Lookup(dep)
+				if depPkg == nil {
+					return fmt.Errorf("unknown dependency: %s", dep)
+				}
+				log.Info("%s requires %s, installing first...", p.Name, dep)
+				if err := depPkg.Install(log, true); err != nil {
+					return fmt.Errorf("installing dependency %s: %w", dep, err)
+				}
+			}
+		}
+		state, err = LoadState()
+		if err != nil {
+			return fmt.Errorf("reloading state: %w", err)
+		}
 		return p.debInstall(log, state, force)
 	}
 
