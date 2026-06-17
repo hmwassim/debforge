@@ -129,15 +129,18 @@ func main() {
 
 		if all {
 			for name, entry := range state.Packages {
-				if entry.Type != "deb" {
-					continue
-				}
 				pkg := repo.Lookup(name)
 				if pkg == nil {
 					continue
 				}
-				if err := pkg.Install(log, false); err != nil {
-					log.Error("updating %s: %s", name, err)
+				if entry.Type == "deb" {
+					if err := pkg.Install(log, false); err != nil {
+						log.Error("updating %s: %s", name, err)
+					}
+				} else if entry.Type == "source" {
+					if err := pkg.Install(log, true); err != nil {
+						log.Error("updating %s: %s", name, err)
+					}
 				}
 			}
 		} else {
@@ -151,12 +154,16 @@ func main() {
 					log.Warn("%s is not installed", name)
 					continue
 				}
-				if pkg.Type != "deb" {
-					log.Warn("%s is not a deb package; system upgrade handles it", name)
-					continue
-				}
-				if err := pkg.Install(log, false); err != nil {
-					log.Error("updating %s: %s", name, err)
+				if pkg.Type == "deb" {
+					if err := pkg.Install(log, false); err != nil {
+						log.Error("updating %s: %s", name, err)
+					}
+				} else if pkg.Type == "source" {
+					if err := pkg.Install(log, true); err != nil {
+						log.Error("updating %s: %s", name, err)
+					}
+				} else {
+					log.Warn("%s is not a deb or source package", name)
 				}
 			}
 		}
