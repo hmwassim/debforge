@@ -27,10 +27,23 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 	var version string
 
 	if p.SkipClone {
-		if p.PostInstall != "" {
-			if installed && !force {
-				log.Info("Updating %s...", p.Name)
+		if installed && !force {
+			if p.VersionCmd != "" {
+				var out bytes.Buffer
+				cmd := exec.Command("sh", "-c", p.VersionCmd)
+				cmd.Stdout = &out
+				if err := cmd.Run(); err == nil {
+					version = strings.TrimSpace(out.String())
+					entry := state.Packages[p.Name]
+					if entry.Version == version {
+						log.Info("%s %s already installed", p.Name, version)
+						return nil
+					}
+				}
 			}
+			log.Info("Updating %s...", p.Name)
+		}
+		if p.PostInstall != "" {
 			s := text.StartSpinner(os.Stderr, "Installing "+p.Name+"...")
 			if err := executil.Run(exec.Command("sh", "-c", p.PostInstall)); err != nil {
 				s.Fail()
@@ -38,7 +51,7 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 			}
 			s.Done()
 		}
-		if p.VersionCmd != "" {
+		if p.VersionCmd != "" && version == "" {
 			var out bytes.Buffer
 			cmd := exec.Command("sh", "-c", p.VersionCmd)
 			cmd.Stdout = &out
