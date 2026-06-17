@@ -138,7 +138,7 @@ func main() {
 						log.Error("updating %s: %s", name, err)
 					}
 				} else if entry.Type == "source" {
-					if err := pkg.Install(log, true); err != nil {
+					if err := pkg.Install(log, false); err != nil {
 						log.Error("updating %s: %s", name, err)
 					}
 				}
@@ -159,7 +159,7 @@ func main() {
 						log.Error("updating %s: %s", name, err)
 					}
 				} else if pkg.Type == "source" {
-					if err := pkg.Install(log, true); err != nil {
+					if err := pkg.Install(log, false); err != nil {
 						log.Error("updating %s: %s", name, err)
 					}
 				} else {
