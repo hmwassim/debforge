@@ -1,0 +1,5 @@
+name: github-desktop
+type: deb
+url: https://api.github.com/repos/shiftkey/desktop/releases/latest
+package: github-desktop
+version_prefix: release-
