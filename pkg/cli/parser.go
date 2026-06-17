@@ -18,6 +18,7 @@ const (
 	OpCore       Operation = "core"
 	OpInstall    Operation = "install"
 	OpRemove     Operation = "remove"
+	OpUpdate     Operation = "update"
 	OpList       Operation = "list"
 )
 
@@ -56,6 +57,11 @@ func Parse() (*ParseResult, error) {
 			return nil, fmt.Errorf("remove requires a package name")
 		}
 		return &ParseResult{Op: OpRemove, Args: args[1:]}, nil
+	case "update":
+		if len(args) < 2 {
+			return nil, fmt.Errorf("update requires a package name or --all")
+		}
+		return &ParseResult{Op: OpUpdate, Args: args[1:]}, nil
 	case "list":
 		return &ParseResult{Op: OpList}, nil
 	default:
@@ -70,6 +76,8 @@ func PrintUsage(w io.Writer) {
 Usage:
   %[1]s install <package>...     Install packages from external repos
   %[1]s remove <package>...      Remove packages and repo sources
+  %[1]s update <package>...      Update specific packages
+  %[1]s update --all             Update system and all installed deb packages
   %[1]s list                     List managed packages
   %[1]s core setup               Set up core packages and configs
   %[1]s core setup -f, --force   Force re-apply all core packages and configs

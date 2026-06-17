@@ -29,7 +29,7 @@ func LoadFromDir(dir string) error {
 		if err := yaml.Unmarshal(data, &pkg); err != nil {
 			return fmt.Errorf("parsing %s: %w", entry.Name(), err)
 		}
-		if pkg.Name == "" || (pkg.Type != "apt" && pkg.Type != "config") {
+		if pkg.Name == "" || (pkg.Type != "apt" && pkg.Type != "config" && pkg.Type != "deb") {
 			continue
 		}
 		pkg.ConfigDir = filepath.Join(dir, "..", "configs", pkg.Name)

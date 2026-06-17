@@ -7,6 +7,7 @@ import (
 type PkgEntry struct {
 	Type    string `json:"type"`
 	Variant string `json:"variant,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type PackagesState struct {

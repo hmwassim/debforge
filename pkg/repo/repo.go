@@ -31,15 +31,24 @@ type RepoPackage struct {
 	Variants    map[string]string `yaml:"variants,omitempty"`
 	Configs     map[string]string `yaml:"configs,omitempty"`
 	UserConfigs map[string]string `yaml:"user_configs,omitempty"`
-	PostInstall string            `yaml:"post_install,omitempty"`
-	PostRemove  string            `yaml:"post_remove,omitempty"`
-	ConfigDir   string            `yaml:"-"`
+	PostInstall  string            `yaml:"post_install,omitempty"`
+	PostRemove   string            `yaml:"post_remove,omitempty"`
+	ConfigDir    string            `yaml:"-"`
+	URL          string            `yaml:"url,omitempty"`
+	Package      string            `yaml:"package,omitempty"`
+	VersionPrefix string           `yaml:"version_prefix,omitempty"`
+	AssetMatch   string            `yaml:"asset_match,omitempty"`
+	AssetArch    string            `yaml:"asset_arch,omitempty"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 	state, err := LoadState()
 	if err != nil {
 		return fmt.Errorf("loading state: %w", err)
+	}
+
+	if p.Type == "deb" {
+		return p.debInstall(log, state, force)
 	}
 
 	var selectedVariant string
@@ -220,6 +229,10 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 		return nil
 	}
 
+	if p.Type == "deb" {
+		return p.debRemove(log, state)
+	}
+
 	log.Info("Removing %s...", p.Name)
 	if !log.Prompt("Continue?") {
 		log.Info("Cancelled")
@@ -302,6 +315,18 @@ func (p *RepoPackage) Remove(log *text.Logger) error {
 	}
 
 	log.Info("%s removed", p.Name)
+	return nil
+}
+
+func SystemUpdate(log *text.Logger) error {
+	log.Info("Updating package lists...")
+	if err := executil.Run(exec.Command("apt-get", "update")); err != nil {
+		return fmt.Errorf("apt-get update: %w", err)
+	}
+	log.Info("Upgrading packages...")
+	if err := executil.Run(exec.Command("apt-get", "upgrade", "-y")); err != nil {
+		return fmt.Errorf("apt-get upgrade: %w", err)
+	}
 	return nil
 }
 

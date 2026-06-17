@@ -110,6 +110,54 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	case cli.OpUpdate:
+		names := filterArgs(result.Args, "--all")
+		all := len(names) != len(result.Args)
+
+		if err := repo.SystemUpdate(log); err != nil {
+			log.Error("%s", err)
+			os.Exit(1)
+		}
+
+		state, err := repo.LoadState()
+		if err != nil {
+			log.Warn("Could not load state: %s", err)
+			state = &repo.PackagesState{Packages: map[string]repo.PkgEntry{}}
+		}
+
+		if all {
+			for name, entry := range state.Packages {
+				if entry.Type != "deb" {
+					continue
+				}
+				pkg := repo.Lookup(name)
+				if pkg == nil {
+					continue
+				}
+				if err := pkg.Install(log, false); err != nil {
+					log.Error("updating %s: %s", name, err)
+				}
+			}
+		} else {
+			for _, name := range names {
+				pkg := repo.Lookup(name)
+				if pkg == nil {
+					log.Error("unknown package: %s", name)
+					os.Exit(1)
+				}
+				if _, ok := state.Packages[name]; !ok {
+					log.Warn("%s is not installed", name)
+					continue
+				}
+				if pkg.Type != "deb" {
+					log.Warn("%s is not a deb package; system upgrade handles it", name)
+					continue
+				}
+				if err := pkg.Install(log, false); err != nil {
+					log.Error("updating %s: %s", name, err)
+				}
+			}
+		}
 	case cli.OpList:
 		state, err := repo.LoadState()
 		if err != nil {
