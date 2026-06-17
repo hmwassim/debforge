@@ -77,7 +77,7 @@ func (p *RepoPackage) debInstall(log *text.Logger, state *PackagesState, force b
 
 		if !force {
 			installed := installedDebVersion(p.Package)
-			if installed == latestVersion {
+			if stripDebRevision(installed) == latestVersion {
 				log.Info("%s %s is already the latest version", p.Name, installed)
 				return nil
 			}
@@ -121,7 +121,7 @@ func (p *RepoPackage) debInstall(log *text.Logger, state *PackagesState, force b
 
 		if !force {
 			installed := installedDebVersion(p.Package)
-			if installed == latestVersion {
+			if stripDebRevision(installed) == stripDebRevision(latestVersion) {
 				log.Info("%s %s is already the latest version", p.Name, installed)
 				return nil
 			}
@@ -245,6 +245,13 @@ func debFileVersion(path string) (string, error) {
 		return "", fmt.Errorf("dpkg-deb -f: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func stripDebRevision(version string) string {
+	if idx := strings.Index(version, "-"); idx != -1 {
+		return version[:idx]
+	}
+	return version
 }
 
 func strDefault(s, def string) string {
