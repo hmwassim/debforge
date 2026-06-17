@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hmwassim/debforge/pkg/cli"
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/packages"
 	"github.com/hmwassim/debforge/pkg/text"
@@ -202,7 +201,6 @@ func fetchReleaseInfo(url string) (*releaseInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "debforge/"+cli.Version)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := debHTTPClient.Do(req)

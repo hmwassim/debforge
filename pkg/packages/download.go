@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hmwassim/debforge/pkg/cli"
 	"github.com/hmwassim/debforge/pkg/text"
 )
 
@@ -48,8 +47,6 @@ func DownloadFile(path, url, desc string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "debforge/"+cli.Version)
-
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("downloading %s: %w", url, err)
