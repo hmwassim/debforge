@@ -1,0 +1,29 @@
+name: protonplus
+type: source
+skip_clone: true
+checks:
+  - git
+  - meson
+  - ninja-build
+  - valac
+  - curl
+version_cmd: curl -sL https://api.github.com/repos/Vysp3r/ProtonPlus/releases/latest | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))" 2>/dev/null
+post_install: |
+  set -eu
+  VERSION=$(curl -sL https://api.github.com/repos/Vysp3r/ProtonPlus/releases/latest | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))" 2>/dev/null)
+  TMPDIR=$(mktemp -d)
+  curl -sL "https://github.com/Vysp3r/ProtonPlus/archive/refs/tags/v${VERSION}.tar.gz" | tar -xz -C "$TMPDIR"
+  SRCDIR="$TMPDIR/ProtonPlus-${VERSION}"
+  sudo apt-get install -y desktop-file-utils gettext libgtk-4-dev libglib2.0-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libarchive-dev
+  meson setup "$SRCDIR/build-native" "$SRCDIR" --prefix=/usr
+  ninja -C "$SRCDIR/build-native"
+  ninja -C "$SRCDIR/build-native" install
+  rm -rf "$TMPDIR"
+post_remove: |
+  sudo rm -f /usr/bin/protonplus
+  sudo rm -f /usr/share/applications/com.vysp3r.ProtonPlus.desktop
+  sudo rm -f /usr/share/metainfo/com.vysp3r.ProtonPlus.metainfo.xml
+  sudo rm -f /usr/share/glib-2.0/schemas/com.vysp3r.ProtonPlus.gschema.xml
+  sudo find /usr/share/icons/hicolor -name 'com.vysp3r.ProtonPlus.*' -delete
+  sudo find /usr/share/locale -name 'com.vysp3r.ProtonPlus.mo' -delete
+  sudo find /usr/share/locale -type d -empty -delete 2>/dev/null || true
