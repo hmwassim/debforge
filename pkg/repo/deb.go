@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hmwassim/debforge/pkg/cli"
 	"github.com/hmwassim/debforge/pkg/executil"
 	"github.com/hmwassim/debforge/pkg/packages"
 	"github.com/hmwassim/debforge/pkg/text"
@@ -79,6 +80,10 @@ func (p *RepoPackage) debInstall(log *text.Logger, state *PackagesState, force b
 			installed := installedDebVersion(p.Package)
 			if stripDebRevision(installed) == latestVersion {
 				log.Info("%s %s is already the latest version", p.Name, installed)
+				state.Packages[p.Name] = PkgEntry{Type: p.Type, Version: latestVersion}
+				if err := saveState(state); err != nil {
+					return fmt.Errorf("%s verified but state not saved: %w", p.Name, err)
+				}
 				return nil
 			}
 			log.Info("Installed: %s  Latest: %s", strDefault(installed, "none"), latestVersion)
@@ -197,6 +202,7 @@ func fetchReleaseInfo(url string) (*releaseInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", "debforge/"+cli.Version)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := debHTTPClient.Do(req)

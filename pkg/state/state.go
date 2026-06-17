@@ -20,7 +20,7 @@ func New(namespace string) *Store {
 func (s *Store) Load(v any) error {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if os.IsNotExist(err) || os.IsPermission(err) {
 			return nil
 		}
 		return err
@@ -29,12 +29,12 @@ func (s *Store) Load(v any) error {
 }
 
 func (s *Store) Save(v any) error {
-	if err := os.MkdirAll(settings.Default.StatesDir(), 0700); err != nil {
+	if err := os.MkdirAll(settings.Default.StatesDir(), 0755); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	return writeutil.AtomicFile(s.path, data, 0600)
+	return writeutil.AtomicFile(s.path, data, 0644)
 }

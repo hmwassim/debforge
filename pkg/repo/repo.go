@@ -56,7 +56,7 @@ func (p *RepoPackage) Install(log *text.Logger, force bool) error {
 					return fmt.Errorf("unknown dependency: %s", dep)
 				}
 				log.Info("%s requires %s, installing first...", p.Name, dep)
-				if err := depPkg.Install(log, true); err != nil {
+				if err := depPkg.Install(log, false); err != nil {
 					return fmt.Errorf("installing dependency %s: %w", dep, err)
 				}
 			}
