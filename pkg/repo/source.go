@@ -40,9 +40,12 @@ func (p *RepoPackage) sourceInstall(log *text.Logger, state *PackagesState, forc
 
 	if p.SkipClone {
 		if p.PostInstall != "" {
+			s := text.StartSpinner(os.Stderr, "Installing "+p.Name+"...")
 			if err := executil.Run(exec.Command("sh", "-c", p.PostInstall)); err != nil {
+				s.Fail()
 				return fmt.Errorf("post-install: %w", err)
 			}
+			s.Done()
 		}
 		if p.VersionCmd != "" {
 			var out bytes.Buffer
