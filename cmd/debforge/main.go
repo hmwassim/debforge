@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/hmwassim/debforge/pkg/cli"
 	"github.com/hmwassim/debforge/pkg/core"
@@ -164,11 +166,36 @@ func main() {
 			log.Warn("Could not load state: %s", err)
 			state = &repo.PackagesState{Packages: map[string]repo.PkgEntry{}}
 		}
-		for _, name := range repo.List() {
+		names := repo.List()
+		sort.Strings(names)
+		for _, name := range names {
 			if _, ok := state.Packages[name]; ok {
-				log.Success("  %s — installed", name)
+				log.Success("  %s", name)
 			} else {
-				log.Info("  %s — not installed", name)
+				log.Muted("  %s", name)
+			}
+		}
+	case cli.OpSearch:
+		query := strings.Join(result.Args, " ")
+		if query == "" {
+			log.Error("search requires a query")
+			os.Exit(1)
+		}
+		state, err := repo.LoadState()
+		if err != nil {
+			log.Warn("Could not load state: %s", err)
+			state = &repo.PackagesState{Packages: map[string]repo.PkgEntry{}}
+		}
+		names := repo.List()
+		sort.Strings(names)
+		for _, name := range names {
+			if !strings.Contains(name, query) {
+				continue
+			}
+			if _, ok := state.Packages[name]; ok {
+				log.Success("  %s", name)
+			} else {
+				log.Muted("  %s", name)
 			}
 		}
 	default:

@@ -36,6 +36,10 @@ func (l *Logger) Error(format string, args ...interface{}) {
 	l.print(red, "x", format, args...)
 }
 
+func (l *Logger) Muted(format string, args ...interface{}) {
+	l.print(gray, "-", format, args...)
+}
+
 func (l *Logger) Debug(format string, args ...interface{}) {
 	if !l.debug {
 		return

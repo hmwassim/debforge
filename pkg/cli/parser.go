@@ -19,6 +19,7 @@ const (
 	OpInstall    Operation = "install"
 	OpRemove     Operation = "remove"
 	OpUpdate     Operation = "update"
+	OpSearch     Operation = "search"
 	OpList       Operation = "list"
 )
 
@@ -62,6 +63,8 @@ func Parse() (*ParseResult, error) {
 			return nil, fmt.Errorf("update requires a package name or --all")
 		}
 		return &ParseResult{Op: OpUpdate, Args: args[1:]}, nil
+	case "search":
+		return &ParseResult{Op: OpSearch, Args: args[1:]}, nil
 	case "list":
 		return &ParseResult{Op: OpList}, nil
 	default:
@@ -79,6 +82,7 @@ Usage:
   %[1]s update <package>...      Update specific packages
   %[1]s update --all             Update system and all installed deb packages
   %[1]s list                     List managed packages
+  %[1]s search <query>           Search managed packages
   %[1]s core setup               Set up core packages and configs
   %[1]s core setup -f, --force   Force re-apply all core packages and configs
   %[1]s core list                List core packages and status
