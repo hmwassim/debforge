@@ -46,6 +46,8 @@ type RepoPackage struct {
 	Repo         string            `yaml:"repo,omitempty"`
 	SourceSubdir string            `yaml:"source_subdir,omitempty"`
 	Checks       []string          `yaml:"checks,omitempty"`
+	SkipClone    bool              `yaml:"skip_clone,omitempty"`
+	VersionCmd   string            `yaml:"version_cmd,omitempty"`
 }
 
 func (p *RepoPackage) Install(log *text.Logger, force bool) error {
