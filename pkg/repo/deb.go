@@ -209,6 +209,46 @@ func fetchReleaseInfo(url string) (*releaseInfo, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("reading response: %w", err)
+		}
+		var info releaseInfo
+		if err := json.Unmarshal(body, &info); err != nil {
+			return nil, fmt.Errorf("parsing JSON from %s: %w", url, err)
+		}
+		if info.TagName != "" {
+			return &info, nil
+		}
+	}
+
+	// /releases/latest often 504s even when releases exist; fall back to /releases
+	if strings.HasSuffix(url, "/latest") {
+		listURL := strings.TrimSuffix(url, "/latest")
+		return fetchLatestFromList(listURL)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetching %s: HTTP %s", url, resp.Status)
+	}
+
+	return nil, fmt.Errorf("no tag_name in release info from %s", url)
+}
+
+func fetchLatestFromList(url string) (*releaseInfo, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := debHTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("fetching %s: HTTP %s", url, resp.Status)
 	}
@@ -218,15 +258,21 @@ func fetchReleaseInfo(url string) (*releaseInfo, error) {
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
-	var info releaseInfo
-	if err := json.Unmarshal(body, &info); err != nil {
-		return nil, fmt.Errorf("parsing JSON from %s: %w", url, err)
+	var list []struct {
+		TagName string `json:"tag_name"`
+		Draft   bool   `json:"draft"`
 	}
-	if info.TagName == "" {
-		return nil, fmt.Errorf("no tag_name in release info from %s", url)
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, fmt.Errorf("parsing release list from %s: %w", url, err)
 	}
 
-	return &info, nil
+	for _, item := range list {
+		if !item.Draft {
+			tagURL := url + "/tags/" + item.TagName
+			return fetchReleaseInfo(tagURL)
+		}
+	}
+	return nil, fmt.Errorf("no published release found in %s", url)
 }
 
 func installedDebVersion(pkgName string) string {
