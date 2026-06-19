@@ -56,15 +56,17 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("unknown package: %s", name)
 		}
 	}
-	return withSpinner(ctx, c.ui, "Updating packages...", func(spinner ports.Spinner) error {
+	return withSpinner(ctx, c.ui, fmt.Sprintf("Update %s...", names[0]), func(spinner ports.Spinner) error {
 		return c.installSvc.Install(ctx, names, nil, true, spinner)
 	})
 }
 
 func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) error {
+	spinner.SetDesc("Updating package lists...")
 	if err := c.aptSvc.Update(ctx); err != nil {
 		return err
 	}
+	spinner.SetDesc("Upgrading system packages...")
 	if err := c.aptSvc.Upgrade(ctx); err != nil {
 		return err
 	}
@@ -79,9 +81,11 @@ func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) er
 		if entry.Type != "deb" && entry.Type != "source" {
 			continue
 		}
+		spinner.SetDesc("Updating " + name + "...")
 		if err := c.installSvc.Install(ctx, []string{name}, nil, true, spinner); err != nil {
 			return fmt.Errorf("updating %s: %w", name, err)
 		}
 	}
+	spinner.SetDesc("All packages updated")
 	return nil
 }
