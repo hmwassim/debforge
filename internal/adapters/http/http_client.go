@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -13,9 +12,7 @@ type HTTPClient struct {
 
 func NewHTTPClient() *HTTPClient {
 	return &HTTPClient{
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		client: &http.Client{},
 	}
 }
 

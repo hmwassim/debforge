@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-func TestHTTPClientTimeout(t *testing.T) {
+func TestHTTPClientNoTimeout(t *testing.T) {
 	c := NewHTTPClient()
-	if c.client.Timeout != 30*time.Second {
-		t.Fatalf("expected 30s timeout, got %v", c.client.Timeout)
+	if c.client.Timeout != 0 {
+		t.Fatalf("expected no client-level timeout, got %v", c.client.Timeout)
 	}
 }
 
