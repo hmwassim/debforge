@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -41,16 +42,29 @@ func (r *OSCommandRunner) RunWithEnv(ctx context.Context, dir string, env []stri
 	return outBuf.Bytes(), errBuf.Bytes(), err
 }
 
+func shortDesc(name string, args ...string) string {
+	var b strings.Builder
+	b.WriteString(name)
+	for _, a := range args {
+		if b.Len() >= 64 {
+			b.WriteString(" ...")
+			break
+		}
+		b.WriteString(" ")
+		b.WriteString(a)
+	}
+	return b.String()
+}
+
 func (r *OSCommandRunner) RunWithSpinner(ctx context.Context, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Stdout = nil
+	cmd.Stdout = io.Discard
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	desc := strings.Join(append([]string{name}, args...), " ")
-	s := ui.NewConsoleSpinner(ctx, os.Stderr, desc)
+	s := ui.NewConsoleSpinner(ctx, os.Stderr, shortDesc(name, args...))
 	if err := cmd.Wait(); err != nil {
 		s.Fail()
 		if s := strings.TrimSpace(stderr.String()); s != "" {
