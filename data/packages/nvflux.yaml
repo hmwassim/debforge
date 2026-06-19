@@ -3,3 +3,4 @@ type: source
 repo: https://github.com/hmwassim/NvFlux
 checks:
   - nvidia-smi
+post_remove: rm /usr/local/bin/nvflux

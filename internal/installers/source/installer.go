@@ -147,10 +147,6 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package) error {
 		if err := i.runPostCmd(ctx, p.PostRemove); err != nil {
 			i.logger.Warn("post-remove: %s", err)
 		}
-	} else {
-		i.logger.Warn("source packages cannot be automatically removed")
-		i.logger.Warn("  manually remove files installed by %s and run:", p.Name)
-		i.logger.Warn("    sudo debforge remove %s", p.Name)
 	}
 
 	return nil

@@ -57,7 +57,11 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 		}
 	}
 	return withSpinner(ctx, c.ui, fmt.Sprintf("Update %s...", names[0]), func(spinner ports.Spinner) error {
-		return c.installSvc.Install(ctx, names, nil, true, spinner)
+		if err := c.installSvc.Install(ctx, names, nil, true, spinner); err != nil {
+			return err
+		}
+		spinner.SetDesc(names[0] + " updated")
+		return nil
 	})
 }
 
