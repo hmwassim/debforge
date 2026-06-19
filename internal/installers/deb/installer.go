@@ -86,7 +86,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 
 		if !p.ForceInstall {
 			installed := i.installedDebVersion(ctx, p.Package)
-			if stripDebRevision(installed) == latestVersion {
+			if installed == latestVersion || stripDebRevision(installed) == latestVersion {
 				return nil
 			}
 		}
