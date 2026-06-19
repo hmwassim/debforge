@@ -65,7 +65,7 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 	}
 	oldVersion := st.Packages[names[0]].Version
 	return withSpinner(ctx, c.ui, fmt.Sprintf("Updating %s...", names[0]), func(spinner ports.Spinner) error {
-		if err := c.installSvc.Install(ctx, names, nil, true, spinner); err != nil {
+		if err := c.installSvc.UpdateSingle(ctx, names[0], spinner); err != nil {
 			return err
 		}
 		st, err := c.stateSvc.Load()
@@ -102,7 +102,7 @@ func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) er
 			continue
 		}
 		spinner.SetDesc("Updating " + name + "...")
-		if err := c.installSvc.Install(ctx, []string{name}, nil, true, spinner); err != nil {
+		if err := c.installSvc.UpdateSingle(ctx, name, spinner); err != nil {
 			return fmt.Errorf("updating %s: %w", name, err)
 		}
 	}
