@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -77,6 +79,10 @@ func (l *ConsoleLogger) Prompt(format string, args ...any) bool {
 
 func (l *ConsoleLogger) print(color, symbol, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
+	if len(msg) > 0 {
+		r, size := utf8.DecodeRuneInString(msg)
+		msg = string(unicode.ToUpper(r)) + msg[size:]
+	}
 	if l.color {
 		defaultConsole.writef(os.Stderr, "%s[%s]%s %s\n", bold+color, symbol, reset, msg)
 	} else {

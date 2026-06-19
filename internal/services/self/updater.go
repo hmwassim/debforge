@@ -69,7 +69,7 @@ func (u *Updater) Update(ctx context.Context) error {
 
 	if !sourceExists {
 		spinner.Pause()
-		u.logger.Info("debforge is not installed")
+		u.logger.Info("Debforge is not installed")
 		if !u.logger.Prompt("Install debforge?") {
 			u.logger.Info("Cancelled")
 			spinner.Done()
@@ -143,7 +143,7 @@ func (u *Updater) Update(ctx context.Context) error {
 	if sourceExists {
 		u.logger.Success("Updated to latest version")
 	} else {
-		u.logger.Success("debforge installed")
+		u.logger.Success("Debforge installed")
 	}
 
 	return nil

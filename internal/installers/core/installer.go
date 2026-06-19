@@ -19,12 +19,12 @@ func NewInstaller(runner ports.CommandRunner, logger ports.UI, locker ports.Lock
 }
 
 func (i *Installer) Install(ctx context.Context, pkg *pkg.Package) error {
-	i.logger.Info("core packages are managed via 'debforge core setup'")
+	i.logger.Info("Core packages are managed via 'debforge core setup'")
 	return nil
 }
 
 func (i *Installer) Remove(ctx context.Context, pkg *pkg.Package) error {
-	i.logger.Info("core packages cannot be removed individually")
+	i.logger.Info("Core packages cannot be removed individually")
 	return nil
 }
 
