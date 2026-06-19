@@ -45,7 +45,7 @@ func TestLifecycleInstallRemove(t *testing.T) {
 	removeSvc := NewRemoveService(pkgReg, instReg, stateSvc, &mockUI{}, &mockLocker{}, "/tmp/test.lock")
 	ctx := context.Background()
 
-	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, false); err != nil {
+	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{}); err != nil {
 		t.Fatalf("install failed: %v", err)
 	}
 	st, _ := stateSvc.Load()
@@ -56,7 +56,7 @@ func TestLifecycleInstallRemove(t *testing.T) {
 		t.Fatalf("expected 1 install of testpkg, got %v", inst.installs)
 	}
 
-	if err := removeSvc.Remove(ctx, []string{"testpkg"}); err != nil {
+	if err := removeSvc.Remove(ctx, []string{"testpkg"}, &mockSpinner{}); err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}
 	st, _ = stateSvc.Load()
@@ -83,10 +83,10 @@ func TestLifecycleInstallRemoveReinstall(t *testing.T) {
 	removeSvc := NewRemoveService(pkgReg, instReg, stateSvc, &mockUI{}, &mockLocker{}, "/tmp/test.lock")
 	ctx := context.Background()
 
-	installSvc.Install(ctx, []string{"testpkg"}, nil, false)
-	removeSvc.Remove(ctx, []string{"testpkg"})
+	installSvc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{})
+	removeSvc.Remove(ctx, []string{"testpkg"}, &mockSpinner{})
 
-	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, false); err != nil {
+	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{}); err != nil {
 		t.Fatalf("reinstall after remove failed: %v", err)
 	}
 	st, _ := stateSvc.Load()
@@ -112,12 +112,12 @@ func TestLifecycleInstallForceReinstall(t *testing.T) {
 	installSvc := NewInstallService(pkgReg, instReg, stateSvc, dependency.NewResolver(pkgReg), &mockUI{}, &mockLocker{}, "/tmp/test.lock")
 	ctx := context.Background()
 
-	installSvc.Install(ctx, []string{"testpkg"}, nil, false)
+	installSvc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{})
 	if len(inst.installs) != 1 {
 		t.Fatalf("expected 1 install, got %d", len(inst.installs))
 	}
 
-	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, true); err != nil {
+	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, true, &mockSpinner{}); err != nil {
 		t.Fatalf("force reinstall failed: %v", err)
 	}
 	if len(inst.installs) != 2 {
@@ -151,7 +151,7 @@ func TestLifecycleInstallRemoveWithDeps(t *testing.T) {
 	removeSvc := NewRemoveService(pkgReg, instReg, stateSvc, &mockUI{}, &mockLocker{}, "/tmp/test.lock")
 	ctx := context.Background()
 
-	if err := installSvc.Install(ctx, []string{"main"}, nil, false); err != nil {
+	if err := installSvc.Install(ctx, []string{"main"}, nil, false, &mockSpinner{}); err != nil {
 		t.Fatalf("install with deps failed: %v", err)
 	}
 	st, _ := stateSvc.Load()
@@ -159,7 +159,7 @@ func TestLifecycleInstallRemoveWithDeps(t *testing.T) {
 		t.Fatal("expected both main and dep to be installed")
 	}
 
-	if err := removeSvc.Remove(ctx, []string{"main"}); err != nil {
+	if err := removeSvc.Remove(ctx, []string{"main"}, &mockSpinner{}); err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}
 	st, _ = stateSvc.Load()
@@ -189,14 +189,14 @@ func TestLifecycleRemoveNonExistentThenInstall(t *testing.T) {
 	removeSvc := NewRemoveService(pkgReg, instReg, stateSvc, &mockUI{}, &mockLocker{}, "/tmp/test.lock")
 	ctx := context.Background()
 
-	if err := removeSvc.Remove(ctx, []string{"testpkg"}); err != nil {
+	if err := removeSvc.Remove(ctx, []string{"testpkg"}, &mockSpinner{}); err != nil {
 		t.Fatalf("remove of non-installed should not error: %v", err)
 	}
 	if len(inst.removes) != 0 {
 		t.Fatalf("expected no removes for non-installed package, got %v", inst.removes)
 	}
 
-	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, false); err != nil {
+	if err := installSvc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{}); err != nil {
 		t.Fatalf("install after non-existent remove failed: %v", err)
 	}
 	st, _ := stateSvc.Load()

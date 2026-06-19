@@ -12,7 +12,7 @@ import (
 )
 
 type PackageRemover interface {
-	Remove(ctx context.Context, pkgNames []string) error
+	Remove(ctx context.Context, pkgNames []string, spinner ports.Spinner) error
 }
 
 type RemoveService struct {
@@ -42,16 +42,16 @@ func NewRemoveService(
 	}
 }
 
-func (s *RemoveService) Remove(ctx context.Context, pkgNames []string) error {
+func (s *RemoveService) Remove(ctx context.Context, pkgNames []string, spinner ports.Spinner) error {
 	for _, pkgName := range pkgNames {
-		if err := s.removeSingle(ctx, pkgName); err != nil {
+		if err := s.removeSingle(ctx, pkgName, spinner); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *RemoveService) removeSingle(ctx context.Context, pkgName string) error {
+func (s *RemoveService) removeSingle(ctx context.Context, pkgName string, spinner ports.Spinner) error {
 	release, err := s.locker.Acquire(ctx, s.lockPath)
 	if err != nil {
 		return fmt.Errorf("acquiring lock: %w", err)
@@ -69,7 +69,7 @@ func (s *RemoveService) removeSingle(ctx context.Context, pkgName string) error 
 	}
 
 	if !s.stateSvc.IsInstalled(st, pkgName) {
-		s.logger.Warn("%s is not installed", pkgName)
+		spinner.SetDesc(pkgName + " not installed")
 		return nil
 	}
 
@@ -82,13 +82,12 @@ func (s *RemoveService) removeSingle(ctx context.Context, pkgName string) error 
 		return fmt.Errorf("no installer for type %s", p.Type)
 	}
 
-	s.logger.Info("Removing %s...", pkgName)
 	if err := inst.Remove(ctx, p); err != nil {
 		return fmt.Errorf("removing %s: %w", pkgName, err)
 	}
 
 	s.stateSvc.Remove(st, pkgName)
-	s.logger.Success("%s removed", pkgName)
+	spinner.SetDesc(pkgName + " removed")
 	return s.stateSvc.Save(st)
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 type PackageInstaller interface {
-	Install(ctx context.Context, pkgNames []string, variants map[string]string, force bool) error
+	Install(ctx context.Context, pkgNames []string, variants map[string]string, force bool, spinner ports.Spinner) error
 }
 
 type InstallService struct {
@@ -45,16 +45,16 @@ func NewInstallService(
 	}
 }
 
-func (s *InstallService) Install(ctx context.Context, pkgNames []string, variants map[string]string, force bool) error {
+func (s *InstallService) Install(ctx context.Context, pkgNames []string, variants map[string]string, force bool, spinner ports.Spinner) error {
 	for _, pkgName := range pkgNames {
-		if err := s.installSingle(ctx, pkgName, variants, force); err != nil {
+		if err := s.installSingle(ctx, pkgName, variants, force, spinner); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *InstallService) installSingle(ctx context.Context, pkgName string, variants map[string]string, force bool) error {
+func (s *InstallService) installSingle(ctx context.Context, pkgName string, variants map[string]string, force bool, spinner ports.Spinner) error {
 	release, err := s.locker.Acquire(ctx, s.lockPath)
 	if err != nil {
 		return fmt.Errorf("acquiring lock: %w", err)
@@ -72,7 +72,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 	}
 
 	if s.stateSvc.IsInstalled(st, pkgName) && !force {
-		s.logger.Info("%s already installed", pkgName)
+		spinner.SetDesc(pkgName + " already installed")
 		return nil
 	}
 
@@ -82,7 +82,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 			return fmt.Errorf("package %s has variants but no variant selected", pkgName)
 		}
 		if entry, exists := st.Packages[pkgName]; exists && entry.Variant == variant && !force {
-			s.logger.Info("%s (%s) already installed", pkgName, variant)
+			spinner.SetDesc(pkgName + " (" + variant + ") already installed")
 			return nil
 		}
 		p = p.Clone()
@@ -99,7 +99,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 		return fmt.Errorf("resolving dependencies: %w", err)
 	}
 
-	for _, dep := range ordered {
+		for _, dep := range ordered {
 		if entry, exists := st.Packages[dep.Name]; exists {
 			dep.Version = entry.Version
 		}
@@ -124,6 +124,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 			}
 			return fmt.Errorf("saving state after %s: %w", dep.Name, err)
 		}
+		spinner.SetDesc(dep.Name + " installed")
 	}
 
 	return nil

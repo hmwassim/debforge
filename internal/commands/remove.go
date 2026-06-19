@@ -42,7 +42,7 @@ func (c *RemoveCommand) Run(ctx context.Context, args []string) error {
 		}
 		confirmed = append(confirmed, name)
 	}
-	return withSpinner(ctx, c.ui, "Removing packages...", func() error {
-		return c.svc.Remove(ctx, confirmed)
+	return withSpinner(ctx, c.ui, fmt.Sprintf("Remove %s...", confirmed[0]), func(spinner ports.Spinner) error {
+		return c.svc.Remove(ctx, confirmed, spinner)
 	})
 }

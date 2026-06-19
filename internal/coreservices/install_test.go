@@ -22,7 +22,7 @@ func TestInstallUnknownPackage(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, installers.NewRegistry(), stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"nonexistent"}, nil, false)
+	err := svc.Install(ctx, []string{"nonexistent"}, nil, false, &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for unknown package")
 	}
@@ -44,7 +44,7 @@ func TestInstallAlreadyInstalled(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"testpkg"}, nil, false)
+	err := svc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestInstallWithInstaller(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"testpkg"}, nil, false)
+	err := svc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("install failed: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestInstallWithDep(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"main"}, nil, false)
+	err := svc.Install(ctx, []string{"main"}, nil, false, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("install failed: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestInstallLockError(t *testing.T) {
 	svc := NewInstallService(nil, nil, nil, nil, &mockUI{}, &errLocker{}, "/tmp/test.lock")
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"pkg"}, nil, false)
+	err := svc.Install(ctx, []string{"pkg"}, nil, false, &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -184,7 +184,7 @@ func TestInstallForceReinstalls(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"testpkg"}, nil, true)
+	err := svc.Install(ctx, []string{"testpkg"}, nil, true, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("install with force failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestInstallForceFalseSkipsInstalled(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"testpkg"}, nil, false)
+	err := svc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestInstallRollbackOnStateSaveFailure(t *testing.T) {
 	svc := newTestInstallSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Install(ctx, []string{"testpkg"}, nil, false)
+	err := svc.Install(ctx, []string{"testpkg"}, nil, false, &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error due to state save failure")
 	}

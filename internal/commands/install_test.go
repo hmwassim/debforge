@@ -7,6 +7,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/package"
 	"github.com/hmwassim/debforge/internal/coreservices"
+	"github.com/hmwassim/debforge/internal/ports"
 )
 
 type mockInstallService struct {
@@ -15,7 +16,7 @@ type mockInstallService struct {
 	calledArgs []string
 }
 
-func (m *mockInstallService) Install(ctx context.Context, pkgNames []string, variants map[string]string, force bool) error {
+func (m *mockInstallService) Install(ctx context.Context, pkgNames []string, variants map[string]string, force bool, spinner ports.Spinner) error {
 	m.called = true
 	m.calledArgs = pkgNames
 	return m.installErr

@@ -20,7 +20,7 @@ func TestRemoveUnknownPackage(t *testing.T) {
 	svc := newTestRemoveSvc(pkgReg, installers.NewRegistry(), stateSvc)
 	ctx := context.Background()
 
-	err := svc.Remove(ctx, []string{"nonexistent"})
+	err := svc.Remove(ctx, []string{"nonexistent"}, &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for unknown package")
 	}
@@ -36,7 +36,7 @@ func TestRemoveNotInstalled(t *testing.T) {
 	svc := newTestRemoveSvc(pkgReg, installers.NewRegistry(), stateSvc)
 	ctx := context.Background()
 
-	err := svc.Remove(ctx, []string{"testpkg"})
+	err := svc.Remove(ctx, []string{"testpkg"}, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestRemoveWithInstaller(t *testing.T) {
 	svc := newTestRemoveSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Remove(ctx, []string{"testpkg"})
+	err := svc.Remove(ctx, []string{"testpkg"}, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestRemoveMultiple(t *testing.T) {
 	svc := newTestRemoveSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Remove(ctx, []string{"pkg1", "pkg2"})
+	err := svc.Remove(ctx, []string{"pkg1", "pkg2"}, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestRemoveForceReinstalls(t *testing.T) {
 	svc := newTestRemoveSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Remove(ctx, []string{"testpkg"})
+	err := svc.Remove(ctx, []string{"testpkg"}, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestRemoveForceRemovesAlreadyRemoved(t *testing.T) {
 	svc := newTestRemoveSvc(pkgReg, instReg, stateSvc)
 	ctx := context.Background()
 
-	err := svc.Remove(ctx, []string{"testpkg"})
+	err := svc.Remove(ctx, []string{"testpkg"}, &mockSpinner{})
 	if err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}

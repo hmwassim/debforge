@@ -44,8 +44,8 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 		}
 	}
 	if all {
-		return withSpinner(ctx, c.ui, "Updating all packages...", func() error {
-			return c.updateAll(ctx)
+		return withSpinner(ctx, c.ui, "Updating all packages...", func(spinner ports.Spinner) error {
+			return c.updateAll(ctx, spinner)
 		})
 	}
 	if len(names) == 0 {
@@ -56,12 +56,12 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("unknown package: %s", name)
 		}
 	}
-	return withSpinner(ctx, c.ui, "Updating packages...", func() error {
-		return c.installSvc.Install(ctx, names, nil, true)
+	return withSpinner(ctx, c.ui, "Updating packages...", func(spinner ports.Spinner) error {
+		return c.installSvc.Install(ctx, names, nil, true, spinner)
 	})
 }
 
-func (c *UpdateCommand) updateAll(ctx context.Context) error {
+func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) error {
 	if err := c.aptSvc.Update(ctx); err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (c *UpdateCommand) updateAll(ctx context.Context) error {
 		if entry.Type != "deb" && entry.Type != "source" {
 			continue
 		}
-		if err := c.installSvc.Install(ctx, []string{name}, nil, true); err != nil {
+		if err := c.installSvc.Install(ctx, []string{name}, nil, true, spinner); err != nil {
 			return fmt.Errorf("updating %s: %w", name, err)
 		}
 	}

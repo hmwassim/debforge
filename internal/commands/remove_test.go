@@ -7,6 +7,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/package"
 	"github.com/hmwassim/debforge/internal/coreservices"
+	"github.com/hmwassim/debforge/internal/ports"
 )
 
 type mockRemoveService struct {
@@ -15,7 +16,7 @@ type mockRemoveService struct {
 	calledArgs []string
 }
 
-func (m *mockRemoveService) Remove(ctx context.Context, pkgNames []string) error {
+func (m *mockRemoveService) Remove(ctx context.Context, pkgNames []string, spinner ports.Spinner) error {
 	m.called = true
 	m.calledArgs = pkgNames
 	return m.removeErr

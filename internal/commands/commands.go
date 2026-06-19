@@ -8,9 +8,9 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-func withSpinner(ctx context.Context, ui ports.UI, desc string, fn func() error) error {
+func withSpinner(ctx context.Context, ui ports.UI, desc string, fn func(ports.Spinner) error) error {
 	s := ui.Spinner(ctx, desc)
-	if err := fn(); err != nil {
+	if err := fn(s); err != nil {
 		s.Fail()
 		return err
 	}
