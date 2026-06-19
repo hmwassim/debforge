@@ -145,15 +145,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 	}
 
 	p.Version = version
-	if version != "" {
-		if len(version) >= 8 {
-			i.logger.Success("%s %s installed", p.Name, version[:8])
-		} else {
-			i.logger.Success("%s %s installed", p.Name, version)
-		}
-	} else {
-		i.logger.Success("%s installed", p.Name)
-	}
 	return nil
 }
 

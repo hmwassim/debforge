@@ -162,7 +162,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 	}
 
 	p.Version = latestVersion
-	i.logger.Success("%s %s installed", p.Name, latestVersion)
 	return nil
 }
 

@@ -107,7 +107,6 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 		if !ok {
 			return fmt.Errorf("no installer for type %s", dep.Type)
 		}
-		s.logger.Info("Installing %s...", dep.Name)
 		if err := inst.Install(ctx, dep); err != nil {
 			return fmt.Errorf("installing %s: %w", dep.Name, err)
 		}

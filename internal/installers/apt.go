@@ -85,7 +85,6 @@ func (i *AptInstaller) Install(ctx context.Context, p *pkg.Package) error {
 		i.logger.Warn("post-install: %s", err)
 	}
 
-	i.logger.Success("%s installed", p.Name)
 	return nil
 }
 
