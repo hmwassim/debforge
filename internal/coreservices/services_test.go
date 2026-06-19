@@ -39,6 +39,13 @@ func (m *mockRunner) RunWithSpinner(ctx context.Context, name string, args ...st
 	return m.err
 }
 
+type mockSpinner struct{}
+
+func (m *mockSpinner) Done()              {}
+func (m *mockSpinner) Fail()              {}
+func (m *mockSpinner) Pause()             {}
+func (m *mockSpinner) Resume()            {}
+
 type mockUI struct{}
 
 func (m *mockUI) Info(format string, args ...any)                        {}
@@ -49,7 +56,7 @@ func (m *mockUI) Muted(format string, args ...any)                       {}
 func (m *mockUI) Debug(format string, args ...any)                       {}
 func (m *mockUI) Prompt(format string, args ...any) bool                 { return true }
 func (m *mockUI) PromptInput(format string, args ...any) string          { return "" }
-func (m *mockUI) Spinner(ctx context.Context, desc string) ports.Spinner { return nil }
+func (m *mockUI) Spinner(ctx context.Context, desc string) ports.Spinner { return &mockSpinner{} }
 func (m *mockUI) Progress(total int64, desc string) ports.Progress       { return nil }
 
 type memFS struct {
