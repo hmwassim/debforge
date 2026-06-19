@@ -70,7 +70,7 @@ func (s *SetupService) Run(ctx context.Context, force bool) error {
 	defer release()
 
 	st := s.coreState.Load()
-	cur := s.coreState.CurrentCommit(ctx, s.cfg.RootDir)
+	cur := s.coreState.CurrentCommit(ctx, s.cfg.SourceDir())
 
 	desiredPkgs, desiredConfigs := s.collectDesired()
 	commitChanged := cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit

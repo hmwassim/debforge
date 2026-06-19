@@ -60,7 +60,7 @@ func TestCoreStateCommitGitSuccess(t *testing.T) {
 	runner := &mockRunner{stdout: []byte("abc123def\n")}
 	s := NewCoreStateStore(newMemFS(), runner, &mockUI{}, "/tmp/core.state.json")
 
-	commit := s.CurrentCommit(context.Background(), "/some/root")
+	commit := s.CurrentCommit(context.Background(), "/some/src")
 	if commit != "abc123def" {
 		t.Fatalf("expected abc123def, got %q", commit)
 	}
@@ -70,7 +70,7 @@ func TestCoreStateCommitGitError(t *testing.T) {
 	runner := &mockRunner{err: os.ErrNotExist}
 	s := NewCoreStateStore(newMemFS(), runner, &mockUI{}, "/tmp/core.state.json")
 
-	commit := s.CurrentCommit(context.Background(), "/some/root")
+	commit := s.CurrentCommit(context.Background(), "/some/src")
 	if commit != "" {
 		t.Fatalf("expected empty string on error, got %q", commit)
 	}
