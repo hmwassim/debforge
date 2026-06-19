@@ -120,10 +120,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 
 		installScript := filepath.Join(installDir, "install.sh")
 		if _, err := i.fs.Stat(installScript); err == nil {
-			i.logger.Warn("Running install.sh from cloned repository - ensure you trust the source")
-			if !i.logger.Prompt("Continue running install.sh?") {
-				return fmt.Errorf("install cancelled by user")
-			}
 			if _, _, err := i.runner.Run(ctx, installScript); err != nil {
 				return fmt.Errorf("install.sh: %w", err)
 			}
