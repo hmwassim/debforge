@@ -64,7 +64,7 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 		}
 	}
 	oldVersion := st.Packages[names[0]].Version
-	return withSpinner(ctx, c.ui, fmt.Sprintf("Update %s...", names[0]), func(spinner ports.Spinner) error {
+	return withSpinner(ctx, c.ui, fmt.Sprintf("Updating %s...", names[0]), func(spinner ports.Spinner) error {
 		if err := c.installSvc.Install(ctx, names, nil, true, spinner); err != nil {
 			return err
 		}

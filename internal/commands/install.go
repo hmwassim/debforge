@@ -52,7 +52,7 @@ func (c *InstallCommand) Run(ctx context.Context, args []string) error {
 			variants[name] = variant
 		}
 	}
-	return withSpinner(ctx, c.ui, fmt.Sprintf("Install %s...", names[0]), func(spinner ports.Spinner) error {
+	return withSpinner(ctx, c.ui, fmt.Sprintf("Installing %s...", names[0]), func(spinner ports.Spinner) error {
 		return c.svc.Install(ctx, names, variants, force, spinner)
 	})
 }
