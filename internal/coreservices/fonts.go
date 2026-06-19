@@ -69,12 +69,9 @@ func (f *FontInstaller) Install(ctx context.Context) error {
 		}
 	}
 
-	spinner := f.logger.Spinner(ctx, "Downloading extra fonts...")
-	if err := f.downloadFile(ctx, f.fontURL, cachePath); err != nil {
-		spinner.Fail()
+	if err := f.downloadFonts(ctx, cachePath); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
-	spinner.Done()
 
 	etag, err := f.headETag(ctx, f.fontURL)
 	if err != nil {
@@ -171,8 +168,63 @@ func (f *FontInstaller) headETag(ctx context.Context, url string) (string, error
 	return resp.Header.Get("ETag"), nil
 }
 
-func (f *FontInstaller) downloadFile(ctx context.Context, url, dest string) error {
-	return utils.DownloadFile(ctx, f.fs, f.http, dest, url)
+func (f *FontInstaller) downloadFonts(ctx context.Context, cachePath string) error {
+	dir := filepath.Dir(cachePath)
+	base := filepath.Base(cachePath)
+
+	if err := f.fs.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating parent dir: %w", err)
+	}
+
+	return utils.RetryHTTP(ctx, func() error {
+		tmpDir, err := f.fs.MkdirTemp(dir, base)
+		if err != nil {
+			return err
+		}
+		defer f.fs.RemoveAll(tmpDir)
+		tmpPath := filepath.Join(tmpDir, "data")
+
+		req, err := http.NewRequestWithContext(ctx, "GET", f.fontURL, nil)
+		if err != nil {
+			return err
+		}
+		resp, err := f.http.Do(req)
+		if err != nil {
+			return fmt.Errorf("downloading fonts: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("downloading fonts: unexpected HTTP status: %s", resp.Status)
+		}
+
+		var reader io.Reader = resp.Body
+		var progress ports.Progress
+		if resp.ContentLength > 0 {
+			progress = f.logger.Progress(resp.ContentLength, "Downloading extra fonts")
+			reader = io.TeeReader(resp.Body, progress)
+		}
+
+		data, err := utils.ReadAllWithLimit(reader, 500*1024*1024)
+		if err != nil {
+			if progress != nil {
+				progress.Fail()
+			}
+			return fmt.Errorf("downloading fonts: %w", err)
+		}
+		if progress != nil {
+			progress.Done()
+		}
+
+		if err := f.fs.WriteFile(tmpPath, data, 0644); err != nil {
+			return err
+		}
+
+		if err := f.fs.Rename(tmpPath, cachePath); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 var tarEntryLimit int64 = 100 * 1024 * 1024
