@@ -93,14 +93,14 @@ func (s *ConsoleSpinner) doneFail(ok bool) {
 		s.stop = nil
 	}
 
-	mark, code := "[*]", green
+	mark, code := "*", green
 	if !ok {
-		mark, code = "[x]", red
+		mark, code = "x", red
 	}
 	if s.color {
 		defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K\n", bold+code, mark, reset, s.desc)
 	} else {
-		defaultConsole.writef(s.w, "%s %s\n", mark, s.desc)
+		defaultConsole.writef(s.w, "[%s] %s\n", mark, s.desc)
 	}
 }
 
