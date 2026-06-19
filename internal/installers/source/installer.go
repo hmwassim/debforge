@@ -127,6 +127,12 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 			return fmt.Errorf("install.sh not found in repository")
 		}
 
+		if p.VersionCmd != "" && version == "" {
+			if ver, err := i.runVersionCmd(ctx, p.VersionCmd); err == nil {
+				version = ver
+			}
+		}
+
 		if p.PostInstall != "" {
 			if err := i.runPostCmd(ctx, p.PostInstall); err != nil {
 				i.logger.Warn("post-install: %s", err)
