@@ -48,9 +48,11 @@ func (s *Service) Load() (*PackagesState, error) {
 }
 
 func (s *Service) Save(st *PackagesState) error {
-	if err := s.fs.MkdirAll(filepath.Dir(s.statePath), 0700); err != nil {
+	dir := filepath.Dir(s.statePath)
+	if err := s.fs.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
+	s.fs.Chmod(dir, 0755)
 	return s.store.SaveJSON(s.statePath, st)
 }
 

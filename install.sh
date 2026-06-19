@@ -52,7 +52,8 @@ apt-get install -y git golang-go
 info "Setting up directories..."
 mkdir -p "$DEBFORGE_BIN" "$DEBFORGE_SRC"
 mkdir -p "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
-chmod 700 "$DEBFORGE_VAR" "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
+chmod 755 "$DEBFORGE_VAR"
+chmod 700 "$DEBFORGE_CACHE" "$DEBFORGE_GOPATH" "$DEBFORGE_GOCACHE"
 
 info "Cloning ${REPO_URL} [${BRANCH}]..."
 rm -rf "$DEBFORGE_SRC"

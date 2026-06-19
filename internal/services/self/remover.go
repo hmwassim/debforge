@@ -66,16 +66,13 @@ func (r *Remover) Remove(ctx context.Context, selection string) error {
 	}
 	defer release()
 
-	spinner := r.logger.Spinner(ctx, "Removing debforge...")
-
-	spinner.Pause()
 	r.logger.Warn("This will permanently remove debforge and all its data")
 	if !r.logger.Prompt("Remove debforge?") {
 		r.logger.Info("Cancelled")
-		spinner.Done()
 		return nil
 	}
-	spinner.Resume()
+
+	spinner := r.logger.Spinner(ctx, "Removing debforge...")
 
 	if selection != "" {
 		if err := r.removeSelected(ctx, selection, spinner); err != nil {
@@ -89,13 +86,12 @@ func (r *Remover) Remove(ctx context.Context, selection string) error {
 		spinner.Fail()
 		return fmt.Errorf("refusing to remove %s: %w", r.cfg.RootDir, err)
 	}
-	r.logger.Info("Removing %s...", r.cfg.RootDir)
+	spinner.SetDesc("Removing debforge files...")
 	if err := r.fs.RemoveAll(r.cfg.RootDir); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("removing %s: %w", r.cfg.RootDir, err)
 	}
 
-	r.logger.Info("Removing binary at %s...", r.cfg.BinaryPath)
 	if err := r.fs.RemoveAll(r.cfg.BinaryPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("removing binary: %w", err)
@@ -105,8 +101,8 @@ func (r *Remover) Remove(ctx context.Context, selection string) error {
 		r.logger.Warn("restoring sources backup: %v", err)
 	}
 
+	spinner.SetDesc("debforge has been removed")
 	spinner.Done()
-	r.logger.Success("debforge has been removed")
 	return nil
 }
 
@@ -154,7 +150,7 @@ func (r *Remover) removeSelected(ctx context.Context, selection string, spinner 
 			r.logger.Warn("No installer for type %s, skipping", name)
 			continue
 		}
-		r.logger.Info("Removing %s...", name)
+		spinner.SetDesc("Removing " + name + "...")
 		if err := inst.Remove(ctx, p); err != nil {
 			r.logger.Warn("Could not remove %s: %s", name, err)
 		}
@@ -220,7 +216,7 @@ func (r *Remover) uninstallManagedPackages(ctx context.Context, spinner ports.Sp
 			r.logger.Warn("No installer for type %s, skipping", name)
 			continue
 		}
-		r.logger.Info("Removing %s...", name)
+		spinner.SetDesc("Removing " + name + "...")
 		if err := inst.Remove(ctx, p); err != nil {
 			r.logger.Warn("Could not remove %s: %s", name, err)
 		}
