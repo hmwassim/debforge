@@ -127,7 +127,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 			}
 			return fmt.Errorf("saving state after %s: %w", dep.Name, err)
 		}
-		if dep.Version != savedVersion || savedVersion == "" {
+		if dep.Version != savedVersion || savedVersion == "" || force {
 			spinner.SetDesc(dep.Name + " installed")
 		}
 	}
