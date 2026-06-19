@@ -92,7 +92,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 		}
 
 		if p.VersionCmd != "" {
-			script := "cd " + shellQuote(installDir) + "\n" + p.VersionCmd + "\n"
+			script := "#!/bin/sh\ncd " + shellQuote(installDir) + "\n" + p.VersionCmd + "\n"
 			scriptPath, wErr := i.writeTempScript(tmpDir, ".version.sh", script)
 			if wErr != nil {
 				return fmt.Errorf("writing version script: %w", wErr)
