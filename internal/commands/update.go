@@ -1,0 +1,87 @@
+package commands
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/hmwassim/debforge/internal/domain/apt"
+	"github.com/hmwassim/debforge/internal/domain/package"
+	"github.com/hmwassim/debforge/internal/services/state"
+	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/coreservices"
+)
+
+type UpdateCommand struct {
+	installSvc *services.InstallService
+	pkgReg     *pkg.Registry
+	stateSvc   *state.Service
+	aptSvc     apt.Service
+	ui         ports.UI
+}
+
+func NewUpdateCommand(installSvc *services.InstallService, pkgReg *pkg.Registry, stateSvc *state.Service, aptSvc apt.Service, ui ports.UI) *UpdateCommand {
+	return &UpdateCommand{
+		installSvc: installSvc,
+		pkgReg:     pkgReg,
+		stateSvc:   stateSvc,
+		aptSvc:     aptSvc,
+		ui:         ui,
+	}
+}
+
+func (c *UpdateCommand) Name() string { return "update" }
+
+func (c *UpdateCommand) Usage() string { return "Update specific packages or all" }
+
+func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
+	all := false
+	var names []string
+	for _, a := range args {
+		if a == "--all" {
+			all = true
+		} else {
+			names = append(names, a)
+		}
+	}
+	if all {
+		return withSpinner(ctx, c.ui, "Updating all packages...", func() error {
+			return c.updateAll(ctx)
+		})
+	}
+	if len(names) == 0 {
+		return fmt.Errorf("update requires a package name or --all")
+	}
+	for _, name := range names {
+		if _, ok := c.pkgReg.Lookup(name); !ok {
+			return fmt.Errorf("unknown package: %s", name)
+		}
+	}
+	return withSpinner(ctx, c.ui, "Updating packages...", func() error {
+		return c.installSvc.Install(ctx, names, nil, true)
+	})
+}
+
+func (c *UpdateCommand) updateAll(ctx context.Context) error {
+	if err := c.aptSvc.Update(ctx); err != nil {
+		return err
+	}
+	if err := c.aptSvc.Upgrade(ctx); err != nil {
+		return err
+	}
+	st, err := c.stateSvc.Load()
+	if err != nil {
+		return err
+	}
+	for name, entry := range st.Packages {
+		if _, ok := c.pkgReg.Lookup(name); !ok {
+			continue
+		}
+		if entry.Type != "deb" && entry.Type != "source" {
+			continue
+		}
+		if err := c.installSvc.Install(ctx, []string{name}, nil, true); err != nil {
+			return fmt.Errorf("updating %s: %w", name, err)
+		}
+	}
+	return nil
+}
