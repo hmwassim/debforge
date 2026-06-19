@@ -26,7 +26,8 @@ func (c *consoleOutput) writef(w io.Writer, format string, args ...any) {
 }
 
 type ConsoleUI struct {
-	logger ports.Logger
+	logger         ports.Logger
+	currentSpinner *ConsoleSpinner
 }
 
 func NewConsoleUI() *ConsoleUI {
@@ -40,10 +41,18 @@ func (u *ConsoleUI) Error(format string, args ...any)   { u.logger.Error(format,
 func (u *ConsoleUI) Muted(format string, args ...any)   { u.logger.Muted(format, args...) }
 func (u *ConsoleUI) Debug(format string, args ...any)   { u.logger.Debug(format, args...) }
 func (u *ConsoleUI) Prompt(format string, args ...any) bool {
+	if u.currentSpinner != nil {
+		u.currentSpinner.Pause()
+		defer u.currentSpinner.Resume()
+	}
 	return u.logger.Prompt(format, args...)
 }
 
 func (u *ConsoleUI) PromptInput(format string, args ...any) string {
+	if u.currentSpinner != nil {
+		u.currentSpinner.Pause()
+		defer u.currentSpinner.Resume()
+	}
 	msg := fmt.Sprintf(format, args...)
 	defaultConsole.writef(os.Stderr, "[?] %s ", msg)
 	tty, err := os.Open("/dev/tty")
@@ -59,7 +68,9 @@ func (u *ConsoleUI) PromptInput(format string, args ...any) string {
 }
 
 func (u *ConsoleUI) Spinner(ctx context.Context, description string) ports.Spinner {
-	return NewConsoleSpinner(ctx, os.Stderr, description)
+	s := NewConsoleSpinner(ctx, os.Stderr, description)
+	u.currentSpinner = s
+	return s
 }
 
 func (u *ConsoleUI) Progress(total int64, description string) ports.Progress {
