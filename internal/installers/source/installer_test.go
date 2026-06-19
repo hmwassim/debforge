@@ -47,6 +47,7 @@ func (noopSpinner) Fail()          {}
 func (noopSpinner) Pause()         {}
 func (noopSpinner) Resume()        {}
 func (noopSpinner) SetDesc(string) {}
+func (noopSpinner) DoneWarn()      {}
 
 func (m *mockLogger) Spinner(ctx context.Context, desc string) ports.Spinner { return noopSpinner{} }
 func (m *mockLogger) Progress(total int64, desc string) ports.Progress       { return nil }

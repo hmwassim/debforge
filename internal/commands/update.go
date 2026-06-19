@@ -61,6 +61,7 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 		}
 		if _, ok := st.Packages[names[0]]; !ok {
 			spinner.SetDesc(names[0] + " is not installed")
+			spinner.DoneWarn()
 			return nil
 		}
 		oldVersion := st.Packages[names[0]].Version

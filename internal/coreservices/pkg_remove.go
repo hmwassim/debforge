@@ -70,6 +70,7 @@ func (s *RemoveService) removeSingle(ctx context.Context, pkgName string, spinne
 
 	if !s.stateSvc.IsInstalled(st, pkgName) {
 		spinner.SetDesc(pkgName + " is not installed")
+		spinner.DoneWarn()
 		return nil
 	}
 

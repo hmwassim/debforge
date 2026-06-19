@@ -14,6 +14,7 @@ func (s *noopSpinner) Fail()          {}
 func (s *noopSpinner) Pause()         {}
 func (s *noopSpinner) Resume()        {}
 func (s *noopSpinner) SetDesc(string) {}
+func (s *noopSpinner) DoneWarn()      {}
 
 type mockUI struct{}
 

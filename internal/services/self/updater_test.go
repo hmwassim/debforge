@@ -139,6 +139,7 @@ func (s *noopSpinner) Fail()          {}
 func (s *noopSpinner) Pause()         {}
 func (s *noopSpinner) Resume()        {}
 func (s *noopSpinner) SetDesc(string) {}
+func (s *noopSpinner) DoneWarn()      {}
 
 type mockLogger struct {
 	infoCalls    int
@@ -170,6 +171,7 @@ func (s *spySpinner) Fail()             { s.calls = append(s.calls, "Fail") }
 func (s *spySpinner) Pause()            { s.calls = append(s.calls, "Pause") }
 func (s *spySpinner) Resume()           { s.calls = append(s.calls, "Resume") }
 func (s *spySpinner) SetDesc(string)    {}
+func (s *spySpinner) DoneWarn()         { s.calls = append(s.calls, "DoneWarn") }
 
 type promptSpyLogger struct {
 	mockLogger

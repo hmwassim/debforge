@@ -18,6 +18,7 @@ func (s *removerSpySpinner) Fail()             { s.calls = append(s.calls, "Fail
 func (s *removerSpySpinner) Pause()            { s.calls = append(s.calls, "Pause") }
 func (s *removerSpySpinner) Resume()           { s.calls = append(s.calls, "Resume") }
 func (s *removerSpySpinner) SetDesc(string)    {}
+func (s *removerSpySpinner) DoneWarn()         { s.calls = append(s.calls, "DoneWarn") }
 
 type removerSpyUI struct {
 	promptResult bool

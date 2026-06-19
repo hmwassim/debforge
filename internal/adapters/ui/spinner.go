@@ -25,11 +25,12 @@ type ConsoleSpinner struct {
 	desc  string
 	ctx   context.Context
 	stop  chan struct{}
-	done  chan struct{}
+	sdone chan struct{}
 	color bool
 
 	mu       sync.Mutex
-	paused   bool
+	paused  bool
+	done    bool
 	doneOnce sync.Once
 }
 
@@ -43,7 +44,7 @@ func NewConsoleSpinner(ctx context.Context, w io.Writer, desc string) *ConsoleSp
 		return s
 	}
 	s.stop = make(chan struct{})
-	s.done = make(chan struct{})
+	s.sdone = make(chan struct{})
 	s.color = true
 	go s.run()
 	return s
@@ -81,10 +82,10 @@ func (s *ConsoleSpinner) run() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			close(s.done)
+			close(s.sdone)
 			return
 		case <-s.stop:
-			close(s.done)
+			close(s.sdone)
 			return
 		case <-ticker.C:
 			s.mu.Lock()
@@ -99,24 +100,25 @@ func (s *ConsoleSpinner) run() {
 	}
 }
 
-func (s *ConsoleSpinner) doneFail(ok bool) {
+func (s *ConsoleSpinner) doneWith(mark, code string) {
 	s.mu.Lock()
+	if s.done {
+		s.mu.Unlock()
+		return
+	}
+	s.done = true
 	s.paused = false
 	s.mu.Unlock()
 
 	if s.stop != nil {
 		s.doneOnce.Do(func() {
 			close(s.stop)
-			<-s.done
+			<-s.sdone
 		})
 		s.stop = nil
 	}
 
 	desc := stripTrailingDots(s.desc)
-	mark, code := "*", green
-	if !ok {
-		mark, code = "x", red
-	}
 	if s.color {
 		defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K\n", bold+code, mark, reset, desc)
 	} else {
@@ -124,8 +126,8 @@ func (s *ConsoleSpinner) doneFail(ok bool) {
 	}
 }
 
-func (s *ConsoleSpinner) Done() { s.doneFail(true) }
-
-func (s *ConsoleSpinner) Fail() { s.doneFail(false) }
+func (s *ConsoleSpinner) Done()    { s.doneWith("*", green) }
+func (s *ConsoleSpinner) Fail()    { s.doneWith("x", red) }
+func (s *ConsoleSpinner) DoneWarn() { s.doneWith("!", yellow) }
 
 var _ ports.Spinner = (*ConsoleSpinner)(nil)
