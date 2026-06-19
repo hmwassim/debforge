@@ -57,7 +57,7 @@ func newApp() (*App, error) {
 	pkgRegistry := pkg.NewRegistry()
 	loader := domainrepo.NewLoader(fs, ui)
 
-	packagesDir := filepath.Join(cfg.RootDir, "data", "packages")
+	packagesDir := filepath.Join(cfg.SourceDir(), "data", "packages")
 	if _, err := fs.Stat(packagesDir); os.IsNotExist(err) {
 		packagesDir = "data/packages"
 	}
