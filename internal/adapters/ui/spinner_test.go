@@ -110,7 +110,7 @@ func TestSpinnerPauseResumeOutput(t *testing.T) {
 	s.Done()
 
 	// Non-TTY output: Done writes "[*] description\n"
-	want := "[*] pause-output\n"
+	want := "[*] Pause-output\n"
 	if got := buf.String(); got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}

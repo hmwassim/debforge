@@ -5,6 +5,8 @@ import (
 	"io"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -25,6 +27,10 @@ type ConsoleSpinner struct {
 }
 
 func NewConsoleSpinner(ctx context.Context, w io.Writer, desc string) *ConsoleSpinner {
+	if len(desc) > 0 {
+		r, size := utf8.DecodeRuneInString(desc)
+		desc = string(unicode.ToUpper(r)) + desc[size:]
+	}
 	s := &ConsoleSpinner{w: w, desc: desc, ctx: ctx}
 	if !useColor(w) {
 		return s
