@@ -51,9 +51,16 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 	if len(names) == 0 {
 		return fmt.Errorf("update requires a package name or --all")
 	}
+	st, err := c.stateSvc.Load()
+	if err != nil {
+		return err
+	}
 	for _, name := range names {
 		if _, ok := c.pkgReg.Lookup(name); !ok {
 			return fmt.Errorf("unknown package: %s", name)
+		}
+		if _, ok := st.Packages[name]; !ok {
+			return fmt.Errorf("%s is not installed", name)
 		}
 	}
 	return withSpinner(ctx, c.ui, fmt.Sprintf("Update %s...", names[0]), func(spinner ports.Spinner) error {
