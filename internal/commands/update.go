@@ -51,24 +51,23 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 	if len(names) == 0 {
 		return fmt.Errorf("update requires a package name or --all")
 	}
-	st, err := c.stateSvc.Load()
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		if _, ok := c.pkgReg.Lookup(name); !ok {
-			return fmt.Errorf("unknown package: %s", name)
-		}
-		if _, ok := st.Packages[name]; !ok {
-			return fmt.Errorf("%s is not installed", name)
-		}
-	}
-	oldVersion := st.Packages[names[0]].Version
 	return withSpinner(ctx, c.ui, fmt.Sprintf("Updating %s...", names[0]), func(spinner ports.Spinner) error {
+		if _, ok := c.pkgReg.Lookup(names[0]); !ok {
+			return fmt.Errorf("unknown package: %s", names[0])
+		}
+		st, err := c.stateSvc.Load()
+		if err != nil {
+			return err
+		}
+		if _, ok := st.Packages[names[0]]; !ok {
+			spinner.SetDesc(names[0] + " is not installed")
+			return nil
+		}
+		oldVersion := st.Packages[names[0]].Version
 		if err := c.installSvc.UpdateSingle(ctx, names[0], spinner); err != nil {
 			return err
 		}
-		st, err := c.stateSvc.Load()
+		st, err = c.stateSvc.Load()
 		if err != nil {
 			return err
 		}
