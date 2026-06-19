@@ -159,7 +159,7 @@ func (s *SetupService) prepareApt(ctx context.Context, errs *[]error) {
 		*errs = append(*errs, fmt.Errorf("i386: %w", err))
 	}
 	if len(*errs) == 0 {
-		spinner := s.logger.Spinner(ctx, "apt update")
+		spinner := s.logger.Spinner(ctx, "Syncing package databases...")
 		if err := s.apt.Update(ctx); err != nil {
 			spinner.Fail()
 			*errs = append(*errs, fmt.Errorf("apt-get update: %w", err))
