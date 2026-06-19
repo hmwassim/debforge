@@ -57,7 +57,7 @@ func (s *SetupService) Run(ctx context.Context, force bool) error {
 		return err
 	}
 
-	s.logger.Info("Setting up core...")
+	s.logger.Info("Setting up core")
 
 	if err := config.EnsureDirsExist(s.cfg, s.fs); err != nil {
 		return fmt.Errorf("creating directories: %w", err)
@@ -76,7 +76,7 @@ func (s *SetupService) Run(ctx context.Context, force bool) error {
 	commitChanged := cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit
 
 	if !force && st.ManagedPackages != nil && !commitChanged && len(setDiff(st.ManagedPackages, desiredPkgs)) == 0 && len(setDiff(st.ManagedConfigs, desiredConfigs)) == 0 {
-		vspinner := s.logger.Spinner(ctx, "Verifying existing setup...")
+		vspinner := s.logger.Spinner(ctx, "Verifying existing setup")
 		if s.verifySetup(ctx, coresetup.GroupDefs) {
 			vspinner.Done()
 			s.logger.Success("Core setup already up to date")
@@ -86,7 +86,7 @@ func (s *SetupService) Run(ctx context.Context, force bool) error {
 	}
 
 	if commitChanged {
-		s.logger.Info("New source detected since last setup, reapplying...")
+		s.logger.Info("New source detected since last setup, reapplying")
 	}
 
 	s.removeStale(ctx, st, desiredPkgs, desiredConfigs)
@@ -141,7 +141,7 @@ func (s *SetupService) collectDesired() ([]string, []string) {
 func (s *SetupService) removeStale(ctx context.Context, st *coreState, desiredPkgs, desiredConfigs []string) {
 	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
 	if len(stalePkgs) > 0 {
-		s.logger.Info("Removing %d stale package(s)...", len(stalePkgs))
+		s.logger.Info("Removing %d stale package(s)", len(stalePkgs))
 		if err := s.apt.Remove(ctx, stalePkgs); err != nil {
 			s.logger.Error("removing stale packages: %v", err)
 		}
@@ -162,7 +162,7 @@ func (s *SetupService) prepareApt(ctx context.Context, errs *[]error) {
 		*errs = append(*errs, fmt.Errorf("i386: %w", err))
 	}
 	if len(*errs) == 0 {
-		spinner := s.logger.Spinner(ctx, "Syncing package databases...")
+		spinner := s.logger.Spinner(ctx, "Syncing package databases")
 		if err := s.apt.Update(ctx); err != nil {
 			spinner.Fail()
 			*errs = append(*errs, fmt.Errorf("apt-get update: %w", err))

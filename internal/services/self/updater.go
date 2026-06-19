@@ -65,7 +65,7 @@ func (u *Updater) Update(ctx context.Context) error {
 
 	sourceExists := u.sourceRepoExists()
 
-	spinner := u.logger.Spinner(ctx, "Setting up debforge...")
+	spinner := u.logger.Spinner(ctx, "Setting up debforge")
 
 	if !sourceExists {
 		spinner.Pause()
@@ -77,13 +77,13 @@ func (u *Updater) Update(ctx context.Context) error {
 		}
 		spinner.Resume()
 
-		spinner.SetDesc("Downloading debforge...")
+		spinner.SetDesc("Downloading debforge")
 		if err := u.cloneRepo(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("cloning repository: %w", err)
 		}
 	} else {
-		spinner.SetDesc("Checking for updates...")
+		spinner.SetDesc("Checking for updates")
 		if err := u.gitFetch(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("fetching remote: %w", err)
@@ -107,7 +107,7 @@ func (u *Updater) Update(ctx context.Context) error {
 		}
 		spinner.Resume()
 
-		spinner.SetDesc("Downloading update...")
+		spinner.SetDesc("Downloading update")
 		if err := u.gitPull(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("pulling latest source: %w", err)
@@ -117,19 +117,19 @@ func (u *Updater) Update(ctx context.Context) error {
 	buildPath := filepath.Join(u.cfg.BinDir(), "debforge.new")
 	finalPath := filepath.Join(u.cfg.BinDir(), "debforge")
 
-	spinner.SetDesc("Building debforge...")
+	spinner.SetDesc("Building debforge")
 	if err := u.buildBinary(ctx, buildPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	spinner.SetDesc("Verifying binary...")
+	spinner.SetDesc("Verifying binary")
 	if err := u.verifyBinary(ctx, buildPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
-	spinner.SetDesc("Installing debforge...")
+	spinner.SetDesc("Installing debforge")
 	if err := u.installBinary(buildPath, finalPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("installing binary: %w", err)

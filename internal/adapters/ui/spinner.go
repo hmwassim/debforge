@@ -13,6 +13,13 @@ import (
 
 var spinFrames = []string{"|", "/", "-", "\\"}
 
+func stripTrailingDots(s string) string {
+	for len(s) > 0 && s[len(s)-1] == '.' {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
 type ConsoleSpinner struct {
 	w     io.Writer
 	desc  string
@@ -62,12 +69,12 @@ func (s *ConsoleSpinner) Resume() {
 	s.paused = false
 	s.mu.Unlock()
 	if s.stop != nil && s.color {
-		defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K", bold+blue, spinFrames[0], reset, s.desc)
+		defaultConsole.writef(s.w, "\r%s[%s]%s %s...\033[K", bold+blue, spinFrames[0], reset, s.desc)
 	}
 }
 
 func (s *ConsoleSpinner) run() {
-	defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K", bold+blue, spinFrames[0], reset, s.desc)
+	defaultConsole.writef(s.w, "\r%s[%s]%s %s...\033[K", bold+blue, spinFrames[0], reset, s.desc)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	idx := 1
@@ -86,7 +93,7 @@ func (s *ConsoleSpinner) run() {
 			if p {
 				continue
 			}
-			defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K", bold+blue, spinFrames[idx%len(spinFrames)], reset, s.desc)
+			defaultConsole.writef(s.w, "\r%s[%s]%s %s...\033[K", bold+blue, spinFrames[idx%len(spinFrames)], reset, s.desc)
 			idx++
 		}
 	}
@@ -105,14 +112,15 @@ func (s *ConsoleSpinner) doneFail(ok bool) {
 		s.stop = nil
 	}
 
+	desc := stripTrailingDots(s.desc)
 	mark, code := "*", green
 	if !ok {
 		mark, code = "x", red
 	}
 	if s.color {
-		defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K\n", bold+code, mark, reset, s.desc)
+		defaultConsole.writef(s.w, "\r%s[%s]%s %s\033[K\n", bold+code, mark, reset, desc)
 	} else {
-		defaultConsole.writef(s.w, "[%s] %s\n", mark, s.desc)
+		defaultConsole.writef(s.w, "[%s] %s\n", mark, desc)
 	}
 }
 

@@ -49,27 +49,27 @@ func (f *FontInstaller) Install(ctx context.Context, spinner ports.Spinner) erro
 	if _, err := f.fs.Stat(cachePath); err == nil {
 		if fresh, checkErr := f.cacheIsFresh(cachePath); checkErr != nil {
 			f.logger.Warn("Could not verify font cache (%s), using cached version", checkErr)
-			spinner.SetDesc("Extracting extra fonts...")
+			spinner.SetDesc("Extracting extra fonts")
 			if err := f.extractTarGz(cachePath, f.fontDir); err == nil {
-				spinner.SetDesc("Updating font cache...")
+				spinner.SetDesc("Updating font cache")
 				_, _, ferr := f.runner.Run(ctx, "fc-cache")
 				return ferr
 			}
-			f.logger.Warn("Cached fonts are corrupt (%v), re-downloading...", err)
+			f.logger.Warn("Cached fonts are corrupt (%v), re-downloading", err)
 			f.removeCache(cachePath)
 		} else if fresh {
-			spinner.SetDesc("Extracting extra fonts...")
+			spinner.SetDesc("Extracting extra fonts")
 			if err := f.extractTarGz(cachePath, f.fontDir); err == nil {
-				spinner.SetDesc("Updating font cache...")
+				spinner.SetDesc("Updating font cache")
 				_, _, ferr := f.runner.Run(ctx, "fc-cache")
 				return ferr
 			}
-			f.logger.Warn("Cached fonts are corrupt (%v), re-downloading...", err)
+			f.logger.Warn("Cached fonts are corrupt (%v), re-downloading", err)
 			f.removeCache(cachePath)
 		}
 	}
 
-	spinner.SetDesc("Downloading extra fonts...")
+	spinner.SetDesc("Downloading extra fonts")
 	if err := f.downloadFonts(ctx, cachePath, spinner); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
@@ -85,7 +85,7 @@ func (f *FontInstaller) Install(ctx context.Context, spinner ports.Spinner) erro
 		return err
 	}
 
-	spinner.SetDesc("Extracting extra fonts...")
+	spinner.SetDesc("Extracting extra fonts")
 	if err := f.extractTarGz(cachePath, f.fontDir); err != nil {
 		if rmErr := f.fs.RemoveAll(cachePath); rmErr != nil {
 			f.logger.Warn("removing bad font cache: %v", rmErr)
@@ -96,7 +96,7 @@ func (f *FontInstaller) Install(ctx context.Context, spinner ports.Spinner) erro
 		return err
 	}
 
-	spinner.SetDesc("Updating font cache...")
+	spinner.SetDesc("Updating font cache")
 	_, _, err = f.runner.Run(ctx, "fc-cache", "-f")
 	return err
 }

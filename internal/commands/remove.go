@@ -34,7 +34,7 @@ func (c *RemoveCommand) Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("unknown package: %s", name)
 		}
 		if p.Type == pkg.TypeApt || p.Type == pkg.TypeConfig || p.Type == pkg.TypeCore {
-			c.ui.Info("Removing %s...", name)
+			c.ui.Info("Removing %s", name)
 			if !c.ui.Prompt("Continue?") {
 				c.ui.Info("Cancelled")
 				continue

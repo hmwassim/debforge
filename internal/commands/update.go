@@ -82,11 +82,11 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 }
 
 func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) error {
-	spinner.SetDesc("Updating package lists...")
+	spinner.SetDesc("Updating package lists")
 	if err := c.aptSvc.Update(ctx); err != nil {
 		return err
 	}
-	spinner.SetDesc("Upgrading system packages...")
+	spinner.SetDesc("Upgrading system packages")
 	if err := c.aptSvc.Upgrade(ctx); err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) er
 		if entry.Type != "deb" && entry.Type != "source" {
 			continue
 		}
-		spinner.SetDesc("Updating " + name + "...")
+		spinner.SetDesc("Updating " + name)
 		if err := c.installSvc.UpdateSingle(ctx, name, spinner); err != nil {
 			return fmt.Errorf("updating %s: %w", name, err)
 		}
