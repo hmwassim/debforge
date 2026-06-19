@@ -35,7 +35,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 	for _, check := range p.Checks {
 		_, _, err := i.runner.Run(ctx, "which", check)
 		if err != nil {
-			if err := i.runner.RunWithSpinner(ctx, "apt-get", "install", "-y", check); err != nil {
+			if _, _, err := i.runner.Run(ctx, "apt-get", "install", "-y", check); err != nil {
 				return fmt.Errorf("%s not found in PATH and apt-get install failed", check)
 			}
 		}
@@ -85,7 +85,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 		defer i.fs.RemoveAll(tmpDir)
 
 		if err := utils.RetryGit(ctx, func() error {
-			return i.runner.RunWithSpinner(ctx, "git", "clone", "--depth=1", p.Repo, tmpDir)
+			_, _, err := i.runner.Run(ctx, "git", "clone", "--depth=1", p.Repo, tmpDir)
+			return err
 		}); err != nil {
 			return fmt.Errorf("cloning %s: %w", p.Repo, err)
 		}
@@ -129,7 +130,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 			if !i.logger.Prompt("Continue running install.sh?") {
 				return fmt.Errorf("install cancelled by user")
 			}
-			if err := i.runner.RunWithSpinner(ctx, installScript); err != nil {
+			if _, _, err := i.runner.Run(ctx, installScript); err != nil {
 				return fmt.Errorf("install.sh: %w", err)
 			}
 		} else {

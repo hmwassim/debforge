@@ -77,11 +77,13 @@ func (u *Updater) Update(ctx context.Context) error {
 		}
 		spinner.Resume()
 
+		spinner.SetDesc("Downloading debforge...")
 		if err := u.cloneRepo(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("cloning repository: %w", err)
 		}
 	} else {
+		spinner.SetDesc("Checking for updates...")
 		if err := u.gitFetch(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("fetching remote: %w", err)
@@ -92,8 +94,8 @@ func (u *Updater) Update(ctx context.Context) error {
 			return fmt.Errorf("comparing revisions: %w", err)
 		}
 		if localSHA == remoteSHA {
+			spinner.SetDesc("Already up to date")
 			spinner.Done()
-			u.logger.Success("Already up to date")
 			return nil
 		}
 		spinner.Pause()
@@ -105,6 +107,7 @@ func (u *Updater) Update(ctx context.Context) error {
 		}
 		spinner.Resume()
 
+		spinner.SetDesc("Downloading update...")
 		if err := u.gitPull(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("pulling latest source: %w", err)
@@ -114,21 +117,29 @@ func (u *Updater) Update(ctx context.Context) error {
 	buildPath := filepath.Join(u.cfg.BinDir(), "debforge.new")
 	finalPath := filepath.Join(u.cfg.BinDir(), "debforge")
 
+	spinner.SetDesc("Building debforge...")
 	if err := u.buildBinary(ctx, buildPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("build failed: %w", err)
 	}
 
+	spinner.SetDesc("Verifying binary...")
 	if err := u.verifyBinary(ctx, buildPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
+	spinner.SetDesc("Installing debforge...")
 	if err := u.installBinary(buildPath, finalPath); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("installing binary: %w", err)
 	}
 
+	if sourceExists {
+		spinner.SetDesc("Updated to latest version")
+	} else {
+		spinner.SetDesc("Debforge installed")
+	}
 	spinner.Done()
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -138,12 +149,6 @@ func (u *Updater) Update(ctx context.Context) error {
 	st.UpdatedAt = now
 	if err := u.saveState(st); err != nil {
 		return fmt.Errorf("saving state: %w", err)
-	}
-
-	if sourceExists {
-		u.logger.Success("Updated to latest version")
-	} else {
-		u.logger.Success("Debforge installed")
 	}
 
 	return nil
@@ -189,7 +194,8 @@ func (u *Updater) cloneRepo(ctx context.Context) error {
 
 func (u *Updater) gitFetch(ctx context.Context) error {
 	return utils.RetryGit(ctx, func() error {
-		return u.runner.RunWithSpinner(ctx, "git", "-C", u.cfg.SourceDir(), "fetch", "-q", "origin", u.cfg.Branch)
+		_, _, err := u.runner.Run(ctx, "git", "-C", u.cfg.SourceDir(), "fetch", "-q", "origin", u.cfg.Branch)
+		return err
 	})
 }
 
@@ -220,10 +226,11 @@ func (u *Updater) gitRevParse(ctx context.Context, ref string) (string, error) {
 
 func (u *Updater) gitPull(ctx context.Context) error {
 	return utils.RetryGit(ctx, func() error {
-		if err := u.runner.RunWithSpinner(ctx, "git", "-C", u.cfg.SourceDir(), "fetch", "--depth", "1", "origin", u.cfg.Branch); err != nil {
+		if _, _, err := u.runner.Run(ctx, "git", "-C", u.cfg.SourceDir(), "fetch", "--depth", "1", "origin", u.cfg.Branch); err != nil {
 			return err
 		}
-		return u.runner.RunWithSpinner(ctx, "git", "-C", u.cfg.SourceDir(), "reset", "--hard", "origin/"+u.cfg.Branch)
+		_, _, err := u.runner.Run(ctx, "git", "-C", u.cfg.SourceDir(), "reset", "--hard", "origin/"+u.cfg.Branch)
+		return err
 	})
 }
 

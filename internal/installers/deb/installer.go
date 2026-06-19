@@ -174,7 +174,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package) error {
 		return fmt.Errorf("package is required for deb packages")
 	}
 
-	if err := i.runner.RunWithSpinner(ctx, "dpkg", "--purge", p.Package); err != nil {
+	if _, _, err := i.runner.Run(ctx, "dpkg", "--purge", p.Package); err != nil {
 		return fmt.Errorf("purging %s: %w", p.Package, err)
 	}
 
@@ -305,7 +305,8 @@ func (i *Installer) installedDebVersion(ctx context.Context, pkgName string) str
 }
 
 func (i *Installer) installDebFile(ctx context.Context, path string) error {
-	return i.runner.RunWithSpinner(ctx, "apt-get", "install", "-y", path)
+	_, _, err := i.runner.Run(ctx, "apt-get", "install", "-y", path)
+	return err
 }
 
 func (i *Installer) debFileVersion(ctx context.Context, path string) (string, error) {
