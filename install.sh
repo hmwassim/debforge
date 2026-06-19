@@ -60,7 +60,7 @@ export GOMODCACHE="$DEBFORGE_GOPATH/mod"
 export GOCACHE="$DEBFORGE_GOCACHE"
 cd "$DEBFORGE_SRC"
 VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
-go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/pkg/cli.Version=$VERSION" ./cmd/debforge/
+go build -o "$DEBFORGE_BIN/debforge" -ldflags="-X github.com/hmwassim/debforge/internal/commands.Version=$VERSION" ./cmd/debforge/
 
 info "Cleaning build cache..."
 go clean -cache
