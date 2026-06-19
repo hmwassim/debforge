@@ -134,10 +134,11 @@ func (m *mockRunner) RunWithSpinner(ctx context.Context, name string, args ...st
 
 type noopSpinner struct{}
 
-func (s *noopSpinner) Done()   {}
-func (s *noopSpinner) Fail()   {}
-func (s *noopSpinner) Pause()  {}
-func (s *noopSpinner) Resume() {}
+func (s *noopSpinner) Done()          {}
+func (s *noopSpinner) Fail()          {}
+func (s *noopSpinner) Pause()         {}
+func (s *noopSpinner) Resume()        {}
+func (s *noopSpinner) SetDesc(string) {}
 
 type mockLogger struct {
 	infoCalls    int
@@ -164,10 +165,11 @@ type spySpinner struct {
 	calls []string
 }
 
-func (s *spySpinner) Done()   { s.calls = append(s.calls, "Done") }
-func (s *spySpinner) Fail()   { s.calls = append(s.calls, "Fail") }
-func (s *spySpinner) Pause()  { s.calls = append(s.calls, "Pause") }
-func (s *spySpinner) Resume() { s.calls = append(s.calls, "Resume") }
+func (s *spySpinner) Done()             { s.calls = append(s.calls, "Done") }
+func (s *spySpinner) Fail()             { s.calls = append(s.calls, "Fail") }
+func (s *spySpinner) Pause()            { s.calls = append(s.calls, "Pause") }
+func (s *spySpinner) Resume()           { s.calls = append(s.calls, "Resume") }
+func (s *spySpinner) SetDesc(string)    {}
 
 type promptSpyLogger struct {
 	mockLogger

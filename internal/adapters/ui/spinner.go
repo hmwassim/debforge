@@ -36,6 +36,12 @@ func NewConsoleSpinner(ctx context.Context, w io.Writer, desc string) *ConsoleSp
 	return s
 }
 
+func (s *ConsoleSpinner) SetDesc(desc string) {
+	s.mu.Lock()
+	s.desc = desc
+	s.mu.Unlock()
+}
+
 func (s *ConsoleSpinner) Pause() {
 	s.mu.Lock()
 	s.paused = true

@@ -38,7 +38,7 @@ func NewFontInstaller(fs ports.FileSystem, http ports.HTTPClient, runner ports.C
 	return &FontInstaller{fs: fs, http: http, runner: runner, logger: logger, cacheDir: cacheDir, fontDir: fontDir, fontURL: fontURL}
 }
 
-func (f *FontInstaller) Install(ctx context.Context) error {
+func (f *FontInstaller) Install(ctx context.Context, spinner ports.Spinner) error {
 
 	if err := f.fs.MkdirAll(f.cacheDir, 0755); err != nil {
 		return err
@@ -49,18 +49,18 @@ func (f *FontInstaller) Install(ctx context.Context) error {
 	if _, err := f.fs.Stat(cachePath); err == nil {
 		if fresh, checkErr := f.cacheIsFresh(cachePath); checkErr != nil {
 			f.logger.Warn("Could not verify font cache (%s), using cached version", checkErr)
-			f.logger.Info("Extracting cached fonts...")
+			spinner.SetDesc("Extracting extra fonts...")
 			if err := f.extractTarGz(cachePath, f.fontDir); err == nil {
-				f.logger.Info("Updating font cache...")
+				spinner.SetDesc("Updating font cache...")
 				_, _, ferr := f.runner.Run(ctx, "fc-cache")
 				return ferr
 			}
 			f.logger.Warn("Cached fonts are corrupt (%v), re-downloading...", err)
 			f.removeCache(cachePath)
 		} else if fresh {
-			f.logger.Info("Extracting cached fonts...")
+			spinner.SetDesc("Extracting extra fonts...")
 			if err := f.extractTarGz(cachePath, f.fontDir); err == nil {
-				f.logger.Info("Updating font cache...")
+				spinner.SetDesc("Updating font cache...")
 				_, _, ferr := f.runner.Run(ctx, "fc-cache")
 				return ferr
 			}
@@ -69,7 +69,8 @@ func (f *FontInstaller) Install(ctx context.Context) error {
 		}
 	}
 
-	if err := f.downloadFonts(ctx, cachePath); err != nil {
+	spinner.SetDesc("Downloading extra fonts...")
+	if err := f.downloadFonts(ctx, cachePath, spinner); err != nil {
 		return fmt.Errorf("downloading fonts: %w", err)
 	}
 
@@ -84,7 +85,7 @@ func (f *FontInstaller) Install(ctx context.Context) error {
 		return err
 	}
 
-	f.logger.Info("Extracting fonts...")
+	spinner.SetDesc("Extracting extra fonts...")
 	if err := f.extractTarGz(cachePath, f.fontDir); err != nil {
 		if rmErr := f.fs.RemoveAll(cachePath); rmErr != nil {
 			f.logger.Warn("removing bad font cache: %v", rmErr)
@@ -95,7 +96,7 @@ func (f *FontInstaller) Install(ctx context.Context) error {
 		return err
 	}
 
-	f.logger.Info("Updating font cache...")
+	spinner.SetDesc("Updating font cache...")
 	_, _, err = f.runner.Run(ctx, "fc-cache", "-f")
 	return err
 }
@@ -168,7 +169,7 @@ func (f *FontInstaller) headETag(ctx context.Context, url string) (string, error
 	return resp.Header.Get("ETag"), nil
 }
 
-func (f *FontInstaller) downloadFonts(ctx context.Context, cachePath string) error {
+func (f *FontInstaller) downloadFonts(ctx context.Context, cachePath string, spinner ports.Spinner) error {
 	dir := filepath.Dir(cachePath)
 	base := filepath.Base(cachePath)
 
@@ -201,6 +202,7 @@ func (f *FontInstaller) downloadFonts(ctx context.Context, cachePath string) err
 		var reader io.Reader = resp.Body
 		var progress ports.Progress
 		if resp.ContentLength > 0 {
+			spinner.Pause()
 			progress = f.logger.Progress(resp.ContentLength, "Downloading extra fonts")
 			reader = io.TeeReader(resp.Body, progress)
 		}
@@ -214,6 +216,7 @@ func (f *FontInstaller) downloadFonts(ctx context.Context, cachePath string) err
 		}
 		if progress != nil {
 			progress.Done()
+			spinner.Resume()
 		}
 
 		if err := f.fs.WriteFile(tmpPath, data, 0644); err != nil {

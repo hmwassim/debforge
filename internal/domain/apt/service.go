@@ -31,7 +31,8 @@ func (s *service) Install(ctx context.Context, packages []string) error {
 		return nil
 	}
 	args := append([]string{"install", "-y"}, packages...)
-	return s.runner.RunWithSpinner(ctx, "apt-get", args...)
+	_, _, err := s.runner.Run(ctx, "apt-get", args...)
+	return err
 }
 
 func (s *service) InstallBackports(ctx context.Context, packages []string, suite string) error {
@@ -42,7 +43,8 @@ func (s *service) InstallBackports(ctx context.Context, packages []string, suite
 		suite = "trixie-backports"
 	}
 	args := append([]string{"install", "-y", "-t", suite}, packages...)
-	return s.runner.RunWithSpinner(ctx, "apt-get", args...)
+	_, _, err := s.runner.Run(ctx, "apt-get", args...)
+	return err
 }
 
 func (s *service) Remove(ctx context.Context, packages []string) error {
@@ -50,7 +52,8 @@ func (s *service) Remove(ctx context.Context, packages []string) error {
 		return nil
 	}
 	args := append([]string{"purge", "-y", "--autoremove"}, packages...)
-	return s.runner.RunWithSpinner(ctx, "apt-get", args...)
+	_, _, err := s.runner.Run(ctx, "apt-get", args...)
+	return err
 }
 
 func (s *service) CheckInstalled(ctx context.Context, pkg string) (bool, error) {
@@ -90,9 +93,11 @@ func ParseDpkgSelections(out string, requested []string) map[string]bool {
 }
 
 func (s *service) Update(ctx context.Context) error {
-	return s.runner.RunWithSpinner(ctx, "apt-get", "update")
+	_, _, err := s.runner.Run(ctx, "apt-get", "update")
+	return err
 }
 
 func (s *service) Upgrade(ctx context.Context) error {
-	return s.runner.RunWithSpinner(ctx, "apt-get", "upgrade", "-y")
+	_, _, err := s.runner.Run(ctx, "apt-get", "upgrade", "-y")
+	return err
 }

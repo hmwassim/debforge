@@ -223,7 +223,7 @@ func TestFontInstallerDownloadFile(t *testing.T) {
 	dest := "/tmp/fonts.tar.gz"
 
 	f := &FontInstaller{fs: fs, http: http, fontURL: "https://example.com/fonts.tar.gz", logger: &mockUI{}}
-	if err := f.downloadFonts(context.Background(), dest); err != nil {
+	if err := f.downloadFonts(context.Background(), dest, &mockSpinner{}); err != nil {
 		t.Fatalf("downloadFonts: %v", err)
 	}
 
@@ -240,7 +240,7 @@ func TestFontInstallerDownloadFileHTTPError(t *testing.T) {
 	fs := newMemFS()
 	http := &mockHTTPClient{statusCode: http.StatusNotFound, body: []byte("not found")}
 	f := &FontInstaller{fs: fs, http: http, fontURL: "https://example.com/fonts.tar.gz", logger: &mockUI{}}
-	err := f.downloadFonts(context.Background(), "/tmp/fonts.tar.gz")
+	err := f.downloadFonts(context.Background(), "/tmp/fonts.tar.gz", &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for HTTP 404")
 	}
@@ -357,7 +357,7 @@ func TestFontInstallerInstallFreshDownload(t *testing.T) {
 	logger := &mockUI{}
 
 	f := NewFontInstaller(fs, http, runner, logger, "/cache", "/fonts", "https://example.com/fonts.tar.gz")
-	if err := f.Install(context.Background()); err != nil {
+	if err := f.Install(context.Background(), &mockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -382,7 +382,7 @@ func TestFontInstallerInstallCachedFresh(t *testing.T) {
 	logger := &mockUI{}
 
 	f := NewFontInstaller(fs, &mockHTTPClient{}, runner, logger, "/cache", "/fonts", "")
-	if err := f.Install(context.Background()); err != nil {
+	if err := f.Install(context.Background(), &mockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 }
@@ -400,7 +400,7 @@ func TestFontInstallerInstallCachedCorrupt(t *testing.T) {
 	logger := &mockUI{}
 
 	f := NewFontInstaller(fs, http, runner, logger, "/cache", "/fonts", "https://example.com/fonts.tar.gz")
-	if err := f.Install(context.Background()); err != nil {
+	if err := f.Install(context.Background(), &mockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 }
@@ -411,7 +411,7 @@ func TestFontInstallerInstallDownloadFails(t *testing.T) {
 	logger := &mockUI{}
 
 	f := NewFontInstaller(fs, http, &mockRunner{}, logger, "/cache", "/fonts", "https://example.com/fonts.tar.gz")
-	err := f.Install(context.Background())
+	err := f.Install(context.Background(), &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for download failure")
 	}
@@ -426,7 +426,7 @@ func TestFontInstallerInstallDownloadBadStatus(t *testing.T) {
 	logger := &mockUI{}
 
 	f := NewFontInstaller(fs, http, &mockRunner{}, logger, "/cache", "/fonts", "https://example.com/fonts.tar.gz")
-	err := f.Install(context.Background())
+	err := f.Install(context.Background(), &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for HTTP error")
 	}

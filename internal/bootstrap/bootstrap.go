@@ -61,8 +61,13 @@ func newApp() (*App, error) {
 	if _, err := fs.Stat(packagesDir); os.IsNotExist(err) {
 		packagesDir = "data/packages"
 	}
-	if err := loader.LoadFromDir(packagesDir, pkgRegistry); err != nil {
-		ui.Warn("loading packages: %v", err)
+	if _, err := fs.Stat(packagesDir); os.IsNotExist(err) {
+		packagesDir = ""
+	}
+	if packagesDir != "" {
+		if err := loader.LoadFromDir(packagesDir, pkgRegistry); err != nil {
+			ui.Warn("loading packages: %v", err)
+		}
 	}
 
 	aptSvc := apt.NewService(runner, ui)

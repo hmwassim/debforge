@@ -45,6 +45,7 @@ func (m *mockSpinner) Done()              {}
 func (m *mockSpinner) Fail()              {}
 func (m *mockSpinner) Pause()             {}
 func (m *mockSpinner) Resume()            {}
+func (m *mockSpinner) SetDesc(string)     {}
 
 type mockUI struct{}
 

@@ -9,10 +9,11 @@ import (
 
 type noopSpinner struct{}
 
-func (s *noopSpinner) Done()   {}
-func (s *noopSpinner) Fail()   {}
-func (s *noopSpinner) Pause()  {}
-func (s *noopSpinner) Resume() {}
+func (s *noopSpinner) Done()          {}
+func (s *noopSpinner) Fail()          {}
+func (s *noopSpinner) Pause()         {}
+func (s *noopSpinner) Resume()        {}
+func (s *noopSpinner) SetDesc(string) {}
 
 type mockUI struct{}
 

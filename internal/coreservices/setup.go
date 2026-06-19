@@ -167,6 +167,7 @@ func (s *SetupService) prepareApt(ctx context.Context, errs *[]error) {
 
 func (s *SetupService) installGroups(ctx context.Context, errs *[]error) {
 	for _, g := range coresetup.GroupDefs {
+		spinner := s.logger.Spinner(ctx, g.Name)
 		var failed bool
 
 		if len(g.Packages) > 0 {
@@ -182,42 +183,48 @@ func (s *SetupService) installGroups(ctx context.Context, errs *[]error) {
 			}
 		}
 
-		for _, cf := range g.Configs {
-			if err := s.config.Deploy(ctx, cf.Content, cf.Dest, cf.Mode); err != nil {
-				*errs = append(*errs, fmt.Errorf("deploying %s: %w", cf.Dest, err))
-				failed = true
+		if !failed {
+			for _, cf := range g.Configs {
+				if err := s.config.Deploy(ctx, cf.Content, cf.Dest, cf.Mode); err != nil {
+					*errs = append(*errs, fmt.Errorf("deploying %s: %w", cf.Dest, err))
+					failed = true
+				}
 			}
 		}
 
-		for _, svc := range g.Services {
-			_, _, err := s.runner.Run(ctx, "systemctl", "enable", "--now", svc)
-			if err != nil {
-				s.logger.Warn("Could not enable %s (non-fatal): %v", svc, err)
+		if !failed {
+			for _, svc := range g.Services {
+				_, _, err := s.runner.Run(ctx, "systemctl", "enable", "--now", svc)
+				if err != nil {
+					s.logger.Warn("Could not enable %s (non-fatal): %v", svc, err)
+				}
 			}
 		}
 
-		switch g.PostInstall {
-		case "fonts":
-			if err := s.fonts.Install(ctx); err != nil {
-				*errs = append(*errs, err)
-				failed = true
-			}
-		case "flathub":
-			if err := s.installFlathub(ctx); err != nil {
-				*errs = append(*errs, err)
-				failed = true
-			}
-		case "resolved":
-			if err := s.setupResolved(ctx); err != nil {
-				*errs = append(*errs, err)
-				failed = true
+		if !failed {
+			switch g.PostInstall {
+			case "fonts":
+				if err := s.fonts.Install(ctx, spinner); err != nil {
+					*errs = append(*errs, err)
+					failed = true
+				}
+			case "flathub":
+				if err := s.installFlathub(ctx); err != nil {
+					*errs = append(*errs, err)
+					failed = true
+				}
+			case "resolved":
+				if err := s.setupResolved(ctx); err != nil {
+					*errs = append(*errs, err)
+					failed = true
+				}
 			}
 		}
 
 		if failed {
-			s.logger.Error("  %s — failed", g.Name)
+			spinner.Fail()
 		} else {
-			s.logger.Success("  %s — done", g.Name)
+			spinner.Done()
 		}
 	}
 }
@@ -344,7 +351,6 @@ func (s *SetupService) ensureResolvSymlink() error {
 func (s *SetupService) installFlathub(ctx context.Context) error {
 	stdout, _, err := s.runner.Run(ctx, "flatpak", "remotes", "--columns=name")
 	if err == nil && containsLine(string(stdout), "flathub") {
-		s.logger.Info("Flathub remote already configured")
 		return nil
 	}
 	_, _, err = s.runner.Run(ctx, "flatpak", "remote-add", "--if-not-exists", "flathub", "https://flathub.org/repo/flathub.flatpakrepo")

@@ -13,10 +13,11 @@ type removerSpySpinner struct {
 	calls []string
 }
 
-func (s *removerSpySpinner) Done()   { s.calls = append(s.calls, "Done") }
-func (s *removerSpySpinner) Fail()   { s.calls = append(s.calls, "Fail") }
-func (s *removerSpySpinner) Pause()  { s.calls = append(s.calls, "Pause") }
-func (s *removerSpySpinner) Resume() { s.calls = append(s.calls, "Resume") }
+func (s *removerSpySpinner) Done()             { s.calls = append(s.calls, "Done") }
+func (s *removerSpySpinner) Fail()             { s.calls = append(s.calls, "Fail") }
+func (s *removerSpySpinner) Pause()            { s.calls = append(s.calls, "Pause") }
+func (s *removerSpySpinner) Resume()           { s.calls = append(s.calls, "Resume") }
+func (s *removerSpySpinner) SetDesc(string)    {}
 
 type removerSpyUI struct {
 	promptResult bool
