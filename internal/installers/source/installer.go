@@ -97,9 +97,13 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 			if wErr != nil {
 				return fmt.Errorf("writing version script: %w", wErr)
 			}
-			stdout, _, err := i.runner.Run(ctx, scriptPath)
+			stdout, stderr, err := i.runner.Run(ctx, scriptPath)
 			if err == nil {
-				version = strings.TrimSpace(string(stdout))
+				out := stdout
+				if len(out) == 0 {
+					out = stderr
+				}
+				version = strings.TrimSpace(string(out))
 			}
 		} else {
 			var stdout []byte
@@ -164,11 +168,15 @@ func (i *Installer) Update(ctx context.Context, p *pkg.Package) error {
 }
 
 func (i *Installer) runVersionCmd(ctx context.Context, cmd string) (string, error) {
-	stdout, _, err := i.runner.Run(ctx, "sh", "-c", cmd)
+	stdout, stderr, err := i.runner.Run(ctx, "sh", "-c", cmd)
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(stdout)), nil
+	out := stdout
+	if len(out) == 0 {
+		out = stderr
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func (i *Installer) writeTempScript(dir, name, content string) (string, error) {

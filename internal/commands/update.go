@@ -63,11 +63,20 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("%s is not installed", name)
 		}
 	}
+	oldVersion := st.Packages[names[0]].Version
 	return withSpinner(ctx, c.ui, fmt.Sprintf("Update %s...", names[0]), func(spinner ports.Spinner) error {
 		if err := c.installSvc.Install(ctx, names, nil, true, spinner); err != nil {
 			return err
 		}
-		spinner.SetDesc(names[0] + " updated")
+		st, err := c.stateSvc.Load()
+		if err != nil {
+			return err
+		}
+		if st.Packages[names[0]].Version != oldVersion {
+			spinner.SetDesc(names[0] + " updated")
+		} else {
+			spinner.SetDesc(names[0] + " already up to date")
+		}
 		return nil
 	})
 }

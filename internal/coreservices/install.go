@@ -99,9 +99,11 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 		return fmt.Errorf("resolving dependencies: %w", err)
 	}
 
-		for _, dep := range ordered {
+	for _, dep := range ordered {
+		savedVersion := ""
 		if entry, exists := st.Packages[dep.Name]; exists {
 			dep.Version = entry.Version
+			savedVersion = entry.Version
 		}
 		inst, ok := s.instReg.Lookup(dep.Type)
 		if !ok {
@@ -124,7 +126,9 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 			}
 			return fmt.Errorf("saving state after %s: %w", dep.Name, err)
 		}
-		spinner.SetDesc(dep.Name + " installed")
+		if dep.Version != savedVersion || savedVersion == "" {
+			spinner.SetDesc(dep.Name + " installed")
+		}
 	}
 
 	return nil
