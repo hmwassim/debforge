@@ -38,9 +38,7 @@ func (c *CoreCommand) Run(ctx context.Context, args []string) error {
 				break
 			}
 		}
-		return withSpinner(ctx, c.ui, "Setting up core packages...", func() error {
-			return c.setupSvc.Run(ctx, force)
-		})
+		return c.setupSvc.Run(ctx, force)
 	case "list":
 		return c.listSvc.RunCore(ctx, c.groups)
 	default:
