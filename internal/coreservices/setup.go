@@ -76,10 +76,13 @@ func (s *SetupService) Run(ctx context.Context, force bool) error {
 	commitChanged := cur != "" && st.LastSetupCommit != "" && cur != st.LastSetupCommit
 
 	if !force && st.ManagedPackages != nil && !commitChanged && len(setDiff(st.ManagedPackages, desiredPkgs)) == 0 && len(setDiff(st.ManagedConfigs, desiredConfigs)) == 0 {
+		vspinner := s.logger.Spinner(ctx, "Verifying existing setup...")
 		if s.verifySetup(ctx, coresetup.GroupDefs) {
+			vspinner.Done()
 			s.logger.Success("Core setup already up to date")
 			return nil
 		}
+		vspinner.Fail()
 	}
 
 	if commitChanged {
