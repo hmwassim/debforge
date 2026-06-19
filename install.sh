@@ -36,7 +36,11 @@ if [ "$(id -u)" -ne 0 ]; then
 	exit 1
 fi
 
-trap 'err "Installation failed"' ERR
+cleanup() {
+  rm -rf "$DEBFORGE_ROOT"
+  rm -f "$BINARY"
+}
+trap 'err "Installation failed"; cleanup' ERR
 
 info "Updating system..."
 apt-get update -y
@@ -68,6 +72,13 @@ go clean -cache
 info "Verifying binary..."
 "$DEBFORGE_BIN/debforge" --version >/dev/null 2>&1
 
+info "Running core setup..."
+if [ ! -x "$DEBFORGE_BIN/debforge" ]; then
+	err "Binary not found at $DEBFORGE_BIN/debforge — build may have failed"
+	exit 1
+fi
+"$DEBFORGE_BIN/debforge" core setup
+
 info "Linking ${DEBFORGE_BIN}/debforge -> ${BINARY}..."
 mkdir -p "$(dirname "$BINARY")"
 if [ -e "$BINARY" ] && [ ! -L "$BINARY" ]; then
@@ -84,13 +95,6 @@ cat > "${DEBFORGE_VAR}/states/debforge.state.json" <<EOF
 }
 EOF
 chmod 600 "${DEBFORGE_VAR}/states/debforge.state.json"
-
-info "Running core setup..."
-if [ ! -x "$DEBFORGE_BIN/debforge" ]; then
-	err "Binary not found at $DEBFORGE_BIN/debforge — build may have failed"
-	exit 1
-fi
-"$DEBFORGE_BIN/debforge" core setup
 
 echo ""
 ok "debforge installed at ${BINARY}"
