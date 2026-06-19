@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/statestore"
@@ -53,8 +52,7 @@ func (s *CoreStateStore) Save(st *coreState) error {
 	return s.store.SaveJSON(s.path, st)
 }
 
-func (s *CoreStateStore) CurrentCommit(ctx context.Context, rootDir string) string {
-	sourceDir := filepath.Join(rootDir, "source")
+func (s *CoreStateStore) CurrentCommit(ctx context.Context, sourceDir string) string {
 	stdout, _, err := s.runner.Run(ctx, "git", "-C", sourceDir, "rev-parse", "HEAD")
 	if err != nil {
 		s.logger.Warn("Could not check source commit: %v", err)
