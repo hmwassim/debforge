@@ -45,18 +45,13 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 
 	if p.SkipClone {
 		if !p.ForceInstall && p.VersionCmd != "" {
-			s := i.logger.Spinner(ctx, "Checking latest version...")
 			ver, err := i.runVersionCmd(ctx, p.VersionCmd)
 			if err == nil {
 				version = ver
-				s.Done()
-			} else {
-				s.Fail()
 			}
 		}
 
 		if version != "" && !p.ForceInstall && p.Version != "" && p.Version == version {
-			i.logger.Info("%s %s is already the latest version", p.Name, version)
 			return nil
 		}
 
@@ -120,7 +115,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 		}
 
 		if !p.ForceInstall && p.Version != "" && p.Version == version {
-			i.logger.Info("%s %s is already the latest version", p.Name, version)
 			return nil
 		}
 
@@ -163,7 +157,6 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package) error {
 		i.logger.Warn("    sudo debforge remove %s", p.Name)
 	}
 
-	i.logger.Info("%s removed", p.Name)
 	return nil
 }
 

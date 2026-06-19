@@ -74,13 +74,10 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 	if isDebURL(p.URL) {
 		debURL = p.URL
 	} else {
-		s := i.logger.Spinner(ctx, "Checking latest version...")
 		info, err := i.fetchReleaseInfo(ctx, p.URL)
 		if err != nil {
-			s.Fail()
 			return fmt.Errorf("fetching release info: %w", err)
 		}
-		s.Done()
 
 		latestVersion = info.TagName
 		if p.VersionPrefix != "" && strings.HasPrefix(latestVersion, p.VersionPrefix) {
@@ -90,10 +87,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 		if !p.ForceInstall {
 			installed := i.installedDebVersion(ctx, p.Package)
 			if stripDebRevision(installed) == latestVersion {
-				i.logger.Info("%s %s is already the latest version", p.Name, installed)
 				return nil
 			}
-			i.logger.Info("Installed: %s  Latest: %s", strDefault(installed, "none"), latestVersion)
 		}
 
 		re, err := compileRegexWithTimeout(assetMatch)
@@ -141,7 +136,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 		if !p.ForceInstall {
 			installed := i.installedDebVersion(ctx, p.Package)
 			if installed == latestVersion {
-				i.logger.Info("%s %s is already the latest version", p.Name, installed)
 				return nil
 			}
 		}
@@ -191,7 +185,6 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package) error {
 		i.deployer.RemoveUserConfigs(ctx, p.UserConfigs, user)
 	}
 
-	i.logger.Info("%s removed", p.Name)
 	return nil
 }
 
