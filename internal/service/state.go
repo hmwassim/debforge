@@ -1,6 +1,10 @@
 package service
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/hmwassim/debforge/internal/adapters/store"
+)
 
 type PkgEntry struct {
 	Type    string `json:"type"`
@@ -13,18 +17,13 @@ type State struct {
 	Packages map[string]PkgEntry `json:"packages"`
 }
 
-type StateStore interface {
-	Load() (*State, error)
-	Save(*State) error
-}
-
 type StateManager struct {
-	store StateStore
+	store *store.Store[State]
 	mu    sync.Mutex
 }
 
-func NewStateManager(store StateStore) *StateManager {
-	return &StateManager{store: store}
+func NewStateManager(st *store.Store[State]) *StateManager {
+	return &StateManager{store: st}
 }
 
 func (m *StateManager) Load() (*State, error) {

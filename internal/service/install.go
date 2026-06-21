@@ -38,20 +38,17 @@ func NewInstallService(
 }
 
 func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
-	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
-		for _, name := range names {
-			if err := s.processOne(ctx, name, force, st, spinner, "install"); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return s.processAll(ctx, names, force, spinner, "install")
 }
 
 func (s *InstallService) Update(ctx context.Context, names []string, spinner ports.Spinner) error {
+	return s.processAll(ctx, names, true, spinner, "update")
+}
+
+func (s *InstallService) processAll(ctx context.Context, names []string, force bool, spinner ports.Spinner, verb string) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		for _, name := range names {
-			if err := s.processOne(ctx, name, true, st, spinner, "update"); err != nil {
+			if err := s.processOne(ctx, name, force, st, spinner, verb); err != nil {
 				return err
 			}
 		}
