@@ -204,14 +204,10 @@ func (u *Updater) verify(ctx context.Context, path string) error {
 }
 
 func (u *Updater) installBinary(src, dst string) error {
-	data, err := u.fs.ReadFile(src)
-	if err != nil {
+	if err := os.Rename(src, dst); err != nil {
 		return err
 	}
-	if err := u.fs.WriteFile(dst, data, 0755); err != nil {
-		return err
-	}
-	return u.fs.RemoveAll(src)
+	return nil
 }
 
 func (u *Updater) ensureLink(target, link string) error {
