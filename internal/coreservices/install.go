@@ -116,7 +116,8 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 		if !ok {
 			return fmt.Errorf("no installer for type %s", dep.Type)
 		}
-		if err := inst.Install(ctx, dep); err != nil {
+		ictx := aptpty.WithSpinner(ctx, spinner)
+		if err := inst.Install(ictx, dep); err != nil {
 			return fmt.Errorf("installing %s: %w", dep.Name, err)
 		}
 		entry := state.PkgEntry{Type: string(dep.Type), Version: dep.Version}

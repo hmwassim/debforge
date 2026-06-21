@@ -147,7 +147,6 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string) {
 			if state.prevPkgTotal > 0 {
 				state.cumulativeDone += state.prevPkgTotal
 			}
-			showProgress(state, *pkg, state.cumulativeDone)
 		}
 		*cur = 0
 		*total = 0
