@@ -17,7 +17,7 @@ var (
 	green  = "\033[32m"
 	yellow = "\033[33m"
 	blue   = "\033[34m"
-	cyan   = "\033[36m"
+	magenta = "\033[35m"
 )
 
 type consoleOutput struct {

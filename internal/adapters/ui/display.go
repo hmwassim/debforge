@@ -62,11 +62,11 @@ func (d *Display) Resume() {
 	d.mu.Lock()
 	d.paused = false
 	d.mu.Unlock()
-	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+cyan, spinFrames[0], reset, d.content)
+	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, d.content)
 }
 
 func (d *Display) run() {
-	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+cyan, spinFrames[0], reset, d.content)
+	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, d.content)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	idx := 1
@@ -85,7 +85,7 @@ func (d *Display) run() {
 			if p {
 				continue
 			}
-			defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+cyan, spinFrames[idx%len(spinFrames)], reset, d.content)
+			defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[idx%len(spinFrames)], reset, d.content)
 			idx++
 		}
 	}
