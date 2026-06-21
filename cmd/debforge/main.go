@@ -46,7 +46,7 @@ func run() int {
 	cfg := self.DefaultConfig()
 	fsys := fs.NewFileSystem()
 	runner := exec.NewRunner()
-	locker := lock.NewNoop()
+	locker := lock.NewFLock()
 
 	switch args[0] {
 	case "--version":
@@ -154,7 +154,7 @@ func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunn
 
 	st := store.NewStore[service.State](fsys, cfg.StatePath)
 	stateSvc := service.NewStateManager(st)
-	if _, err := stateSvc.Load(); err != nil && !os.IsNotExist(err) {
+	if _, err := stateSvc.Load(); err != nil {
 		return nil, nil, nil, fmt.Errorf("load state: %w", err)
 	}
 
