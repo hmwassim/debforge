@@ -98,10 +98,7 @@ func (r *Remover) removeManagedPackages(ctx context.Context, spinner ports.Spinn
 		return
 	}
 
-	names := make([]string, 0, len(st.Packages))
-	for name := range st.Packages {
-		names = append(names, name)
-	}
+	names := r.stateSvc.ListPackages(st)
 
 	for _, name := range names {
 		spinner.SetDesc("Removing " + name)

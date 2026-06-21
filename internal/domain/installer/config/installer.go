@@ -9,11 +9,12 @@ import (
 )
 
 type Installer struct {
-	fs ports.FileSystem
+	runner ports.CommandRunner
+	fs     ports.FileSystem
 }
 
-func NewInstaller(fs ports.FileSystem) *Installer {
-	return &Installer{fs: fs}
+func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem) *Installer {
+	return &Installer{runner: runner, fs: fs}
 }
 
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {

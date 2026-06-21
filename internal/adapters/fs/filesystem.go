@@ -49,6 +49,17 @@ func (f *FileSystem) Symlink(target, link string) error {
 	return os.Symlink(target, link)
 }
 
+func (f *FileSystem) Exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
 func (f *FileSystem) Readlink(path string) (string, error) {
 	return os.Readlink(path)
 }

@@ -149,7 +149,7 @@ func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunn
 	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys))
 	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys))
 	instReg.Register(pkg.TypeSource, srcInst.NewInstaller(runner, fsys))
-	instReg.Register(pkg.TypeConfig, cfgInst.NewInstaller(fsys))
+	instReg.Register(pkg.TypeConfig, cfgInst.NewInstaller(runner, fsys))
 
 	st := store.NewStore[service.State](fsys, cfg.StatePath)
 	stateSvc := service.NewStateManager(st)

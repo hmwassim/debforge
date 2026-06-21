@@ -135,8 +135,8 @@ func confirmMidSpinner(logger ports.UI, spinner ports.Spinner, infoMsg, promptMs
 }
 
 func sourceRepoExists(fs ports.FileSystem, dir string) bool {
-	_, err := fs.Stat(filepath.Join(dir, ".git"))
-	return err == nil
+	ok, _ := fs.Exists(filepath.Join(dir, ".git"))
+	return ok
 }
 
 func (u *Updater) cloneRepo(ctx context.Context) error {
@@ -215,9 +215,16 @@ func (u *Updater) installBinary(src, dst string) error {
 }
 
 func (u *Updater) ensureLink(target, link string) error {
+	exists, err := u.fs.Exists(link)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return u.fs.Symlink(target, link)
+	}
 	fi, err := u.fs.Stat(link)
 	if err != nil {
-		return u.fs.Symlink(target, link)
+		return err
 	}
 	if fi.IsDir() {
 		return fmt.Errorf("%s is a directory", link)

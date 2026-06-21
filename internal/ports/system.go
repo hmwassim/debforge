@@ -49,6 +49,7 @@ type FileSystem interface {
 	Rename(oldPath, newPath string) error
 	Symlink(target, link string) error
 	Readlink(path string) (string, error)
+	Exists(path string) (bool, error)
 }
 
 type Locker interface {

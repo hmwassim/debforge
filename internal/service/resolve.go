@@ -1,8 +1,6 @@
 package service
 
 import (
-	"fmt"
-
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 )
 
@@ -26,9 +24,9 @@ func (r *Resolver) Resolve(root *pkg.Package, installed map[string]bool, force b
 		if installed[name] && !force {
 			return nil
 		}
-		dep, ok := r.reg.Lookup(name)
-		if !ok {
-			return fmt.Errorf("unknown dependency: %s", name)
+		dep, err := LookupPackage(r.reg, name)
+		if err != nil {
+			return err
 		}
 		for _, d := range dep.Depends {
 			if err := dfs(d); err != nil {

@@ -52,6 +52,14 @@ func (m *StateManager) InstalledMap(st *State) map[string]bool {
 	return installed
 }
 
+func (m *StateManager) ListPackages(st *State) []string {
+	names := make([]string, 0, len(st.Packages))
+	for n := range st.Packages {
+		names = append(names, n)
+	}
+	return names
+}
+
 func (m *StateManager) Add(st *State, name string, entry PkgEntry) {
 	st.Packages[name] = entry
 }
