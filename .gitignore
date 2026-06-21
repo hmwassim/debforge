@@ -31,5 +31,6 @@ go.work.sum
 # .idea/
 # .vscode/
 ref/
-debforge
+/debforge
 .debforge/
+bin/
