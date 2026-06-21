@@ -34,8 +34,8 @@ cleanup() { rm -rf "$ROOT"; rm -f "$LINK"; }
 trap 'err "Installation failed"; cleanup' ERR
 
 warn "This will install debforge to ${ROOT} and symlink to ${LINK}"
-printf "${BOLD}${YELLOW}[?]${RESET} Continue? [y/N] "
-read -r response
+printf "${BOLD}${YELLOW}[?]${RESET} Continue? [y/N] " >&2
+read -r response < /dev/tty || true
 case "$response" in
     [yY]|[yY][eE][sS]) ;;
     *) info "Cancelled"; exit 0 ;;
