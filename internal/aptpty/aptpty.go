@@ -12,7 +12,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -228,6 +227,25 @@ func showProgress(state *runState, pkg string, cur int64) {
 	os.Stderr.Write(buf.Bytes())
 }
 
+func progressDesc(state *runState, pkg string, cur int64) string {
+	if state.phase == phaseDownload {
+		curS := humanSize(cur)
+		if state.overallLabel != "" {
+			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, state.overallLabel)
+		} else if state.overallTotal > 0 {
+			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, humanSize(state.overallTotal))
+		} else {
+			return fmt.Sprintf("Downloading %s... [%s/1]", pkg, curS)
+		}
+	} else {
+		disp := pkg
+		if state.installPkg != "" {
+			disp = state.installPkg
+		}
+		return fmt.Sprintf("Installing %s...", disp)
+	}
+}
+
 // ---- PTY loop -------------------------------------------------------------
 
 func run(ctx context.Context, aptArgs []string) error {
@@ -304,12 +322,10 @@ func run(ctx context.Context, aptArgs []string) error {
 	}()
 
 	var (
-		sbuf     []byte
-		cur      int64
-		total    int64
-		pkg      string
-		spPaused bool
-		spMu     sync.Mutex
+		sbuf  []byte
+		cur   int64
+		total int64
+		pkg   string
 	)
 
 	timer := time.NewTimer(0)
@@ -391,30 +407,25 @@ mainLoop:
 			break mainLoop
 		}
 
-		spMu.Lock()
-		if total > 0 && !spPaused && spinner != nil {
-			spinner.Pause()
-			spPaused = true
-		}
-		spMu.Unlock()
-
 		if state.phase == phaseDownload && total > 0 {
-			showProgress(state, pkg, state.cumulativeDone+cur)
-		} else if state.phase == phaseInstall {
-			disp := pkg
-			if state.installPkg != "" {
-				disp = state.installPkg
+			desc := progressDesc(state, pkg, state.cumulativeDone+cur)
+			if spinner != nil {
+				spinner.SetDesc(desc)
+			} else {
+				os.Stderr.WriteString("\r" + desc + "\033[K")
 			}
-			showProgress(state, disp, 0)
+		} else if state.phase == phaseInstall {
+			desc := progressDesc(state, pkg, 0)
+			if spinner != nil {
+				spinner.SetDesc(desc)
+			} else {
+				os.Stderr.WriteString("\r" + desc + "\033[K")
+			}
 		}
 	}
 
 	signal.Stop(sigCh)
 	close(sigCh)
-
-	if spPaused && spinner != nil {
-		spinner.Resume()
-	}
 
 	if err := cmd.Wait(); err != nil {
 		var exitErr *exec.ExitError
