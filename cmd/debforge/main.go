@@ -28,14 +28,20 @@ func main() {
 
 func run() int {
 	ctx := context.Background()
-	ui := ui.NewConsoleUI()
 
-	if len(os.Args) < 2 {
+	yesMode, forceMode, args := parseFlags(os.Args[1:])
+
+	ui := ui.NewConsoleUI()
+	if yesMode {
+		ui.SetYes(true)
+	}
+
+	if len(args) == 0 {
 		usage()
 		return 0
 	}
 
-	switch os.Args[1] {
+	switch args[0] {
 	case "--version":
 		fmt.Println("debforge " + version)
 		return 0
@@ -79,47 +85,56 @@ func run() int {
 		return 1
 	}
 
-	switch os.Args[1] {
+	switch args[0] {
 	case "install":
-		names := os.Args[2:]
-		force := false
-		if len(names) > 0 && names[0] == "-f" {
-			force = true
-			names = names[1:]
-		}
+		names := args[1:]
 		if len(names) == 0 {
 			usage()
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Run(ctx, names, force, spinner)
+			return svc.Run(ctx, names, forceMode, spinner)
 		})
 
 	case "remove":
-		if len(os.Args) < 3 {
+		if len(args) < 2 {
 			usage()
 			return 1
 		}
 		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, lockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Run(ctx, os.Args[2:], spinner)
+			return svc.Run(ctx, args[1:], spinner)
 		})
 
 	case "update":
-		if len(os.Args) < 3 {
+		if len(args) < 2 {
 			usage()
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Update(ctx, os.Args[2:], spinner)
+			return svc.Update(ctx, args[1:], spinner)
 		})
 
 	default:
 		usage()
 	}
 	return 0
+}
+
+func parseFlags(args []string) (yes, force bool, rest []string) {
+	for _, a := range args {
+		switch a {
+		case "-y", "--yes":
+			yes = true
+		case "-f", "--force":
+			force = true
+		default:
+			rest = append(rest, a)
+		}
+	}
+	return
 }
 
 func bootstrap(ui ports.UI) (*pkg.Registry, *installer.Registry, *service.StateManager, ports.Locker, string, error) {
@@ -171,7 +186,11 @@ func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error)
 func usage() {
 	fmt.Println("debforge - package manager")
 	fmt.Println()
-	fmt.Println("Usage: debforge <command>")
+	fmt.Println("Usage: debforge [flags] <command>")
+	fmt.Println()
+	fmt.Println("Flags:")
+	fmt.Println("    -y, --yes           Skip confirmation prompts")
+	fmt.Println("    -f, --force         Force operation (reinstall)")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("    --self-update       Update debforge")

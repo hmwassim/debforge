@@ -19,4 +19,5 @@ type UI interface {
 	Prompt(format string, args ...any) bool
 	PromptInput(format string, args ...any) string
 	Spinner(ctx context.Context, desc string) Spinner
+	SetYes(yes bool)
 }
