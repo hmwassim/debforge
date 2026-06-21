@@ -33,6 +33,14 @@ fi
 cleanup() { rm -rf "$ROOT"; rm -f "$LINK"; }
 trap 'err "Installation failed"; cleanup' ERR
 
+warn "This will install debforge to ${ROOT} and symlink to ${LINK}"
+printf "${BOLD}${YELLOW}[?]${RESET} Continue? [y/N] "
+read -r response
+case "$response" in
+    [yY]|[yY][eE][sS]) ;;
+    *) info "Cancelled"; exit 0 ;;
+esac
+
 info "Updating system packages..."
 apt-get update -y
 
