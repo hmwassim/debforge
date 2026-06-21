@@ -28,15 +28,15 @@ func NewService(runner ports.CommandRunner, logger ports.UI) Service {
 }
 
 func (s *service) Install(ctx context.Context, packages []string) error {
-	return aptpty.RunInstall(packages)
+	return aptpty.RunInstall(ctx, packages)
 }
 
 func (s *service) InstallBackports(ctx context.Context, packages []string, suite string) error {
-	return aptpty.RunInstallBackports(packages, suite)
+	return aptpty.RunInstallBackports(ctx, packages, suite)
 }
 
 func (s *service) Remove(ctx context.Context, packages []string) error {
-	return aptpty.RunRemove(packages)
+	return aptpty.RunRemove(ctx, packages)
 }
 
 func (s *service) CheckInstalled(ctx context.Context, pkg string) (bool, error) {
@@ -81,5 +81,5 @@ func (s *service) Update(ctx context.Context) error {
 }
 
 func (s *service) Upgrade(ctx context.Context) error {
-	return aptpty.RunUpgrade()
+	return aptpty.RunUpgrade(ctx)
 }

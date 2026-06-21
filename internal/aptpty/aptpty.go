@@ -12,12 +12,25 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/hmwassim/debforge/internal/ports"
 	"golang.org/x/term"
 )
+
+type spinnerKey struct{}
+
+func WithSpinner(ctx context.Context, s ports.Spinner) context.Context {
+	return context.WithValue(ctx, spinnerKey{}, s)
+}
+
+func spinnerFromContext(ctx context.Context) ports.Spinner {
+	s, _ := ctx.Value(spinnerKey{}).(ports.Spinner)
+	return s
+}
 
 const (
 	phaseDownload = 0
@@ -35,15 +48,15 @@ type runState struct {
 
 // ---- public API -----------------------------------------------------------
 
-func RunInstall(packages []string) error {
+func RunInstall(ctx context.Context, packages []string) error {
 	if len(packages) == 0 {
 		return nil
 	}
 	args := append([]string{"install", "-y"}, packages...)
-	return run(args)
+	return run(ctx, args)
 }
 
-func RunInstallBackports(packages []string, suite string) error {
+func RunInstallBackports(ctx context.Context, packages []string, suite string) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -51,19 +64,19 @@ func RunInstallBackports(packages []string, suite string) error {
 		suite = "trixie-backports"
 	}
 	args := append([]string{"install", "-y", "-t", suite}, packages...)
-	return run(args)
+	return run(ctx, args)
 }
 
-func RunRemove(packages []string) error {
+func RunRemove(ctx context.Context, packages []string) error {
 	if len(packages) == 0 {
 		return nil
 	}
 	args := append([]string{"purge", "-y", "--autoremove"}, packages...)
-	return run(args)
+	return run(ctx, args)
 }
 
-func RunUpgrade() error {
-	return run([]string{"upgrade", "-y"})
+func RunUpgrade(ctx context.Context) error {
+	return run(ctx, []string{"upgrade", "-y"})
 }
 
 // ---- pre-run: --print-uris ------------------------------------------------
@@ -217,7 +230,9 @@ func showProgress(state *runState, pkg string, cur int64) {
 
 // ---- PTY loop -------------------------------------------------------------
 
-func run(aptArgs []string) error {
+func run(ctx context.Context, aptArgs []string) error {
+	spinner := spinnerFromContext(ctx)
+
 	var mode string
 	var pkgArgs []string
 	if len(aptArgs) > 0 {
@@ -237,7 +252,7 @@ func run(aptArgs []string) error {
 	cmdLine := []string{"apt-get"}
 	cmdLine = append(cmdLine, aptArgs...)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, cmdLine[0], cmdLine[1:]...)
@@ -289,10 +304,12 @@ func run(aptArgs []string) error {
 	}()
 
 	var (
-		sbuf  []byte
-		cur   int64
-		total int64
-		pkg   string
+		sbuf     []byte
+		cur      int64
+		total    int64
+		pkg      string
+		spPaused bool
+		spMu     sync.Mutex
 	)
 
 	timer := time.NewTimer(0)
@@ -374,19 +391,30 @@ mainLoop:
 			break mainLoop
 		}
 
+		spMu.Lock()
+		if total > 0 && !spPaused && spinner != nil {
+			spinner.Pause()
+			spPaused = true
+		}
+		spMu.Unlock()
+
 		if state.phase == phaseDownload && total > 0 {
 			showProgress(state, pkg, state.cumulativeDone+cur)
 		} else if state.phase == phaseInstall {
+			disp := pkg
 			if state.installPkg != "" {
-				showProgress(state, state.installPkg, 0)
-			} else {
-				showProgress(state, pkg, 0)
+				disp = state.installPkg
 			}
+			showProgress(state, disp, 0)
 		}
 	}
 
 	signal.Stop(sigCh)
 	close(sigCh)
+
+	if spPaused && spinner != nil {
+		spinner.Resume()
+	}
 
 	if err := cmd.Wait(); err != nil {
 		var exitErr *exec.ExitError
