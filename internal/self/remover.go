@@ -7,7 +7,6 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
-	"github.com/hmwassim/debforge/internal/lockrun"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/service"
 )
@@ -46,13 +45,7 @@ func NewRemover(
 }
 
 func (r *Remover) Remove(ctx context.Context) error {
-	if err := requireRoot("self-remove"); err != nil {
-		return err
-	}
-
-	return lockrun.WithLock(ctx, r.locker, r.cfg.LockPath, func() error {
-		return r.remove(ctx)
-	})
+	return withRootAndLock(ctx, "self-remove", r.locker, r.cfg.LockPath, r.remove)
 }
 
 func (r *Remover) remove(ctx context.Context) error {

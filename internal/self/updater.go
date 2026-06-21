@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/buildmeta"
-	"github.com/hmwassim/debforge/internal/lockrun"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -25,23 +24,16 @@ func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, lo
 }
 
 func (u *Updater) Update(ctx context.Context) error {
-	if err := requireRoot("self-update"); err != nil {
-		return err
-	}
+	return withRootAndLock(ctx, "self-update", u.locker, u.cfg.LockPath, u.update)
+}
 
+func (u *Updater) update(ctx context.Context) error {
 	dirs := []string{u.cfg.BinDir, u.cfg.SourceDir, u.cfg.GoPath, u.cfg.GoCache}
 	for _, d := range dirs {
 		if err := u.fs.MkdirAll(d, 0755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", d, err)
 		}
 	}
-
-	return lockrun.WithLock(ctx, u.locker, u.cfg.LockPath, func() error {
-		return u.update(ctx)
-	})
-}
-
-func (u *Updater) update(ctx context.Context) error {
 	spinner := u.logger.Spinner(ctx, "Working")
 	defer spinner.Done()
 
