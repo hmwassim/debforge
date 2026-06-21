@@ -10,6 +10,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/lock"
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/adapters/ui"
+	"github.com/hmwassim/debforge/internal/buildmeta"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
 	cfgInst "github.com/hmwassim/debforge/internal/domain/installer/config"
@@ -21,7 +22,7 @@ import (
 	"github.com/hmwassim/debforge/internal/service"
 )
 
-var version = "0.1.0-dev"
+var version = buildmeta.DefaultVersion
 
 func main() {
 	os.Exit(run())

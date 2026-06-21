@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hmwassim/debforge/internal/buildmeta"
 	"github.com/hmwassim/debforge/internal/lockrun"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -181,12 +182,7 @@ func (u *Updater) gitPull(ctx context.Context) error {
 }
 
 func (u *Updater) build(ctx context.Context, dst string) error {
-	version := "0.1.0-dev"
-	if v, _, err := u.runner.Run(ctx, "git", "-C", u.cfg.SourceDir, "describe", "--tags", "--always"); err == nil {
-		if s := strings.TrimSpace(string(v)); s != "" {
-			version = s
-		}
-	}
+	version := buildmeta.DeriveVersion(ctx, u.runner, u.cfg.SourceDir)
 
 	opts := ports.RunOptions{
 		Dir:    u.cfg.SourceDir,
@@ -194,7 +190,7 @@ func (u *Updater) build(ctx context.Context, dst string) error {
 		Stderr: os.Stderr,
 	}
 	_, _, err := u.runner.RunWithOptions(ctx, opts, u.cfg.GoBinary, "build", "-o", dst,
-		"-ldflags=-X main.version="+version,
+		"-ldflags="+buildmeta.Ldflags(version),
 		"./cmd/debforge/")
 	return err
 }
