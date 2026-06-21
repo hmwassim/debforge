@@ -58,6 +58,7 @@ func (r *Remover) Remove(ctx context.Context) error {
 	}
 
 	spinner := r.logger.Spinner(ctx, "Removing debforge")
+	defer spinner.Done()
 
 	// Remove managed packages
 	st, err := r.stateSvc.Load()
@@ -78,7 +79,6 @@ func (r *Remover) Remove(ctx context.Context) error {
 		}
 	}
 
-	// Safety check before removing root dir
 	if err := verifyRemovablePath(r.cfg.RootDir); err != nil {
 		spinner.Fail()
 		return err
