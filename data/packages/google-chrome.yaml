@@ -1,5 +1,0 @@
-name: google-chrome
-type: apt
-extrepo: google_chrome
-packages:
-  - google-chrome-stable

@@ -1,5 +1,0 @@
-name: heroic-games-launcher
-type: deb
-url: https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest
-package: heroic
-version_prefix: v

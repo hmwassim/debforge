@@ -1,8 +1,0 @@
-name: scx-switcher
-type: deb
-url: https://api.github.com/repos/hmwassim/scx-switcher/releases/latest
-package: scx-switcher
-version_prefix: v
-depends:
-  - scx-scheds
-  - scx-tools

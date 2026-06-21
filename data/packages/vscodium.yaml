@@ -1,5 +1,0 @@
-name: vscodium
-type: deb
-url: https://api.github.com/repos/VSCodium/vscodium/releases/latest
-package: codium
-version_prefix: v

@@ -1,6 +1,0 @@
-name: helium-browser
-type: deb
-url: https://api.github.com/repos/imputnet/helium-linux/releases/latest
-package: helium-bin
-version_prefix: v
-asset_match: helium-bin.*\.deb$
