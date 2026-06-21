@@ -142,7 +142,7 @@ func (s *SetupService) removeStale(ctx context.Context, st *coreState, desiredPk
 	stalePkgs := setDiff(st.ManagedPackages, desiredPkgs)
 	if len(stalePkgs) > 0 {
 		s.logger.Info("Removing %d stale package(s)", len(stalePkgs))
-		if err := s.apt.Remove(ctx, stalePkgs); err != nil {
+		if err := s.apt.Remove(ctx, stalePkgs, nil); err != nil {
 			s.logger.Error("removing stale packages: %v", err)
 		}
 	}
@@ -180,9 +180,9 @@ func (s *SetupService) installGroups(ctx context.Context, errs *[]error) {
 		if len(g.Packages) > 0 {
 			var pkgErr error
 			if g.Backport {
-				pkgErr = s.apt.InstallBackports(ctx, g.Packages, "")
+				pkgErr = s.apt.InstallBackports(ctx, g.Packages, "", spinner)
 			} else {
-				pkgErr = s.apt.Install(ctx, g.Packages)
+				pkgErr = s.apt.Install(ctx, g.Packages, spinner)
 			}
 			if pkgErr != nil {
 				*errs = append(*errs, fmt.Errorf("installing %s: %w", g.Name, pkgErr))

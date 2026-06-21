@@ -87,7 +87,7 @@ func (c *UpdateCommand) updateAll(ctx context.Context, spinner ports.Spinner) er
 		return err
 	}
 	spinner.SetDesc("Upgrading system packages")
-	if err := c.aptSvc.Upgrade(ctx); err != nil {
+	if err := c.aptSvc.Upgrade(ctx, spinner); err != nil {
 		return err
 	}
 	st, err := c.stateSvc.Load()

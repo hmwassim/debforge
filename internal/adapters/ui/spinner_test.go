@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-func TestNewConsoleSpinner(t *testing.T) {
+func TestNewDisplay(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := context.Background()
 
-	s := NewConsoleSpinner(ctx, &buf, "testing spinner")
+	s := NewDisplay(ctx, &buf, "testing spinner")
 	if s == nil {
 		t.Fatal("expected spinner to be created")
 	}
@@ -22,7 +22,7 @@ func TestSpinnerDone(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s := NewConsoleSpinner(ctx, &buf, "test")
+	s := NewDisplay(ctx, &buf, "test")
 	if s == nil {
 		t.Fatal("expected spinner")
 	}
@@ -35,7 +35,7 @@ func TestSpinnerFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s := NewConsoleSpinner(ctx, &buf, "test")
+	s := NewDisplay(ctx, &buf, "test")
 	if s == nil {
 		t.Fatal("expected spinner")
 	}
@@ -48,7 +48,7 @@ func TestSpinnerPauseResume(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s := NewConsoleSpinner(ctx, &buf, "test")
+	s := NewDisplay(ctx, &buf, "test")
 
 	s.Pause()
 	s.Resume()
@@ -59,7 +59,7 @@ func TestSpinnerContextCancelled(t *testing.T) {
 	var buf bytes.Buffer
 	ctx, cancel := context.WithCancel(context.Background())
 
-	s := NewConsoleSpinner(ctx, &buf, "test")
+	s := NewDisplay(ctx, &buf, "test")
 	cancel()
 
 	// Give it time to process cancellation
@@ -71,7 +71,7 @@ func TestSpinnerNoTTY(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := context.Background()
 
-	s := NewConsoleSpinner(ctx, &buf, "test")
+	s := NewDisplay(ctx, &buf, "test")
 	s.Done()
 	// Should work without color/terminal
 }
@@ -80,7 +80,7 @@ func TestSpinnerPauseResumeFlag(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := context.Background()
 
-	s := NewConsoleSpinner(ctx, &buf, "test")
+	s := NewDisplay(ctx, &buf, "test")
 
 	s.Pause()
 	if !s.paused {
@@ -103,7 +103,7 @@ func TestSpinnerPauseResumeOutput(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := context.Background()
 
-	s := NewConsoleSpinner(ctx, &buf, "pause-output")
+	s := NewDisplay(ctx, &buf, "pause-output")
 
 	s.Pause()
 	s.Resume()

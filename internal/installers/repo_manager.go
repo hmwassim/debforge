@@ -57,7 +57,7 @@ func (m *RepoManager) CleanupRepo(ctx context.Context, p *pkg.Package) {
 func (m *RepoManager) ensureExtrepo(ctx context.Context) error {
 	_, _, err := m.runner.Run(ctx, "which", "extrepo")
 	if err != nil {
-		return m.svc.Install(ctx, []string{"extrepo"})
+		return m.svc.Install(ctx, []string{"extrepo"}, nil)
 	}
 	return m.ensureExtrepoConfig()
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/package"
 	"github.com/hmwassim/debforge/internal/installers"
 	"github.com/hmwassim/debforge/internal/services/dependency"
@@ -116,8 +115,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 		if !ok {
 			return fmt.Errorf("no installer for type %s", dep.Type)
 		}
-		ictx := aptpty.WithSpinner(ctx, spinner)
-		if err := inst.Install(ictx, dep); err != nil {
+		if err := inst.Install(ctx, dep, spinner); err != nil {
 			return fmt.Errorf("installing %s: %w", dep.Name, err)
 		}
 		entry := state.PkgEntry{Type: string(dep.Type), Version: dep.Version}
@@ -129,7 +127,7 @@ func (s *InstallService) installSingle(ctx context.Context, pkgName string, vari
 		}
 		s.stateSvc.Add(st, dep.Name, entry)
 		if err := s.stateSvc.Save(st); err != nil {
-			if rmErr := inst.Remove(ctx, dep); rmErr != nil {
+			if rmErr := inst.Remove(ctx, dep, nil); rmErr != nil {
 				s.logger.Warn("rollback removal of %s after state-save failure: %v", dep.Name, rmErr)
 			}
 			return fmt.Errorf("saving state after %s: %w", dep.Name, err)
@@ -179,8 +177,7 @@ func (s *InstallService) UpdateSingle(ctx context.Context, pkgName string, spinn
 		if !ok {
 			return fmt.Errorf("no installer for type %s", dep.Type)
 		}
-		ictx := aptpty.WithSpinner(ctx, spinner)
-		if err := inst.Install(ictx, dep); err != nil {
+		if err := inst.Install(ctx, dep, spinner); err != nil {
 			return fmt.Errorf("installing %s: %w", dep.Name, err)
 		}
 		entry := state.PkgEntry{Type: string(dep.Type), Version: dep.Version}
@@ -192,7 +189,7 @@ func (s *InstallService) UpdateSingle(ctx context.Context, pkgName string, spinn
 		}
 		s.stateSvc.Add(st, dep.Name, entry)
 		if err := s.stateSvc.Save(st); err != nil {
-			if rmErr := inst.Remove(ctx, dep); rmErr != nil {
+			if rmErr := inst.Remove(ctx, dep, nil); rmErr != nil {
 				s.logger.Warn("rollback removal of %s after state-save failure: %v", dep.Name, rmErr)
 			}
 			return fmt.Errorf("saving state after %s: %w", dep.Name, err)

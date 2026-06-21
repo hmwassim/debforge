@@ -189,13 +189,13 @@ type mockApt struct {
 	checkErr  map[string]error
 }
 
-func (m *mockApt) Install(ctx context.Context, packages []string) error { return nil }
-func (m *mockApt) InstallBackports(ctx context.Context, packages []string, suite string) error {
+func (m *mockApt) Install(ctx context.Context, packages []string, _ ports.Spinner) error { return nil }
+func (m *mockApt) InstallBackports(ctx context.Context, packages []string, suite string, _ ports.Spinner) error {
 	return nil
 }
-func (m *mockApt) Remove(ctx context.Context, packages []string) error { return nil }
-func (m *mockApt) Update(ctx context.Context) error                    { return nil }
-func (m *mockApt) Upgrade(ctx context.Context) error                   { return nil }
+func (m *mockApt) Remove(ctx context.Context, packages []string, _ ports.Spinner) error { return nil }
+func (m *mockApt) Update(ctx context.Context) error                                      { return nil }
+func (m *mockApt) Upgrade(ctx context.Context, _ ports.Spinner) error                    { return nil }
 func (m *mockApt) CheckInstalled(ctx context.Context, pkg string) (bool, error) {
 	if err := m.checkErr[pkg]; err != nil {
 		return false, err

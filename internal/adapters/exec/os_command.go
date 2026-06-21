@@ -64,7 +64,7 @@ func (r *OSCommandRunner) RunWithSpinner(ctx context.Context, name string, args 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	s := ui.NewConsoleSpinner(ctx, os.Stderr, shortDesc(name, args...))
+	s := ui.NewDisplay(ctx, os.Stderr, shortDesc(name, args...))
 	if err := cmd.Wait(); err != nil {
 		s.Fail()
 		if s := strings.TrimSpace(stderr.String()); s != "" {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/package"
 	"github.com/hmwassim/debforge/internal/installers"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/services/dependency"
 	"github.com/hmwassim/debforge/internal/services/state"
 	"github.com/hmwassim/debforge/internal/statestore"
@@ -54,17 +55,17 @@ type memInstaller struct {
 	installed []string
 }
 
-func (m *memInstaller) Install(ctx context.Context, p *pkg.Package) error {
+func (m *memInstaller) Install(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	m.installed = append(m.installed, p.Name)
 	return nil
 }
 
-func (m *memInstaller) Remove(ctx context.Context, p *pkg.Package) error {
+func (m *memInstaller) Remove(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	return nil
 }
 
-func (m *memInstaller) Update(ctx context.Context, p *pkg.Package) error {
-	return m.Install(ctx, p)
+func (m *memInstaller) Update(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
+	return m.Install(ctx, p, nil)
 }
 
 func TestInstallWithInstaller(t *testing.T) {
@@ -102,17 +103,17 @@ type trackingInstaller struct {
 	installed []string
 }
 
-func (m *trackingInstaller) Install(ctx context.Context, p *pkg.Package) error {
+func (m *trackingInstaller) Install(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	m.installed = append(m.installed, p.Name)
 	return nil
 }
 
-func (m *trackingInstaller) Remove(ctx context.Context, p *pkg.Package) error {
+func (m *trackingInstaller) Remove(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	return nil
 }
 
-func (m *trackingInstaller) Update(ctx context.Context, p *pkg.Package) error {
-	return m.Install(ctx, p)
+func (m *trackingInstaller) Update(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
+	return m.Install(ctx, p, nil)
 }
 
 func TestInstallWithDep(t *testing.T) {

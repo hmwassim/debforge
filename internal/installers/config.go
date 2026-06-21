@@ -20,7 +20,7 @@ func NewConfigInstaller(d *deployer.Deployer, fs ports.FileReader, logger ports.
 	return &ConfigInstaller{deployer: d, fs: fs, logger: logger}
 }
 
-func (i *ConfigInstaller) Install(ctx context.Context, p *pkg.Package) error {
+func (i *ConfigInstaller) Install(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	for dest, source := range p.Configs {
 		var content string
 		if p.Type == pkg.TypeConfig && p.ConfigDir != "" {
@@ -47,7 +47,7 @@ func (i *ConfigInstaller) Install(ctx context.Context, p *pkg.Package) error {
 	return nil
 }
 
-func (i *ConfigInstaller) Remove(ctx context.Context, p *pkg.Package) error {
+func (i *ConfigInstaller) Remove(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	if err := i.deployer.RemoveConfigs(ctx, p.Configs); err != nil {
 		i.logger.Warn("removing configs: %v", err)
 	}
@@ -62,8 +62,8 @@ func (i *ConfigInstaller) Remove(ctx context.Context, p *pkg.Package) error {
 	return i.deployer.RunPostRemove(ctx, p.PostRemove)
 }
 
-func (i *ConfigInstaller) Update(ctx context.Context, p *pkg.Package) error {
-	return i.Install(ctx, p)
+func (i *ConfigInstaller) Update(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	return i.Install(ctx, p, spinner)
 }
 
 func (i *ConfigInstaller) deployUserConfigs(ctx context.Context, p *pkg.Package) error {

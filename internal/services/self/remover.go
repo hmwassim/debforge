@@ -151,7 +151,7 @@ func (r *Remover) removeSelected(ctx context.Context, selection string, spinner 
 			continue
 		}
 		spinner.SetDesc("Removing " + name)
-		if err := inst.Remove(ctx, p); err != nil {
+		if err := inst.Remove(ctx, p, nil); err != nil {
 			r.logger.Warn("Could not remove %s: %s", name, err)
 		}
 		r.stateSvc.Remove(st, name)
@@ -217,7 +217,7 @@ func (r *Remover) uninstallManagedPackages(ctx context.Context, spinner ports.Sp
 			continue
 		}
 		spinner.SetDesc("Removing " + name)
-		if err := inst.Remove(ctx, p); err != nil {
+		if err := inst.Remove(ctx, p, nil); err != nil {
 			r.logger.Warn("Could not remove %s: %s", name, err)
 		}
 		r.stateSvc.Remove(st, name)

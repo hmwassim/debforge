@@ -10,12 +10,12 @@ import (
 )
 
 type Service interface {
-	Install(ctx context.Context, packages []string) error
-	InstallBackports(ctx context.Context, packages []string, suite string) error
-	Remove(ctx context.Context, packages []string) error
+	Install(ctx context.Context, packages []string, spinner ports.Spinner) error
+	InstallBackports(ctx context.Context, packages []string, suite string, spinner ports.Spinner) error
+	Remove(ctx context.Context, packages []string, spinner ports.Spinner) error
 	CheckInstalled(ctx context.Context, pkg string) (bool, error)
 	Update(ctx context.Context) error
-	Upgrade(ctx context.Context) error
+	Upgrade(ctx context.Context, spinner ports.Spinner) error
 }
 
 type service struct {
@@ -27,16 +27,16 @@ func NewService(runner ports.CommandRunner, logger ports.UI) Service {
 	return &service{runner: runner, logger: logger}
 }
 
-func (s *service) Install(ctx context.Context, packages []string) error {
-	return aptpty.RunInstall(ctx, packages)
+func (s *service) Install(ctx context.Context, packages []string, spinner ports.Spinner) error {
+	return aptpty.RunInstall(ctx, packages, spinner)
 }
 
-func (s *service) InstallBackports(ctx context.Context, packages []string, suite string) error {
-	return aptpty.RunInstallBackports(ctx, packages, suite)
+func (s *service) InstallBackports(ctx context.Context, packages []string, suite string, spinner ports.Spinner) error {
+	return aptpty.RunInstallBackports(ctx, packages, suite, spinner)
 }
 
-func (s *service) Remove(ctx context.Context, packages []string) error {
-	return aptpty.RunRemove(ctx, packages)
+func (s *service) Remove(ctx context.Context, packages []string, spinner ports.Spinner) error {
+	return aptpty.RunRemove(ctx, packages, spinner)
 }
 
 func (s *service) CheckInstalled(ctx context.Context, pkg string) (bool, error) {
@@ -80,6 +80,6 @@ func (s *service) Update(ctx context.Context) error {
 	return err
 }
 
-func (s *service) Upgrade(ctx context.Context) error {
-	return aptpty.RunUpgrade(ctx)
+func (s *service) Upgrade(ctx context.Context, spinner ports.Spinner) error {
+	return aptpty.RunUpgrade(ctx, spinner)
 }

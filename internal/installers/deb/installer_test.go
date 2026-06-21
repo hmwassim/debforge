@@ -108,7 +108,7 @@ func newTestInstaller() *Installer {
 
 func TestInstallTypeMismatch(t *testing.T) {
 	inst := newTestInstaller()
-	err := inst.Install(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeApt}})
+	err := inst.Install(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeApt}}, nil)
 	if err == nil || !strings.Contains(err.Error(), "called for type") {
 		t.Fatalf("expected type mismatch error, got %v", err)
 	}
@@ -116,7 +116,7 @@ func TestInstallTypeMismatch(t *testing.T) {
 
 func TestInstallNoURL(t *testing.T) {
 	inst := newTestInstaller()
-	err := inst.Install(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb}})
+	err := inst.Install(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb}}, nil)
 	if err == nil || !strings.Contains(err.Error(), "url is required") {
 		t.Fatalf("expected url required error, got %v", err)
 	}
@@ -126,7 +126,7 @@ func TestRemoveMissingPackageField(t *testing.T) {
 	inst := newTestInstaller()
 	err := inst.Remove(context.Background(), &pkg.Package{
 		Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "package is required") {
 		t.Fatalf("expected 'package is required' error, got %v", err)
 	}
@@ -228,7 +228,7 @@ func TestInstallReleaseNoMatchingAsset(t *testing.T) {
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
 		RepositorySpec: pkg.RepositorySpec{URL: "https://api.github.com/repos/owner/repo/releases/latest"},
 		InstallSpec:    pkg.InstallSpec{Package: "testpkg"},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "no amd64 asset") {
 		t.Fatalf("expected no matching asset error, got %v", err)
 	}
@@ -240,7 +240,7 @@ func TestRemoveDpkgFails(t *testing.T) {
 	err := inst.Remove(context.Background(), &pkg.Package{
 		Metadata:    pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
 		InstallSpec: pkg.InstallSpec{Package: "testpkg"},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "purging") {
 		t.Fatalf("expected purge error, got %v", err)
 	}
@@ -259,7 +259,7 @@ func TestInstallDirectDebInstallFails(t *testing.T) {
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
 		RepositorySpec: pkg.RepositorySpec{URL: "https://example.com/pkg.deb"},
 		InstallSpec:    pkg.InstallSpec{Package: "testpkg"},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "installing") {
 		t.Fatalf("expected install error, got %v", err)
 	}
@@ -275,7 +275,7 @@ func TestInstallDirectDebVersionMatch(t *testing.T) {
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
 		RepositorySpec: pkg.RepositorySpec{URL: "https://example.com/pkg.deb"},
 		InstallSpec:    pkg.InstallSpec{Package: "testpkg"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error for up-to-date package, got %v", err)
 	}
@@ -294,7 +294,7 @@ func TestInstallReleaseInfoTooLarge(t *testing.T) {
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
 		RepositorySpec: pkg.RepositorySpec{URL: "https://api.github.com/repos/owner/repo/releases/latest"},
 		InstallSpec:    pkg.InstallSpec{Package: "testpkg"},
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected error for oversized release JSON")
 	}
@@ -312,7 +312,7 @@ func TestInstallReleaseNoTagName(t *testing.T) {
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeDeb},
 		RepositorySpec: pkg.RepositorySpec{URL: "https://api.github.com/repos/owner/repo/releases/latest"},
 		InstallSpec:    pkg.InstallSpec{Package: "testpkg"},
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected error for empty tag_name")
 	}

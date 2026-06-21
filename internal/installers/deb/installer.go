@@ -48,7 +48,7 @@ func NewInstallerWithTempDir(runner ports.CommandRunner, http ports.HTTPClient, 
 	return &Installer{runner: runner, http: http, logger: logger, deployer: deployer, fs: fs, tmpDir: tmpDir}
 }
 
-func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
+func (i *Installer) Install(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	if p.Type != pkg.TypeDeb {
 		return fmt.Errorf("deb installer called for type %s", p.Type)
 	}
@@ -159,7 +159,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package) error {
 	return nil
 }
 
-func (i *Installer) Remove(ctx context.Context, p *pkg.Package) error {
+func (i *Installer) Remove(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	if p.Type != pkg.TypeDeb {
 		return fmt.Errorf("deb installer called for type %s", p.Type)
 	}
@@ -188,9 +188,9 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package) error {
 	return nil
 }
 
-func (i *Installer) Update(ctx context.Context, p *pkg.Package) error {
+func (i *Installer) Update(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	p.ForceInstall = true
-	return i.Install(ctx, p)
+	return i.Install(ctx, p, spinner)
 }
 
 func isDebURL(url string) bool {

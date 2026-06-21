@@ -83,7 +83,7 @@ func (s *RemoveService) removeSingle(ctx context.Context, pkgName string, spinne
 		return fmt.Errorf("no installer for type %s", p.Type)
 	}
 
-	if err := inst.Remove(ctx, p); err != nil {
+	if err := inst.Remove(ctx, p, spinner); err != nil {
 		return fmt.Errorf("removing %s: %w", pkgName, err)
 	}
 

@@ -43,7 +43,7 @@ func (i *AptInstaller) ensureUpdated(ctx context.Context) error {
 	return nil
 }
 
-func (i *AptInstaller) Install(ctx context.Context, p *pkg.Package) error {
+func (i *AptInstaller) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)
 	}
@@ -57,7 +57,7 @@ func (i *AptInstaller) Install(ctx context.Context, p *pkg.Package) error {
 	}
 
 	if len(p.Conflicts) > 0 {
-		if err := i.svc.Remove(ctx, p.Conflicts); err != nil {
+		if err := i.svc.Remove(ctx, p.Conflicts, spinner); err != nil {
 			return fmt.Errorf("removing conflicts: %w", err)
 		}
 	}
@@ -67,12 +67,12 @@ func (i *AptInstaller) Install(ctx context.Context, p *pkg.Package) error {
 	if p.Primary != "" {
 		installPkgs = append([]string{p.Primary}, installPkgs...)
 	}
-	if err := i.svc.Install(ctx, installPkgs); err != nil {
+	if err := i.svc.Install(ctx, installPkgs, spinner); err != nil {
 		return err
 	}
 
 	if len(p.Backports) > 0 {
-		if err := i.svc.InstallBackports(ctx, p.Backports, ""); err != nil {
+		if err := i.svc.InstallBackports(ctx, p.Backports, "", spinner); err != nil {
 			return fmt.Errorf("installing backports: %w", err)
 		}
 	}
@@ -88,7 +88,7 @@ func (i *AptInstaller) Install(ctx context.Context, p *pkg.Package) error {
 	return nil
 }
 
-func (i *AptInstaller) Remove(ctx context.Context, p *pkg.Package) error {
+func (i *AptInstaller) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)
 	}
@@ -99,7 +99,7 @@ func (i *AptInstaller) Remove(ctx context.Context, p *pkg.Package) error {
 	} else {
 		removePkgs = append(removePkgs, p.Packages...)
 	}
-	if err := i.svc.Remove(ctx, removePkgs); err != nil {
+	if err := i.svc.Remove(ctx, removePkgs, spinner); err != nil {
 		return err
 	}
 
@@ -114,11 +114,11 @@ func (i *AptInstaller) Remove(ctx context.Context, p *pkg.Package) error {
 	return nil
 }
 
-func (i *AptInstaller) Update(ctx context.Context, p *pkg.Package) error {
+func (i *AptInstaller) Update(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	i.mu.Lock()
 	i.updated = false
 	i.mu.Unlock()
-	return i.Install(ctx, p)
+	return i.Install(ctx, p, spinner)
 }
 
 func (i *AptInstaller) cleanupUserConfigs(ctx context.Context, p *pkg.Package) {

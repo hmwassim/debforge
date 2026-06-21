@@ -6,6 +6,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/package"
 	"github.com/hmwassim/debforge/internal/installers"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/services/dependency"
 	"github.com/hmwassim/debforge/internal/services/state"
 )
@@ -15,17 +16,17 @@ type lifecycleInstaller struct {
 	removes  []string
 }
 
-func (l *lifecycleInstaller) Install(ctx context.Context, p *pkg.Package) error {
+func (l *lifecycleInstaller) Install(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	l.installs = append(l.installs, p.Name)
 	return nil
 }
 
-func (l *lifecycleInstaller) Remove(ctx context.Context, p *pkg.Package) error {
+func (l *lifecycleInstaller) Remove(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	l.removes = append(l.removes, p.Name)
 	return nil
 }
 
-func (l *lifecycleInstaller) Update(ctx context.Context, p *pkg.Package) error {
+func (l *lifecycleInstaller) Update(ctx context.Context, p *pkg.Package, _ ports.Spinner) error {
 	l.installs = append(l.installs, p.Name)
 	return nil
 }

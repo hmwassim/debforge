@@ -27,7 +27,7 @@ func (c *consoleOutput) writef(w io.Writer, format string, args ...any) {
 
 type ConsoleUI struct {
 	logger         ports.Logger
-	currentSpinner *ConsoleSpinner
+	currentSpinner *Display
 }
 
 func NewConsoleUI() *ConsoleUI {
@@ -68,7 +68,7 @@ func (u *ConsoleUI) PromptInput(format string, args ...any) string {
 }
 
 func (u *ConsoleUI) Spinner(ctx context.Context, description string) ports.Spinner {
-	s := NewConsoleSpinner(ctx, os.Stderr, description)
+	s := NewDisplay(ctx, os.Stderr, description)
 	u.currentSpinner = s
 	return s
 }

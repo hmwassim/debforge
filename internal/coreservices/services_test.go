@@ -176,15 +176,15 @@ type mockInstaller struct {
 	removed    []string
 }
 
-func (m *mockInstaller) Install(ctx context.Context, pkg *pkg.Package) error {
+func (m *mockInstaller) Install(ctx context.Context, pkg *pkg.Package, _ ports.Spinner) error {
 	return m.installErr
 }
 
-func (m *mockInstaller) Remove(ctx context.Context, pkg *pkg.Package) error {
+func (m *mockInstaller) Remove(ctx context.Context, pkg *pkg.Package, _ ports.Spinner) error {
 	m.removed = append(m.removed, pkg.Name)
 	return m.removeErr
 }
 
-func (m *mockInstaller) Update(ctx context.Context, pkg *pkg.Package) error {
+func (m *mockInstaller) Update(ctx context.Context, pkg *pkg.Package, _ ports.Spinner) error {
 	return m.updateErr
 }

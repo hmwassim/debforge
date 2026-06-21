@@ -128,7 +128,7 @@ func newTestInstaller() *Installer {
 
 func TestTypeMismatch(t *testing.T) {
 	inst := newTestInstaller()
-	err := inst.Install(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb}})
+	err := inst.Install(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb}}, nil)
 	if err == nil || !strings.Contains(err.Error(), "called for type") {
 		t.Fatalf("expected type mismatch error, got %v", err)
 	}
@@ -136,7 +136,7 @@ func TestTypeMismatch(t *testing.T) {
 
 func TestRemoveTypeMismatch(t *testing.T) {
 	inst := newTestInstaller()
-	err := inst.Remove(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb}})
+	err := inst.Remove(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeDeb}}, nil)
 	if err == nil || !strings.Contains(err.Error(), "called for type") {
 		t.Fatalf("expected type mismatch error, got %v", err)
 	}
@@ -144,7 +144,7 @@ func TestRemoveTypeMismatch(t *testing.T) {
 
 func TestRemoveNoPostRemove(t *testing.T) {
 	inst := newTestInstaller()
-	err := inst.Remove(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeSource}})
+	err := inst.Remove(context.Background(), &pkg.Package{Metadata: pkg.Metadata{Name: "test", Type: pkg.TypeSource}}, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -156,7 +156,7 @@ func TestRemoveWithPostRemove(t *testing.T) {
 	err := inst.Remove(context.Background(), &pkg.Package{
 		Metadata:    pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		InstallSpec: pkg.InstallSpec{PostRemove: "echo removed"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -168,7 +168,7 @@ func TestMissingGit(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		RepositorySpec: pkg.RepositorySpec{Repo: "https://example.com/repo.git"},
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected error for missing git")
 	}
@@ -220,7 +220,7 @@ func TestGitCloneFails(t *testing.T) {
 	err := inst.Install(ctx, &pkg.Package{
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		RepositorySpec: pkg.RepositorySpec{Repo: "https://example.com/repo.git"},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "cloning") {
 		t.Fatalf("expected cloning error, got %v", err)
 	}
@@ -238,7 +238,7 @@ func TestInstallShNotFound(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		RepositorySpec: pkg.RepositorySpec{Repo: "https://example.com/repo.git"},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "install.sh not found") {
 		t.Fatalf("expected install.sh not found error, got %v", err)
 	}
@@ -259,7 +259,7 @@ func TestInstallShFails(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		RepositorySpec: pkg.RepositorySpec{Repo: "https://example.com/repo.git"},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "install.sh") {
 		t.Fatalf("expected install.sh error, got %v", err)
 	}
@@ -280,7 +280,7 @@ func TestInstallSuccess(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		RepositorySpec: pkg.RepositorySpec{Repo: "https://example.com/repo.git"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -296,7 +296,7 @@ func TestInstallSkipCloneWithPostInstall(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:    pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		InstallSpec: pkg.InstallSpec{SkipClone: true, PostInstall: "echo done"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -312,7 +312,7 @@ func TestInstallAlreadyUpToDate(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:    pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		InstallSpec: pkg.InstallSpec{SkipClone: true, VersionCmd: "echo 1.2.3", Version: "1.2.3"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error (already up to date), got %v", err)
 	}
@@ -329,7 +329,7 @@ func TestInstallForceInstallBypassesVersionCheck(t *testing.T) {
 	err := inst.Install(context.Background(), &pkg.Package{
 		Metadata:    pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		InstallSpec: pkg.InstallSpec{SkipClone: true, VersionCmd: "echo 1.2.3", Version: "1.2.3", ForceInstall: true},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -353,7 +353,7 @@ func TestInstallChecksInstallsDependency(t *testing.T) {
 		Metadata:       pkg.Metadata{Name: "test", Type: pkg.TypeSource},
 		RepositorySpec: pkg.RepositorySpec{Repo: "https://example.com/repo.git"},
 		InstallSpec:    pkg.InstallSpec{Checks: []string{"build-essential"}},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

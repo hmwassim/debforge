@@ -20,17 +20,6 @@ import (
 	"golang.org/x/term"
 )
 
-type spinnerKey struct{}
-
-func WithSpinner(ctx context.Context, s ports.Spinner) context.Context {
-	return context.WithValue(ctx, spinnerKey{}, s)
-}
-
-func spinnerFromContext(ctx context.Context) ports.Spinner {
-	s, _ := ctx.Value(spinnerKey{}).(ports.Spinner)
-	return s
-}
-
 const (
 	phaseDownload = 0
 	phaseInstall  = 1
@@ -47,15 +36,15 @@ type runState struct {
 
 // ---- public API -----------------------------------------------------------
 
-func RunInstall(ctx context.Context, packages []string) error {
+func RunInstall(ctx context.Context, packages []string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
 	}
 	args := append([]string{"install", "-y"}, packages...)
-	return run(ctx, args)
+	return run(ctx, args, spinner)
 }
 
-func RunInstallBackports(ctx context.Context, packages []string, suite string) error {
+func RunInstallBackports(ctx context.Context, packages []string, suite string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -63,19 +52,19 @@ func RunInstallBackports(ctx context.Context, packages []string, suite string) e
 		suite = "trixie-backports"
 	}
 	args := append([]string{"install", "-y", "-t", suite}, packages...)
-	return run(ctx, args)
+	return run(ctx, args, spinner)
 }
 
-func RunRemove(ctx context.Context, packages []string) error {
+func RunRemove(ctx context.Context, packages []string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
 	}
 	args := append([]string{"purge", "-y", "--autoremove"}, packages...)
-	return run(ctx, args)
+	return run(ctx, args, spinner)
 }
 
-func RunUpgrade(ctx context.Context) error {
-	return run(ctx, []string{"upgrade", "-y"})
+func RunUpgrade(ctx context.Context, spinner ports.Spinner) error {
+	return run(ctx, []string{"upgrade", "-y"}, spinner)
 }
 
 // ---- pre-run: --print-uris ------------------------------------------------
@@ -205,27 +194,6 @@ func after(s, prefix string) string {
 
 // ---- display --------------------------------------------------------------
 
-func showProgress(state *runState, pkg string, cur int64) {
-	var buf bytes.Buffer
-	if state.phase == phaseDownload {
-		curS := humanSize(cur)
-		if state.overallLabel != "" {
-			fmt.Fprintf(&buf, "\rDownloading %s... [%s/%s]\033[K", pkg, curS, state.overallLabel)
-		} else if state.overallTotal > 0 {
-			fmt.Fprintf(&buf, "\rDownloading %s... [%s/%s]\033[K", pkg, curS, humanSize(state.overallTotal))
-		} else {
-			fmt.Fprintf(&buf, "\rDownloading %s... [%s/1]\033[K", pkg, curS)
-		}
-	} else {
-		disp := pkg
-		if state.installPkg != "" {
-			disp = state.installPkg
-		}
-		fmt.Fprintf(&buf, "\rInstalling %s...\033[K", disp)
-	}
-	os.Stderr.Write(buf.Bytes())
-}
-
 func progressDesc(state *runState, pkg string, cur int64) string {
 	if state.phase == phaseDownload {
 		curS := humanSize(cur)
@@ -247,9 +215,7 @@ func progressDesc(state *runState, pkg string, cur int64) string {
 
 // ---- PTY loop -------------------------------------------------------------
 
-func run(ctx context.Context, aptArgs []string) error {
-	spinner := spinnerFromContext(ctx)
-
+func run(ctx context.Context, aptArgs []string, spinner ports.Spinner) error {
 	var mode string
 	var pkgArgs []string
 	if len(aptArgs) > 0 {
