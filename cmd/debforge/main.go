@@ -75,14 +75,10 @@ func run() int {
 		return 1
 	}
 
-	spinner := ui.Spinner(ctx, "working")
-	defer spinner.Done()
-
 	switch os.Args[1] {
 	case "install":
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
-		force := false
 		names := os.Args[2:]
+		force := false
 		if len(names) > 0 && names[0] == "-f" {
 			force = true
 			names = names[1:]
@@ -91,40 +87,30 @@ func run() int {
 			usage(ui)
 			return 1
 		}
-		if err := svc.Run(ctx, names, force, spinner); err != nil {
-			spinner.Fail()
-			ui.Error("%s", err)
-			return 1
-		}
-		spinner.Done()
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
+		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
+			return svc.Run(ctx, names, force, spinner)
+		})
 
 	case "remove":
-		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, lockPath)
-		names := os.Args[2:]
-		if len(names) == 0 {
+		if len(os.Args) < 3 {
 			usage(ui)
 			return 1
 		}
-		if err := svc.Run(ctx, names, spinner); err != nil {
-			spinner.Fail()
-			ui.Error("%s", err)
-			return 1
-		}
-		spinner.Done()
+		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, lockPath)
+		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
+			return svc.Run(ctx, os.Args[2:], spinner)
+		})
 
 	case "update":
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
-		names := os.Args[2:]
-		if len(names) == 0 {
+		if len(os.Args) < 3 {
 			usage(ui)
 			return 1
 		}
-		if err := svc.Update(ctx, names, spinner); err != nil {
-			spinner.Fail()
-			ui.Error("%s", err)
-			return 1
-		}
-		spinner.Done()
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
+		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
+			return svc.Update(ctx, os.Args[2:], spinner)
+		})
 
 	default:
 		usage(ui)
@@ -161,6 +147,21 @@ type noopLocker struct{}
 
 func (l *noopLocker) Acquire(ctx context.Context, path string) (func(), error) {
 	return func() {}, nil
+}
+
+func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error) int {
+	if !ui.Prompt("Continue?") {
+		ui.Info("Cancelled")
+		return 0
+	}
+	spinner := ui.Spinner(ctx, "Working")
+	if err := fn(spinner); err != nil {
+		spinner.Fail()
+		ui.Error("%s", err)
+		return 1
+	}
+	spinner.Done()
+	return 0
 }
 
 func usage(ui ports.UI) {
