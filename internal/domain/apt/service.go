@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -27,33 +28,15 @@ func NewService(runner ports.CommandRunner, logger ports.UI) Service {
 }
 
 func (s *service) Install(ctx context.Context, packages []string) error {
-	if len(packages) == 0 {
-		return nil
-	}
-	args := append([]string{"install", "-y"}, packages...)
-	_, _, err := s.runner.Run(ctx, "apt-get", args...)
-	return err
+	return aptpty.RunInstall(packages)
 }
 
 func (s *service) InstallBackports(ctx context.Context, packages []string, suite string) error {
-	if len(packages) == 0 {
-		return nil
-	}
-	if suite == "" {
-		suite = "trixie-backports"
-	}
-	args := append([]string{"install", "-y", "-t", suite}, packages...)
-	_, _, err := s.runner.Run(ctx, "apt-get", args...)
-	return err
+	return aptpty.RunInstallBackports(packages, suite)
 }
 
 func (s *service) Remove(ctx context.Context, packages []string) error {
-	if len(packages) == 0 {
-		return nil
-	}
-	args := append([]string{"purge", "-y", "--autoremove"}, packages...)
-	_, _, err := s.runner.Run(ctx, "apt-get", args...)
-	return err
+	return aptpty.RunRemove(packages)
 }
 
 func (s *service) CheckInstalled(ctx context.Context, pkg string) (bool, error) {
@@ -98,6 +81,5 @@ func (s *service) Update(ctx context.Context) error {
 }
 
 func (s *service) Upgrade(ctx context.Context) error {
-	_, _, err := s.runner.Run(ctx, "apt-get", "upgrade", "-y")
-	return err
+	return aptpty.RunUpgrade()
 }
