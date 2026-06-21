@@ -43,6 +43,11 @@ func (m *StateManager) IsInstalled(st *State, name string) bool {
 	return ok
 }
 
+func (m *StateManager) Entry(st *State, name string) (PkgEntry, bool) {
+	e, ok := st.Packages[name]
+	return e, ok
+}
+
 func (m *StateManager) InstalledMap(st *State) map[string]bool {
 	installed := make(map[string]bool, len(st.Packages))
 	for n := range st.Packages {

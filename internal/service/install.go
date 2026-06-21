@@ -88,7 +88,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 	}
 
 	for _, dep := range ordered {
-		if entry, exists := st.Packages[dep.Name]; exists {
+		if entry, exists := s.state.Entry(st, dep.Name); exists {
 			dep.Version = entry.Version
 		}
 

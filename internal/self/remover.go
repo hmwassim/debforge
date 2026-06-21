@@ -94,11 +94,13 @@ func (r *Remover) remove(ctx context.Context) error {
 // regardless, so self-remove should keep going rather than abort partway.
 func (r *Remover) removeManagedPackages(ctx context.Context, spinner ports.Spinner) {
 	st, err := r.stateSvc.Load()
-	if err != nil || len(st.Packages) == 0 {
+	if err != nil {
 		return
 	}
-
 	names := r.stateSvc.ListPackages(st)
+	if len(names) == 0 {
+		return
+	}
 
 	for _, name := range names {
 		spinner.SetDesc("Removing " + name)
