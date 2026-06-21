@@ -34,29 +34,26 @@ func NewRemoveService(
 }
 
 func (s *RemoveService) Run(ctx context.Context, names []string, spinner ports.Spinner) error {
-	release, err := s.locker.Acquire(ctx, s.lockPath)
-	if err != nil {
-		return fmt.Errorf("acquire lock: %w", err)
-	}
-	defer release()
-
-	st, err := s.state.Load()
-	if err != nil {
-		return fmt.Errorf("load state: %w", err)
-	}
-
-	for _, name := range names {
-		if err := s.removeOne(ctx, name, st, spinner); err != nil {
-			return err
+	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
+		for _, name := range names {
+			if err := s.RemoveOne(ctx, name, st, spinner); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
-func (s *RemoveService) removeOne(ctx context.Context, name string, st *State, spinner ports.Spinner) error {
-	p, ok := s.reg.Lookup(name)
-	if !ok {
-		return fmt.Errorf("unknown package: %s", name)
+// RemoveOne removes a single already-resolved package from an
+// already-loaded state. It is exported (rather than kept private to this
+// service) so other flows that need to remove a managed package under a
+// lock they already hold - such as internal/self's self-remove flow - call
+// this instead of re-implementing lookup + remove + state bookkeeping by
+// hand.
+func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, spinner ports.Spinner) error {
+	p, err := LookupPackage(s.reg, name)
+	if err != nil {
+		return err
 	}
 
 	if !s.state.IsInstalled(st, name) {
@@ -64,9 +61,9 @@ func (s *RemoveService) removeOne(ctx context.Context, name string, st *State, s
 		return nil
 	}
 
-	inst, ok := s.instReg.Lookup(p.Type)
-	if !ok {
-		return fmt.Errorf("no installer for type %s", p.Type)
+	inst, err := LookupInstaller(s.instReg, p.Type)
+	if err != nil {
+		return err
 	}
 	if err := inst.Remove(ctx, p, spinner); err != nil {
 		return fmt.Errorf("remove %s: %w", p.Name, err)

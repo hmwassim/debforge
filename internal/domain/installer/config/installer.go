@@ -23,7 +23,3 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	return fmt.Errorf("config installer: not implemented")
 }
-
-func (i *Installer) Update(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	return fmt.Errorf("config installer: not implemented")
-}

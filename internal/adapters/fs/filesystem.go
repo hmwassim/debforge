@@ -41,6 +41,18 @@ func (f *FileSystem) Glob(pattern string) ([]string, error) {
 	return filepath.Glob(pattern)
 }
 
+func (f *FileSystem) Rename(oldPath, newPath string) error {
+	return os.Rename(oldPath, newPath)
+}
+
+func (f *FileSystem) Symlink(target, link string) error {
+	return os.Symlink(target, link)
+}
+
+func (f *FileSystem) Readlink(path string) (string, error) {
+	return os.Readlink(path)
+}
+
 type osFileInfo struct {
 	fi os.FileInfo
 }

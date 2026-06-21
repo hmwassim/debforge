@@ -1,5 +1,7 @@
 package pkg
 
+import "github.com/hmwassim/debforge/internal/registry"
+
 type Type string
 
 const (
@@ -37,7 +39,7 @@ type Package struct {
 	VersionCmd   string
 
 	// config
-	Configs    map[string]string
+	Configs     map[string]string
 	UserConfigs map[string]string
 
 	// scripts
@@ -81,19 +83,19 @@ func copyMap(m map[string]string) map[string]string {
 	return c
 }
 
+// Registry indexes packages by name. It is a thin, name-aware wrapper
+// around the shared generic registry.Registry rather than a hand-rolled
+// map, so package lookup and the installer lookup in the installer
+// package stay implemented identically.
 type Registry struct {
-	pkgs map[string]*Package
+	*registry.Registry[string, *Package]
 }
 
 func NewRegistry() *Registry {
-	return &Registry{pkgs: make(map[string]*Package)}
+	return &Registry{Registry: registry.New[string, *Package]()}
 }
 
+// Register indexes p under its own name.
 func (r *Registry) Register(p *Package) {
-	r.pkgs[p.Name] = p
-}
-
-func (r *Registry) Lookup(name string) (*Package, bool) {
-	p, ok := r.pkgs[name]
-	return p, ok
+	r.Registry.Register(p.Name, p)
 }

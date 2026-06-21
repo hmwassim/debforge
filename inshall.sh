@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# NOTE: REPO_URL/BRANCH/ROOT/LINK below intentionally mirror the Go-side
+# defaults in internal/self/config.go (DefaultRepoURL, DefaultBranch,
+# DefaultRootDir, DefaultLinkPath) and the `install` target in Makefile.
+# A bootstrap shell script can't import Go constants, so if you change one
+# of these values, update all three places.
 BOLD='\033[1m'; RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; RESET='\033[0m'
 info()  { printf "${BOLD}${BLUE}[i]${RESET} %s\n" "$*"; }
 ok()    { printf "${BOLD}${GREEN}[*]${RESET} %s\n" "$*"; }
@@ -52,8 +57,8 @@ mkdir -p "$BIN_DIR" "$SRC_DIR" "$VAR_DIR" "$GOPATH" "$GOCACHE" "$STATE_DIR" "${V
 chmod 755 "$VAR_DIR"
 chmod 755 "$STATE_DIR"
 chmod 700 "$GOPATH" "${VAR_DIR}/cache"
-touch "${VAR_DIR}/.lock"
-chmod 600 "${VAR_DIR}/.lock"
+touch "${VAR_DIR}/lock"
+chmod 600 "${VAR_DIR}/lock"
 
 info "Cloning ${REPO_URL} [${BRANCH}]..."
 rm -rf "$SRC_DIR"

@@ -36,15 +36,15 @@ type runState struct {
 
 // ---- public API -----------------------------------------------------------
 
-func RunInstall(ctx context.Context, packages []string, spinner ports.Spinner) error {
+func RunInstall(ctx context.Context, runner ports.CommandRunner, packages []string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
 	}
 	args := append([]string{"install", "-y"}, packages...)
-	return run(ctx, args, spinner)
+	return run(ctx, runner, args, spinner)
 }
 
-func RunInstallBackports(ctx context.Context, packages []string, suite string, spinner ports.Spinner) error {
+func RunInstallBackports(ctx context.Context, runner ports.CommandRunner, packages []string, suite string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -52,30 +52,29 @@ func RunInstallBackports(ctx context.Context, packages []string, suite string, s
 		suite = "trixie-backports"
 	}
 	args := append([]string{"install", "-y", "-t", suite}, packages...)
-	return run(ctx, args, spinner)
+	return run(ctx, runner, args, spinner)
 }
 
-func RunRemove(ctx context.Context, packages []string, spinner ports.Spinner) error {
+func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
 	}
 	args := append([]string{"purge", "-y", "--autoremove"}, packages...)
-	return run(ctx, args, spinner)
-}
-
-func RunUpgrade(ctx context.Context, spinner ports.Spinner) error {
-	return run(ctx, []string{"upgrade", "-y"}, spinner)
+	return run(ctx, runner, args, spinner)
 }
 
 // ---- pre-run: --print-uris ------------------------------------------------
 
-func getDownloadSize(mode string, args []string) (int64, string) {
+// getDownloadSize shells out via the injected ports.CommandRunner (rather
+// than os/exec directly) to ask apt-get how much it would download, so this
+// is a plain non-interactive command and fits the CommandRunner abstraction
+// like any other.
+func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode string, args []string) (int64, string) {
 	cmdLine := []string{mode, "--print-uris", "-y"}
 	cmdLine = append(cmdLine, args...)
-	cmd := exec.Command("apt-get", cmdLine...)
-	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "LANGUAGE=C")
 
-	out, err := cmd.Output()
+	opts := ports.RunOptions{Env: []string{"LC_ALL=C", "LANG=C", "LANGUAGE=C"}}
+	out, _, err := runner.RunWithOptions(ctx, opts, "apt-get", cmdLine...)
 	if err != nil {
 		return 0, ""
 	}
@@ -180,6 +179,11 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string) {
 	}
 
 	if strings.Contains(line, "? [") && strings.Contains(line, "[Y/n]") {
+		// Forward apt-get's own interactive prompt (e.g. an unexpected
+		// debconf question) verbatim. This is the wrapped tool's own
+		// output, not a debforge status message, so it intentionally
+		// bypasses the spinner/UI abstraction rather than being phrased
+		// as a SetDesc update.
 		fmt.Fprintln(os.Stderr, line)
 	}
 }
@@ -215,7 +219,20 @@ func progressDesc(state *runState, pkg string, cur int64) string {
 
 // ---- PTY loop -------------------------------------------------------------
 
-func run(ctx context.Context, aptArgs []string, spinner ports.Spinner) error {
+// run drives apt-get interactively through a PTY so its native progress
+// output can be parsed and turned into spinner updates. This is the one
+// deliberate place in the codebase that still constructs an *exec.Cmd
+// directly instead of going through ports.CommandRunner: CommandRunner's
+// contract is "run a command, get back its output," whereas this needs a
+// live pseudo-terminal (for apt-get's progress reporting and any
+// debconf [Y/n] prompts) plus a goroutine pumping stdin/signals into it -
+// a fundamentally different, lower-level operation that the simple
+// run/capture abstraction was never meant to cover.
+func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spinner ports.Spinner) error {
+	if spinner == nil {
+		return fmt.Errorf("aptpty: spinner must not be nil")
+	}
+
 	var mode string
 	var pkgArgs []string
 	if len(aptArgs) > 0 {
@@ -227,7 +244,7 @@ func run(ctx context.Context, aptArgs []string, spinner ports.Spinner) error {
 
 	state := &runState{phase: phaseDownload}
 
-	if total, label := getDownloadSize(mode, pkgArgs); total > 0 {
+	if total, label := getDownloadSize(ctx, runner, mode, pkgArgs); total > 0 {
 		state.overallTotal = total
 		state.overallLabel = label
 	}
@@ -345,6 +362,8 @@ mainLoop:
 							matched = true
 						}
 					case strings.Contains(seg, "? [") && strings.Contains(seg, "[Y/n]"):
+						// See the matching comment in handleLine: this is
+						// apt-get's own prompt, forwarded verbatim.
 						fmt.Fprintln(os.Stderr, seg)
 						matched = true
 					case strings.Contains(seg, "Download size:") ||
@@ -373,19 +392,9 @@ mainLoop:
 		}
 
 		if state.phase == phaseDownload && total > 0 {
-			desc := progressDesc(state, pkg, state.cumulativeDone+cur)
-			if spinner != nil {
-				spinner.SetDesc(desc)
-			} else {
-				os.Stderr.WriteString("\r" + desc + "\033[K")
-			}
+			spinner.SetDesc(progressDesc(state, pkg, state.cumulativeDone+cur))
 		} else if state.phase == phaseInstall {
-			desc := progressDesc(state, pkg, 0)
-			if spinner != nil {
-				spinner.SetDesc(desc)
-			} else {
-				os.Stderr.WriteString("\r" + desc + "\033[K")
-			}
+			spinner.SetDesc(progressDesc(state, pkg, 0))
 		}
 	}
 

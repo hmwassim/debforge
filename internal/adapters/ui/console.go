@@ -26,11 +26,11 @@ func (u *ConsoleUI) Prompt(format string, args ...any) bool {
 	if u.yes {
 		return true
 	}
-	if u.currentSpinner != nil {
-		u.currentSpinner.Pause()
-		defer u.currentSpinner.Resume()
-	}
-	return u.logger.Prompt(format, args...)
+	var result bool
+	u.withSpinnerPaused(func() {
+		result = u.logger.Prompt(format, args...)
+	})
+	return result
 }
 
 func (u *ConsoleUI) Info(format string, args ...any)    { u.logger.Info(format, args...) }
@@ -39,22 +39,37 @@ func (u *ConsoleUI) Warn(format string, args ...any)    { u.logger.Warn(format, 
 func (u *ConsoleUI) Error(format string, args ...any)   { u.logger.Error(format, args...) }
 
 func (u *ConsoleUI) PromptInput(format string, args ...any) string {
-	if u.currentSpinner != nil {
-		u.currentSpinner.Pause()
-		defer u.currentSpinner.Resume()
+	var result string
+	u.withSpinnerPaused(func() {
+		msg := fmt.Sprintf(format, args...)
+		defaultConsole.writef(os.Stderr, "[?] %s ", msg)
+		tty, err := os.Open("/dev/tty")
+		if err != nil {
+			var s string
+			fmt.Scanln(&s)
+			result = strings.TrimSpace(s)
+			return
+		}
+		defer tty.Close()
+		reader := bufio.NewReader(tty)
+		line, _ := reader.ReadString('\n')
+		result = strings.TrimSpace(line)
+	})
+	return result
+}
+
+// withSpinnerPaused pauses the active spinner (if any) for the duration of
+// fn, then resumes it. Prompt and PromptInput both need to silence the
+// spinner while waiting on user input; this is that one shared sequence
+// instead of two inlined copies of the same Pause/defer Resume block.
+func (u *ConsoleUI) withSpinnerPaused(fn func()) {
+	if u.currentSpinner == nil {
+		fn()
+		return
 	}
-	msg := fmt.Sprintf(format, args...)
-	defaultConsole.writef(os.Stderr, "[?] %s ", msg)
-	tty, err := os.Open("/dev/tty")
-	if err != nil {
-		var s string
-		fmt.Scanln(&s)
-		return strings.TrimSpace(s)
-	}
-	defer tty.Close()
-	reader := bufio.NewReader(tty)
-	line, _ := reader.ReadString('\n')
-	return strings.TrimSpace(line)
+	u.currentSpinner.Pause()
+	defer u.currentSpinner.Resume()
+	fn()
 }
 
 func (u *ConsoleUI) Spinner(ctx context.Context, desc string) ports.Spinner {

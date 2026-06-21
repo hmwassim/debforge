@@ -27,6 +27,13 @@ type Display struct {
 	stop    chan struct{}
 	sdone   chan struct{}
 
+	// tty reports whether w is a terminal, using the same isTerminal
+	// check ConsoleLogger uses for Info/Warn/Error/Prompt. Without this,
+	// a spinner piped to a file or log collector would interleave raw
+	// ANSI escapes and carriage returns into the log on every tick, while
+	// every other UI output already degrades gracefully to plain text.
+	tty bool
+
 	mu     sync.Mutex
 	paused bool
 	done   bool
@@ -38,7 +45,7 @@ func NewDisplay(ctx context.Context, w io.Writer, content string) *Display {
 		r, size := utf8.DecodeRuneInString(content)
 		content = string(unicode.ToUpper(r)) + content[size:]
 	}
-	d := &Display{w: w, content: content, ctx: ctx}
+	d := &Display{w: w, content: content, ctx: ctx, tty: isTerminal(w)}
 	d.stop = make(chan struct{})
 	d.sdone = make(chan struct{})
 	go d.run()
@@ -55,17 +62,31 @@ func (d *Display) Pause() {
 	d.mu.Lock()
 	d.paused = true
 	d.mu.Unlock()
-	defaultConsole.writef(d.w, "\r\033[K")
+	if d.tty {
+		defaultConsole.writef(d.w, "\r\033[K")
+	}
 }
 
 func (d *Display) Resume() {
 	d.mu.Lock()
 	d.paused = false
+	content := d.content
 	d.mu.Unlock()
-	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, d.content)
+	if d.tty {
+		defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, content)
+	}
 }
 
 func (d *Display) run() {
+	if !d.tty {
+		// Nothing to animate without a terminal: emit one line up front
+		// and let doneWith print the final state when the spinner ends.
+		defaultConsole.writef(d.w, "[%s] %s\n", "i", d.content)
+		<-d.stopOrCtxDone()
+		close(d.sdone)
+		return
+	}
+
 	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, d.content)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -81,14 +102,30 @@ func (d *Display) run() {
 		case <-ticker.C:
 			d.mu.Lock()
 			p := d.paused
+			content := d.content
 			d.mu.Unlock()
 			if p {
 				continue
 			}
-			defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[idx%len(spinFrames)], reset, d.content)
+			defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[idx%len(spinFrames)], reset, content)
 			idx++
 		}
 	}
+}
+
+// stopOrCtxDone returns a channel that closes when either the spinner is
+// stopped or its context is done, for the non-tty run() path which has no
+// ticker to multiplex against.
+func (d *Display) stopOrCtxDone() <-chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		select {
+		case <-d.ctx.Done():
+		case <-d.stop:
+		}
+		close(ch)
+	}()
+	return ch
 }
 
 func (d *Display) doneWith(mark, code string) {
@@ -100,6 +137,7 @@ func (d *Display) doneWith(mark, code string) {
 	d.done = true
 	paused := d.paused
 	d.paused = false
+	content := d.content
 	d.mu.Unlock()
 
 	d.dOnce.Do(func() {
@@ -110,10 +148,13 @@ func (d *Display) doneWith(mark, code string) {
 		}
 	})
 
-	content := stripTrailingDots(d.content)
-	if paused {
+	content = stripTrailingDots(content)
+	switch {
+	case !d.tty:
+		defaultConsole.writef(d.w, "[%s] %s\n", mark, content)
+	case paused:
 		defaultConsole.writef(d.w, "%s[%s]%s %s\n", bold+code, mark, reset, content)
-	} else {
+	default:
 		defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K\n", bold+code, mark, reset, content)
 	}
 }

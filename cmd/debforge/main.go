@@ -7,6 +7,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/adapters/exec"
 	"github.com/hmwassim/debforge/internal/adapters/fs"
+	"github.com/hmwassim/debforge/internal/adapters/lock"
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/adapters/ui"
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -41,16 +42,17 @@ func run() int {
 		return 0
 	}
 
+	cfg := self.DefaultConfig()
+	fsys := fs.NewFileSystem()
+	runner := exec.NewRunner()
+	locker := lock.NewNoop()
+
 	switch args[0] {
 	case "--version":
 		fmt.Println("debforge " + version)
 		return 0
 
 	case "--self-update":
-		runner := exec.NewRunner()
-		fsys := fs.NewFileSystem()
-		locker := &noopLocker{}
-		cfg := self.DefaultConfig()
 		updater := self.NewUpdater(cfg, runner, fsys, ui, locker)
 		if err := updater.Update(ctx); err != nil {
 			ui.Error("%s", err)
@@ -63,14 +65,11 @@ func run() int {
 		return 0
 
 	case "--self-remove":
-		reg, instReg, stateSvc, locker, _, err := bootstrap(ui)
+		reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner)
 		if err != nil {
 			ui.Error("bootstrap: %s", err)
 			return 1
 		}
-		runner := exec.NewRunner()
-		fsys := fs.NewFileSystem()
-		cfg := self.DefaultConfig()
 		remover := self.NewRemover(cfg, runner, fsys, ui, locker, reg, instReg, stateSvc)
 		if err := remover.Remove(ctx); err != nil {
 			ui.Error("%s", err)
@@ -79,7 +78,7 @@ func run() int {
 		return 0
 	}
 
-	reg, instReg, stateSvc, locker, lockPath, err := bootstrap(ui)
+	reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner)
 	if err != nil {
 		ui.Error("bootstrap: %s", err)
 		return 1
@@ -92,7 +91,7 @@ func run() int {
 			usage()
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Run(ctx, names, forceMode, spinner)
 		})
@@ -102,7 +101,7 @@ func run() int {
 			usage()
 			return 1
 		}
-		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, lockPath)
+		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Run(ctx, args[1:], spinner)
 		})
@@ -112,7 +111,7 @@ func run() int {
 			usage()
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Update(ctx, args[1:], spinner)
 		})
@@ -137,35 +136,28 @@ func parseFlags(args []string) (yes, force bool, rest []string) {
 	return
 }
 
-func bootstrap(ui ports.UI) (*pkg.Registry, *installer.Registry, *service.StateManager, ports.Locker, string, error) {
-	_ = exec.NewRunner()
-	fsys := fs.NewFileSystem()
-
+// bootstrap wires the package registry, installer registry, and state
+// manager shared by every package-management command (install/remove/
+// update) and by --self-remove. cfg is the single source of truth for
+// every on-disk path involved (see internal/self.Config), and runner is
+// the one CommandRunner instance shared by every installer that needs to
+// shell out.
+func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner) (*pkg.Registry, *installer.Registry, *service.StateManager, error) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	instReg.Register(pkg.TypeApt, aptInst.NewInstaller())
-	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(nil, fsys))
-	instReg.Register(pkg.TypeSource, srcInst.NewInstaller(nil, fsys))
+	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys))
+	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys))
+	instReg.Register(pkg.TypeSource, srcInst.NewInstaller(runner, fsys))
 	instReg.Register(pkg.TypeConfig, cfgInst.NewInstaller(fsys))
 
-	statePath := "/var/lib/debforge/state.json"
-	st := store.NewStore[service.State](statePath)
+	st := store.NewStore[service.State](fsys, cfg.StatePath)
 	stateSvc := service.NewStateManager(st)
 	if _, err := stateSvc.Load(); err != nil && !os.IsNotExist(err) {
-		return nil, nil, nil, nil, "", fmt.Errorf("load state: %w", err)
+		return nil, nil, nil, fmt.Errorf("load state: %w", err)
 	}
 
-	locker := &noopLocker{}
-	lockPath := "/var/lib/debforge/lock"
-
-	return reg, instReg, stateSvc, locker, lockPath, nil
-}
-
-type noopLocker struct{}
-
-func (l *noopLocker) Acquire(ctx context.Context, path string) (func(), error) {
-	return func() {}, nil
+	return reg, instReg, stateSvc, nil
 }
 
 func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error) int {

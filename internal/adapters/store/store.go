@@ -2,25 +2,22 @@ package store
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
-	"sync"
+
+	"github.com/hmwassim/debforge/internal/ports"
 )
 
 type Store[T any] struct {
-	mu   sync.Mutex
+	fs   ports.FileSystem
 	path string
 }
 
-func NewStore[T any](path string) *Store[T] {
-	return &Store[T]{path: path}
+func NewStore[T any](fs ports.FileSystem, path string) *Store[T] {
+	return &Store[T]{fs: fs, path: path}
 }
 
 func (s *Store[T]) Load() (*T, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := os.ReadFile(s.path)
+	data, err := s.fs.ReadFile(s.path)
 	if err != nil {
 		return nil, err
 	}
@@ -32,15 +29,12 @@ func (s *Store[T]) Load() (*T, error) {
 }
 
 func (s *Store[T]) Save(v *T) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := os.MkdirAll(filepath.Dir(s.path), 0755); err != nil {
+	if err := s.fs.MkdirAll(filepath.Dir(s.path), 0755); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path, data, 0644)
+	return s.fs.WriteFile(s.path, data, 0644)
 }

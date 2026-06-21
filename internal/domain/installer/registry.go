@@ -1,20 +1,16 @@
 package installer
 
-import "github.com/hmwassim/debforge/internal/domain/pkg"
+import (
+	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/registry"
+)
 
-type Registry struct {
-	impls map[pkg.Type]Installer
-}
+// Registry maps a package Type to the Installer that handles it. It is an
+// alias for the shared generic registry.Registry, so this lookup table and
+// the package-name lookup table in the pkg package share one implementation
+// instead of two hand-written copies of the same map+Register+Lookup code.
+type Registry = registry.Registry[pkg.Type, Installer]
 
 func NewRegistry() *Registry {
-	return &Registry{impls: make(map[pkg.Type]Installer)}
-}
-
-func (r *Registry) Register(typ pkg.Type, inst Installer) {
-	r.impls[typ] = inst
-}
-
-func (r *Registry) Lookup(typ pkg.Type) (Installer, bool) {
-	inst, ok := r.impls[typ]
-	return inst, ok
+	return registry.New[pkg.Type, Installer]()
 }

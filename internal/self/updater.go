@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/hmwassim/debforge/internal/lockrun"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -24,8 +24,8 @@ func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, lo
 }
 
 func (u *Updater) Update(ctx context.Context) error {
-	if os.Geteuid() != 0 {
-		return fmt.Errorf("--self-update must be run as root")
+	if err := requireRoot("self-update"); err != nil {
+		return err
 	}
 
 	dirs := []string{u.cfg.BinDir, u.cfg.SourceDir, u.cfg.GoPath, u.cfg.GoCache}
@@ -35,26 +35,21 @@ func (u *Updater) Update(ctx context.Context) error {
 		}
 	}
 
-	lockPath := filepath.Join(u.cfg.RootDir, "var", "lock")
-	release, err := u.locker.Acquire(ctx, lockPath)
-	if err != nil {
-		return fmt.Errorf("acquire lock: %w", err)
-	}
-	defer release()
+	return lockrun.WithLock(ctx, u.locker, u.cfg.LockPath, func() error {
+		return u.update(ctx)
+	})
+}
 
+func (u *Updater) update(ctx context.Context) error {
 	spinner := u.logger.Spinner(ctx, "Working")
 	defer spinner.Done()
 
 	sourceExists := sourceRepoExists(u.fs, u.cfg.SourceDir)
 
 	if !sourceExists {
-		spinner.Pause()
-		u.logger.Info("debforge is not installed")
-		if !u.logger.Prompt("Install debforge?") {
-			u.logger.Info("Cancelled")
+		if !confirmMidSpinner(u.logger, spinner, "debforge is not installed", "Install debforge?") {
 			return nil
 		}
-		spinner.Resume()
 
 		spinner.SetDesc("Cloning repository")
 		if err := u.cloneRepo(ctx); err != nil {
@@ -79,13 +74,9 @@ func (u *Updater) Update(ctx context.Context) error {
 			return nil
 		}
 
-		spinner.Pause()
-		u.logger.Info("Update available")
-		if !u.logger.Prompt("Update debforge?") {
-			u.logger.Info("Cancelled")
+		if !confirmMidSpinner(u.logger, spinner, "Update available", "Update debforge?") {
 			return nil
 		}
-		spinner.Resume()
 
 		spinner.SetDesc("Pulling update")
 		if err := u.gitPull(ctx); err != nil {
@@ -125,6 +116,22 @@ func (u *Updater) Update(ctx context.Context) error {
 		spinner.SetDesc("debforge installed")
 	}
 	return nil
+}
+
+// confirmMidSpinner pauses spinner, surfaces infoMsg, and asks promptMsg,
+// resuming the spinner and returning true if the user agrees to proceed.
+// Update has two points (first install vs. update available) that need to
+// interrupt an in-progress spinner for a yes/no confirmation in exactly
+// this way; this helper exists so that sequence is written once.
+func confirmMidSpinner(logger ports.UI, spinner ports.Spinner, infoMsg, promptMsg string) bool {
+	spinner.Pause()
+	logger.Info(infoMsg)
+	if !logger.Prompt(promptMsg) {
+		logger.Info("Cancelled")
+		return false
+	}
+	spinner.Resume()
+	return true
 }
 
 func sourceRepoExists(fs ports.FileSystem, dir string) bool {
@@ -181,15 +188,15 @@ func (u *Updater) build(ctx context.Context, dst string) error {
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, u.cfg.GoBinary, "build", "-o", dst,
+	opts := ports.RunOptions{
+		Dir:    u.cfg.SourceDir,
+		Env:    []string{"GOPATH=" + u.cfg.GoPath, "GOMODCACHE=" + u.cfg.GoPath + "/mod", "GOCACHE=" + u.cfg.GoCache},
+		Stderr: os.Stderr,
+	}
+	_, _, err := u.runner.RunWithOptions(ctx, opts, u.cfg.GoBinary, "build", "-o", dst,
 		"-ldflags=-X main.version="+version,
 		"./cmd/debforge/")
-	cmd.Dir = u.cfg.SourceDir
-	env := os.Environ()
-	env = append(env, "GOPATH="+u.cfg.GoPath, "GOMODCACHE="+u.cfg.GoPath+"/mod", "GOCACHE="+u.cfg.GoCache)
-	cmd.Env = env
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return err
 }
 
 func (u *Updater) verify(ctx context.Context, path string) error {
@@ -204,26 +211,23 @@ func (u *Updater) verify(ctx context.Context, path string) error {
 }
 
 func (u *Updater) installBinary(src, dst string) error {
-	if err := os.Rename(src, dst); err != nil {
-		return err
-	}
-	return nil
+	return u.fs.Rename(src, dst)
 }
 
 func (u *Updater) ensureLink(target, link string) error {
 	fi, err := u.fs.Stat(link)
 	if err != nil {
-		return os.Symlink(target, link)
+		return u.fs.Symlink(target, link)
 	}
 	if fi.IsDir() {
 		return fmt.Errorf("%s is a directory", link)
 	}
-	current, err := os.Readlink(link)
+	current, err := u.fs.Readlink(link)
 	if err == nil && current == target {
 		return nil
 	}
 	if err := u.fs.RemoveAll(link); err != nil {
 		return err
 	}
-	return os.Symlink(target, link)
+	return u.fs.Symlink(target, link)
 }

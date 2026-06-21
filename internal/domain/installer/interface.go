@@ -10,5 +10,4 @@ import (
 type Installer interface {
 	Install(ctx context.Context, pkg *pkg.Package, spinner ports.Spinner) error
 	Remove(ctx context.Context, pkg *pkg.Package, spinner ports.Spinner) error
-	Update(ctx context.Context, pkg *pkg.Package, spinner ports.Spinner) error
 }

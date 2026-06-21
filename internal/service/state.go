@@ -44,6 +44,14 @@ func (m *StateManager) IsInstalled(st *State, name string) bool {
 	return ok
 }
 
+func (m *StateManager) InstalledMap(st *State) map[string]bool {
+	installed := make(map[string]bool, len(st.Packages))
+	for n := range st.Packages {
+		installed[n] = true
+	}
+	return installed
+}
+
 func (m *StateManager) Add(st *State, name string, entry PkgEntry) {
 	st.Packages[name] = entry
 }
