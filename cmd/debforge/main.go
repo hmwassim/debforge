@@ -31,7 +31,7 @@ func run() int {
 	ui := ui.NewConsoleUI()
 
 	if len(os.Args) < 2 {
-		usage(ui)
+		usage()
 		return 0
 	}
 
@@ -50,6 +50,10 @@ func run() int {
 			ui.Error("%s", err)
 			return 1
 		}
+		return 0
+
+	case "--help":
+		usage()
 		return 0
 
 	case "--self-remove":
@@ -84,7 +88,7 @@ func run() int {
 			names = names[1:]
 		}
 		if len(names) == 0 {
-			usage(ui)
+			usage()
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
@@ -94,7 +98,7 @@ func run() int {
 
 	case "remove":
 		if len(os.Args) < 3 {
-			usage(ui)
+			usage()
 			return 1
 		}
 		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, lockPath)
@@ -104,7 +108,7 @@ func run() int {
 
 	case "update":
 		if len(os.Args) < 3 {
-			usage(ui)
+			usage()
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, lockPath)
@@ -113,7 +117,7 @@ func run() int {
 		})
 
 	default:
-		usage(ui)
+		usage()
 	}
 	return 0
 }
@@ -164,14 +168,14 @@ func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error)
 	return 0
 }
 
-func usage(ui ports.UI) {
-	ui.Info("debforge — package manager")
-	ui.Info("")
-	ui.Info("Usage:")
-	ui.Info("  debforge install [-f] <name> [<name>...]")
-	ui.Info("  debforge remove <name> [<name>...]")
-	ui.Info("  debforge update <name> [<name>...]")
-	ui.Info("  debforge --self-update")
-	ui.Info("  debforge --self-remove")
-	ui.Info("  debforge --version")
+func usage() {
+	fmt.Println("debforge - package manager")
+	fmt.Println()
+	fmt.Println("Usage: debforge <command>")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("    --self-update       Update debforge")
+	fmt.Println("    --self-remove       Remove debforge")
+	fmt.Println("    --help              Show this help")
+	fmt.Println("    --version           Show version")
 }
