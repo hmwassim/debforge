@@ -1,0 +1,13 @@
+name: steam
+type: apt
+packages:
+  - wine
+  - wine32
+  - wine64
+  - libwine
+  - libwine:i386
+  - fonts-wine
+  - wine32-preloader:i386
+  - wine64-preloader
+  - wine-binfmt
+  - mingw-w64
