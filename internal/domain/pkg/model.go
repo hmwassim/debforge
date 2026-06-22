@@ -20,6 +20,7 @@ type Package struct {
 	// apt
 	Extrepo   []string
 	Packages  []string
+	Remove    []string
 	Primary   string
 	Backports []string
 	Variants  map[string]string
@@ -58,6 +59,7 @@ func (p *Package) Clone() *Package {
 	cp.Depends = copySlice(p.Depends)
 	cp.Conflicts = copySlice(p.Conflicts)
 	cp.Packages = copySlice(p.Packages)
+	cp.Remove = copySlice(p.Remove)
 	cp.Backports = copySlice(p.Backports)
 	cp.Extrepo = copySlice(p.Extrepo)
 	cp.Variants = copyMap(p.Variants)

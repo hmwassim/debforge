@@ -63,6 +63,9 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	}
 
 	pkgs := p.Packages
+	if len(p.Remove) > 0 {
+		pkgs = p.Remove
+	}
 	if p.Variant != "" {
 		if v, ok := p.Variants[p.Variant]; ok {
 			pkgs = append(pkgs, v)

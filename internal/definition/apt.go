@@ -14,6 +14,7 @@ type aptDefinition struct {
 	Depends   []string          `yaml:"depends,omitempty"`
 	Extrepo   []string          `yaml:"extrepo,omitempty"`
 	Packages  []string          `yaml:"packages,omitempty"`
+	Remove    []string          `yaml:"remove,omitempty"`
 	Backports []string          `yaml:"backports,omitempty"`
 	Variants  map[string]string `yaml:"variants,omitempty"`
 	Conflicts []string          `yaml:"conflicts,omitempty"`
@@ -48,6 +49,7 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 		Depends:   def.Depends,
 		Extrepo:   def.Extrepo,
 		Packages:  def.Packages,
+		Remove:    def.Remove,
 		Primary:   primary,
 		Backports: def.Backports,
 		Variants:  def.Variants,
