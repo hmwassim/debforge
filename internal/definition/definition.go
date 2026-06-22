@@ -29,6 +29,12 @@ func Parse(path string, fs ports.FileSystem) (*pkg.Package, error) {
 	switch raw.Type {
 	case "apt":
 		return parseApt(raw.Name, data)
+	case "deb":
+		return parseDeb(raw.Name, data)
+	case "source":
+		return parseSource(raw.Name, data)
+	case "config":
+		return parseConfig(raw.Name, data)
 	default:
 		return nil, fmt.Errorf("definition %s: unsupported type %q", path, raw.Type)
 	}

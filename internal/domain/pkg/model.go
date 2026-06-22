@@ -42,8 +42,9 @@ type Package struct {
 	VersionCmd   string
 
 	// config
-	Configs     map[string]string
-	UserConfigs map[string]string
+	Configs      map[string]string
+	RemoveConfigs map[string]string
+	UserConfigs  map[string]string
 
 	// scripts
 	PostInstall string
@@ -65,6 +66,7 @@ func (p *Package) Clone() *Package {
 	cp.Variants = copyMap(p.Variants)
 	cp.Checks = copySlice(p.Checks)
 	cp.Configs = copyMap(p.Configs)
+	cp.RemoveConfigs = copyMap(p.RemoveConfigs)
 	cp.UserConfigs = copyMap(p.UserConfigs)
 	return &cp
 }
