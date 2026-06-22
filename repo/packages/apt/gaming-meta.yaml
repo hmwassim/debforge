@@ -23,9 +23,12 @@ install:
     - smpeg-plaympeg
     - mjpegtools
     - libxvidcore4
+  backports:
+    - gamescope
 remove:
   packages:
     - goverlay
     - gamemode
+    - gamescope
     - mangohud
     - mangohud:i386
