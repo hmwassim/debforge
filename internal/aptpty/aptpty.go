@@ -304,11 +304,23 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 	}()
 
 	var (
-		sbuf  []byte
-		cur   int64
-		total int64
-		pkg   string
+		sbuf     []byte
+		cur      int64
+		total    int64
+		pkg      string
+		aptErrs  []string
 	)
+
+	collectErr := func(s string) {
+		s = stripANSI(s)
+		if len(aptErrs) >= 5 {
+			return
+		}
+		if strings.HasPrefix(s, "E: ") || strings.HasPrefix(s, "W: ") ||
+			strings.HasPrefix(s, "dpkg: ") {
+			aptErrs = append(aptErrs, s)
+		}
+	}
 
 	timer := time.NewTimer(0)
 	if !timer.Stop() {
@@ -335,6 +347,7 @@ mainLoop:
 						continue
 					}
 					handleLine(string(seg), state, &cur, &total, &pkg)
+					collectErr(string(seg))
 				}
 				sbuf = sbuf[nl+1:]
 			}
@@ -386,6 +399,7 @@ mainLoop:
 			for _, seg := range bytes.Split(sbuf, []byte{'\r'}) {
 				if len(seg) > 0 {
 					handleLine(string(seg), state, &cur, &total, &pkg)
+					collectErr(string(seg))
 				}
 			}
 			break mainLoop
@@ -403,10 +417,15 @@ mainLoop:
 
 	if err := cmd.Wait(); err != nil {
 		var exitErr *exec.ExitError
+		code := 0
 		if errors.As(err, &exitErr) {
-			return fmt.Errorf("apt-get failed with exit code %d", exitErr.ExitCode())
+			code = exitErr.ExitCode()
 		}
-		return fmt.Errorf("apt-get: %w", err)
+		msg := fmt.Sprintf("apt-get failed with exit code %d", code)
+		if len(aptErrs) > 0 {
+			return fmt.Errorf("%s: %s", msg, strings.Join(aptErrs, "; "))
+		}
+		return fmt.Errorf("%s", msg)
 	}
 	return nil
 }
