@@ -76,6 +76,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return nil
 	}
 
+	spinner.SetDesc("Removing " + p.Name + "...")
+
 	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
 		return err
 	}
