@@ -98,8 +98,8 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 		}
 
 		s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version, Variant: dep.Variant})
-		if err := s.state.Save(st); err != nil {
-			return fmt.Errorf("save state after %s: %w", dep.Name, err)
+		if err := saveState(s.state, st, dep.Name); err != nil {
+			return err
 		}
 		spinner.SetDesc(textutil.UcFirst(dep.Name + " " + pastTense))
 	}

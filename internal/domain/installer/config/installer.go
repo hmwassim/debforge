@@ -2,25 +2,22 @@ package config
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-type Installer struct {
-	runner ports.CommandRunner
-	fs     ports.FileSystem
+type Installer struct{}
+
+func NewInstaller(ports.CommandRunner, ports.FileSystem) *Installer {
+	return &Installer{}
 }
 
-func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem) *Installer {
-	return &Installer{runner: runner, fs: fs}
+func (i *Installer) Install(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
+	return installer.StubError("config")
 }
 
-func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	return fmt.Errorf("config installer: not implemented")
-}
-
-func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	return fmt.Errorf("config installer: not implemented")
+func (i *Installer) Remove(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
+	return installer.StubError("config")
 }

@@ -5,10 +5,9 @@ import (
 	"io"
 	"sync"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 var spinFrames = []string{"|", "/", "-", "\\"}
@@ -41,10 +40,7 @@ type Display struct {
 }
 
 func NewDisplay(ctx context.Context, w io.Writer, content string) *Display {
-	if len(content) > 0 {
-		r, size := utf8.DecodeRuneInString(content)
-		content = string(unicode.ToUpper(r)) + content[size:]
-	}
+	content = textutil.UcFirst(content)
 	d := &Display{w: w, content: content, ctx: ctx, tty: isTerminal(w)}
 	d.stop = make(chan struct{})
 	d.sdone = make(chan struct{})

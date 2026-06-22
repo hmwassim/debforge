@@ -60,9 +60,8 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
-	if !s.state.IsInstalled(st, name) {
-		spinner.SetDesc(textutil.UcFirst(name + " not installed"))
-		return fmt.Errorf("%w: %s", ErrNotInstalled, name)
+	if err := checkInstalled(s.state, st, name, spinner); err != nil {
+		return err
 	}
 
 	inst, err := LookupInstaller(s.instReg, p.Type)
@@ -74,8 +73,8 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 	}
 
 	s.state.Remove(st, name)
-	if err := s.state.Save(st); err != nil {
-		return fmt.Errorf("save state after %s: %w", name, err)
+	if err := saveState(s.state, st, name); err != nil {
+		return err
 	}
 
 	spinner.SetDesc(textutil.UcFirst(name + " removed"))

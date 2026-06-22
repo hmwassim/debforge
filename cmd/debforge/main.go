@@ -98,8 +98,7 @@ func run() int {
 			usage()
 			return 1
 		}
-		if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
-			ui.Error("%s", err)
+		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
@@ -113,8 +112,7 @@ func run() int {
 			return 1
 		}
 		names := args[1:]
-		if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
-			ui.Error("%s", err)
+		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
 		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath)
@@ -128,8 +126,7 @@ func run() int {
 			return 1
 		}
 		names := args[1:]
-		if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
-			ui.Error("%s", err)
+		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
@@ -198,6 +195,14 @@ func loadYAMLDefinitions(reg *pkg.Registry, names []string, fsys ports.FileSyste
 		names[i] = p.Name
 	}
 	return nil
+}
+
+func loadDefs(reg *pkg.Registry, names []string, fsys ports.FileSystem, ui ports.UI) bool {
+	if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
+		ui.Error("%s", err)
+		return false
+	}
+	return true
 }
 
 func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error) int {
