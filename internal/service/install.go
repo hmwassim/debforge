@@ -100,7 +100,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 			return fmt.Errorf("%s %s: %w", verb, dep.Name, err)
 		}
 
-		s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version})
+		s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version, Variant: dep.Variant})
 		if err := s.state.Save(st); err != nil {
 			return fmt.Errorf("save state after %s: %w", dep.Name, err)
 		}

@@ -33,9 +33,6 @@ func (r *Resolver) Resolve(root *pkg.Package, installed map[string]bool, force b
 				return err
 			}
 		}
-		if installed[name] && !force {
-			return nil
-		}
 		ordered = append(ordered, dep.Clone())
 		return nil
 	}

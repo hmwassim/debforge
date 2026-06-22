@@ -28,6 +28,13 @@ type Config struct {
 	Branch    string
 	GoBinary  string
 
+	// PkgsDir is the directory searched for YAML package definitions
+	// at startup. All .yaml files under it are preloaded into the
+	// package registry so bare names (e.g. "steam") resolve without
+	// needing a file path. Each subdirectory under PkgsDir is treated
+	// as a type namespace (apt/, deb/, source/, config/).
+	PkgsDir string
+
 	// LockPath is the file used to serialize debforge operations
 	// (install/remove/update/self-update/self-remove).
 	LockPath string
@@ -50,6 +57,7 @@ func DefaultConfig() *Config {
 		Branch:    DefaultBranch,
 		GoBinary:  DefaultGoBinary,
 
+		PkgsDir:   filepath.Join(root, "repo", "packages"),
 		LockPath:  filepath.Join(varDir, "lock"),
 		StatePath: filepath.Join(varDir, "states", "state.json"),
 	}

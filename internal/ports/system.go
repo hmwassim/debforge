@@ -46,6 +46,7 @@ type FileSystem interface {
 	MkdirAll(path string, perm int) error
 	Stat(path string) (FileInfo, error)
 	Glob(pattern string) ([]string, error)
+	Walk(root string, fn func(path string, info FileInfo, err error) error) error
 	Rename(oldPath, newPath string) error
 	Symlink(target, link string) error
 	Readlink(path string) (string, error)

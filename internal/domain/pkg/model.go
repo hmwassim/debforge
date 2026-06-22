@@ -18,10 +18,12 @@ type Package struct {
 	Conflicts []string
 
 	// apt
-	Extrepo   string
+	Extrepo   []string
 	Packages  []string
 	Primary   string
 	Backports []string
+	Variants  map[string]string
+	Variant   string
 
 	// deb
 	URL           string
@@ -57,6 +59,8 @@ func (p *Package) Clone() *Package {
 	cp.Conflicts = copySlice(p.Conflicts)
 	cp.Packages = copySlice(p.Packages)
 	cp.Backports = copySlice(p.Backports)
+	cp.Extrepo = copySlice(p.Extrepo)
+	cp.Variants = copyMap(p.Variants)
 	cp.Checks = copySlice(p.Checks)
 	cp.Configs = copyMap(p.Configs)
 	cp.UserConfigs = copyMap(p.UserConfigs)

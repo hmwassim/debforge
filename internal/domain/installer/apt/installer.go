@@ -3,6 +3,9 @@ package apt
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -12,28 +15,205 @@ import (
 type Installer struct {
 	runner ports.CommandRunner
 	fs     ports.FileSystem
+	ui     ports.UI
 }
 
-func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem) *Installer {
-	return &Installer{runner: runner, fs: fs}
+func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
+	return &Installer{runner: runner, fs: fs, ui: ui}
 }
 
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)
 	}
-	if len(p.Packages) == 0 {
-		return fmt.Errorf("no packages defined for apt type")
+	if len(p.Packages) == 0 && len(p.Variants) == 0 {
+		return fmt.Errorf("no packages or variants defined for apt type")
 	}
-	return aptpty.RunInstall(ctx, i.runner, p.Packages, spinner)
+
+	if err := i.checkConflicts(ctx, p); err != nil {
+		return err
+	}
+
+	if err := i.enableExtrepos(ctx, p, spinner); err != nil {
+		return err
+	}
+
+	if err := i.selectVariant(ctx, p, spinner); err != nil {
+		return err
+	}
+
+	if err := i.installBackports(ctx, p, spinner); err != nil {
+		return err
+	}
+
+	if err := i.installMain(ctx, p, spinner); err != nil {
+		return err
+	}
+
+	if err := i.writeConfigs(ctx, p, spinner); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)
 	}
-	if len(p.Packages) == 0 {
+
+	pkgs := p.Packages
+	if p.Variant != "" {
+		if v, ok := p.Variants[p.Variant]; ok {
+			pkgs = append(pkgs, v)
+		}
+	}
+
+	if len(pkgs) == 0 {
 		return nil
 	}
-	return aptpty.RunRemove(ctx, i.runner, p.Packages, spinner)
+
+	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
+		return err
+	}
+
+	i.disableExtrepos(ctx, p, spinner)
+
+	return nil
+}
+
+// ---- conflicts ------------------------------------------------------------
+
+func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package) error {
+	if len(p.Conflicts) == 0 {
+		return nil
+	}
+
+	var found []string
+	for _, name := range p.Conflicts {
+		out, _, err := i.runner.Run(ctx, "dpkg-query", "-W", "-f=${Package}\n", name)
+		if err != nil {
+			continue
+		}
+		trimmed := strings.TrimSpace(string(out))
+		if trimmed != "" {
+			found = append(found, trimmed)
+		}
+	}
+	if len(found) > 0 {
+		return fmt.Errorf("conflicting packages installed: %s", strings.Join(found, ", "))
+	}
+	return nil
+}
+
+// ---- extrepo --------------------------------------------------------------
+
+func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	for _, repo := range p.Extrepo {
+		spinner.SetDesc("enabling extrepo " + repo)
+		if _, _, err := i.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
+			return fmt.Errorf("enable extrepo %s: %w", repo, err)
+		}
+	}
+	return nil
+}
+
+func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) {
+	for _, repo := range p.Extrepo {
+		spinner.SetDesc("disabling extrepo " + repo)
+		if _, _, err := i.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
+			// best-effort
+		}
+	}
+}
+
+// ---- variant selection ----------------------------------------------------
+
+func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	if len(p.Variants) == 0 {
+		return nil
+	}
+	if p.Variant != "" {
+		return nil
+	}
+
+	var names []string
+	for name := range p.Variants {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var opts []string
+	for _, name := range names {
+		opts = append(opts, fmt.Sprintf("  %s → %s", name, p.Variants[name]))
+	}
+
+	msg := fmt.Sprintf("Select variant for %s:\n%s", p.Name, strings.Join(opts, "\n"))
+
+	i.ui.Info(msg)
+
+	input := i.ui.PromptInput("Variant [%s]", names[0])
+	if input == "" {
+		input = names[0]
+	}
+	// validate
+	valid := false
+	for _, name := range names {
+		if input == name {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("invalid variant %q for %s (choose from: %s)", input, p.Name, strings.Join(names, ", "))
+	}
+
+	p.Variant = input
+	return nil
+}
+
+// ---- backports ------------------------------------------------------------
+
+func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	if len(p.Backports) == 0 {
+		return nil
+	}
+	spinner.SetDesc("installing backports for " + p.Name)
+	return aptpty.RunInstallBackports(ctx, i.runner, p.Backports, "", spinner)
+}
+
+// ---- main packages --------------------------------------------------------
+
+func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	pkgs := p.Packages
+	if p.Variant != "" {
+		if v, ok := p.Variants[p.Variant]; ok {
+			pkgs = append(pkgs, v)
+		}
+	}
+	if len(pkgs) == 0 {
+		return nil
+	}
+	spinner.SetDesc("installing " + p.Name)
+	return aptpty.RunInstall(ctx, i.runner, pkgs, spinner)
+}
+
+// ---- config files ---------------------------------------------------------
+
+func (i *Installer) writeConfigs(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	if len(p.Configs) == 0 {
+		return nil
+	}
+
+	spinner.SetDesc("writing configs for " + p.Name)
+	for path, content := range p.Configs {
+		dir := filepath.Dir(path)
+		if err := i.fs.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create config dir %s: %w", dir, err)
+		}
+		if err := i.fs.WriteFile(path, []byte(content), 0644); err != nil {
+			return fmt.Errorf("write config %s: %w", path, err)
+		}
+	}
+	return nil
 }

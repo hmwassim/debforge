@@ -1,0 +1,35 @@
+package definition
+
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
+)
+
+func Parse(path string, fs ports.FileSystem) (*pkg.Package, error) {
+	data, err := fs.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read definition %s: %w", path, err)
+	}
+
+	var raw struct {
+		Name string `yaml:"name"`
+		Type string `yaml:"type"`
+	}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if raw.Name == "" {
+		return nil, fmt.Errorf("definition %s: missing name", path)
+	}
+
+	switch raw.Type {
+	case "apt":
+		return parseApt(raw.Name, data)
+	default:
+		return nil, fmt.Errorf("definition %s: unsupported type %q", path, raw.Type)
+	}
+}
