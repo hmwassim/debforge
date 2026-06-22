@@ -39,17 +39,13 @@ func NewInstallService(
 }
 
 func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
-	return s.processAll(ctx, names, force, spinner, "install")
+	return s.processAll(ctx, names, force, spinner, "install", "installed")
 }
 
-func (s *InstallService) Update(ctx context.Context, names []string, spinner ports.Spinner) error {
-	return s.processAll(ctx, names, true, spinner, "update")
-}
-
-func (s *InstallService) processAll(ctx context.Context, names []string, force bool, spinner ports.Spinner, verb string) error {
+func (s *InstallService) processAll(ctx context.Context, names []string, force bool, spinner ports.Spinner, verb, pastTense string) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		for _, name := range names {
-			if err := s.processOne(ctx, name, force, st, spinner, verb); err != nil {
+			if err := s.processOne(ctx, name, force, st, spinner, verb, pastTense); err != nil {
 				return err
 			}
 		}
@@ -67,7 +63,7 @@ func withState(ctx context.Context, locker ports.Locker, lockPath string, state 
 	})
 }
 
-func (s *InstallService) processOne(ctx context.Context, name string, force bool, st *State, spinner ports.Spinner, verb string) error {
+func (s *InstallService) processOne(ctx context.Context, name string, force bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
 	p, err := LookupPackage(s.reg, name)
 	if err != nil {
 		return err
@@ -105,7 +101,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 		if err := s.state.Save(st); err != nil {
 			return fmt.Errorf("save state after %s: %w", dep.Name, err)
 		}
-		spinner.SetDesc(textutil.UcFirst(dep.Name + " " + verb + "ed"))
+		spinner.SetDesc(textutil.UcFirst(dep.Name + " " + pastTense))
 	}
 
 	return nil
