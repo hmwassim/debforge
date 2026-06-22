@@ -405,10 +405,13 @@ mainLoop:
 			break mainLoop
 		}
 
-		if state.phase == phaseDownload && total > 0 {
+		switch {
+		case state.phase == phaseDownload && total > 0:
 			spinner.SetDesc(progressDesc(state, pkg, state.cumulativeDone+cur))
-		} else if state.phase == phaseInstall {
+		case state.phase == phaseInstall:
 			spinner.SetDesc(progressDesc(state, pkg, 0))
+		default:
+			spinner.SetDesc(mode + "ing " + strings.Join(pkgArgs, " "))
 		}
 	}
 
