@@ -70,7 +70,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 	}
 
 	if s.state.IsInstalled(st, name) && !force {
-		spinner.SetDesc(name + " already installed")
+		spinner.SetDesc(textutil.UcFirst(name + " already installed"))
 		return nil
 	}
 

@@ -75,7 +75,7 @@ func (r *Remover) remove(ctx context.Context) error {
 		r.logger.Warn("could not remove %s: %s", r.cfg.LinkPath, err)
 	}
 
-	spinner.SetDesc("debforge has been removed")
+	spinner.SetDesc("Debforge has been removed")
 	return nil
 }
 

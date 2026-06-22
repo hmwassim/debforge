@@ -40,7 +40,9 @@ func (u *Updater) update(ctx context.Context) error {
 	sourceExists := sourceRepoExists(u.fs, u.cfg.SourceDir)
 
 	if !sourceExists {
-		if !confirmMidSpinner(u.logger, spinner, "debforge is not installed", "Install debforge?") {
+		if !confirmMidSpinner(u.logger, spinner, "Debforge is not installed", "Install debforge?") {
+			spinner.SetDesc("Cancelled")
+			spinner.DoneWarn()
 			return nil
 		}
 
@@ -64,10 +66,13 @@ func (u *Updater) update(ctx context.Context) error {
 		}
 		if local == remote {
 			spinner.SetDesc("Already up to date")
+			spinner.DoneWarn()
 			return nil
 		}
 
 		if !confirmMidSpinner(u.logger, spinner, "Update available", "Update debforge?") {
+			spinner.SetDesc("Cancelled")
+			spinner.DoneWarn()
 			return nil
 		}
 
