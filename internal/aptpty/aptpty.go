@@ -59,7 +59,7 @@ func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []strin
 	if len(packages) == 0 {
 		return nil
 	}
-	args := append([]string{"purge", "-y"}, packages...)
+	args := append([]string{"autoremove", "-y", "--purge"}, packages...)
 	return run(ctx, runner, args, spinner)
 }
 
@@ -234,17 +234,11 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 	}
 
 	var mode string
-	var pkgArgs []string   // full args (flags + packages)
-	var pkgNames []string  // just package names for display
+	var pkgArgs []string
 	if len(aptArgs) > 0 {
 		mode = aptArgs[0]
 		if len(aptArgs) > 1 {
 			pkgArgs = aptArgs[1:]
-			for _, a := range aptArgs[1:] {
-				if !strings.HasPrefix(a, "-") {
-					pkgNames = append(pkgNames, a)
-				}
-			}
 		}
 	}
 
@@ -415,8 +409,6 @@ mainLoop:
 			spinner.SetDesc(progressDesc(state, pkg, state.cumulativeDone+cur))
 		} else if state.phase == phaseInstall {
 			spinner.SetDesc(progressDesc(state, pkg, 0))
-		} else if len(pkgNames) > 0 {
-			spinner.SetDesc(mode + "ing " + strings.Join(pkgNames, " "))
 		}
 	}
 
