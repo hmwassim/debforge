@@ -46,9 +46,10 @@ func DefaultConfig() *Config {
 	root := deploy.DefaultRootDir
 	varDir := filepath.Join(root, "var")
 	goPath := filepath.Join(varDir, "gopath")
+	sourceDir := filepath.Join(root, "src")
 	return &Config{
 		RootDir:   root,
-		SourceDir: filepath.Join(root, "src"),
+		SourceDir: sourceDir,
 		BinDir:    filepath.Join(root, "bin"),
 		GoPath:    goPath,
 		GoCache:   filepath.Join(goPath, "buildcache"),
@@ -57,7 +58,7 @@ func DefaultConfig() *Config {
 		Branch:    DefaultBranch,
 		GoBinary:  DefaultGoBinary,
 
-		PkgsDir:   filepath.Join(root, "repo", "packages"),
+		PkgsDir:   filepath.Join(sourceDir, "repo", "packages"),
 		LockPath:  filepath.Join(varDir, "lock"),
 		StatePath: filepath.Join(varDir, "states", "state.json"),
 	}
