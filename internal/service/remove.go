@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -9,6 +10,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/textutil"
 )
+
+var ErrNotInstalled = errors.New("not installed")
 
 type RemoveService struct {
 	reg      *pkg.Registry
@@ -58,8 +61,8 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 	}
 
 	if !s.state.IsInstalled(st, name) {
-		spinner.SetDesc(name + " not installed")
-		return nil
+		spinner.SetDesc(textutil.UcFirst(name + " not installed"))
+		return fmt.Errorf("%w: %s", ErrNotInstalled, name)
 	}
 
 	inst, err := LookupInstaller(s.instReg, p.Type)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -207,7 +208,9 @@ func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error)
 	spinner := ui.Spinner(ctx, "Working")
 	if err := fn(spinner); err != nil {
 		spinner.Fail()
-		ui.Error("%s", err)
+		if !errors.Is(err, service.ErrNotInstalled) {
+			ui.Error("%s", err)
+		}
 		return 1
 	}
 	spinner.Done()
