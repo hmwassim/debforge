@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/adapters/exec"
 	"github.com/hmwassim/debforge/internal/adapters/fs"
@@ -12,6 +13,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/ui"
 	"github.com/hmwassim/debforge/internal/buildmeta"
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	"github.com/hmwassim/debforge/internal/definition"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
 	cfgInst "github.com/hmwassim/debforge/internal/domain/installer/config"
 	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
@@ -44,6 +46,9 @@ func run() int {
 	}
 
 	cfg := self.DefaultConfig()
+	if v := os.Getenv("DEBFORGE_PKGS_DIR"); v != "" {
+		cfg.PkgsDir = v
+	}
 	fsys := fs.NewFileSystem()
 	runner := exec.NewRunner()
 	locker := lock.NewFLock()
@@ -66,7 +71,7 @@ func run() int {
 		return 0
 
 	case "--self-remove":
-		reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner)
+		reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner, ui)
 		if err != nil {
 			ui.Error("bootstrap: %s", err)
 			return 1
@@ -79,7 +84,7 @@ func run() int {
 		return 0
 	}
 
-	reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner)
+	reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner, ui)
 	if err != nil {
 		ui.Error("bootstrap: %s", err)
 		return 1
@@ -92,6 +97,10 @@ func run() int {
 			usage()
 			return 1
 		}
+		if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
+			ui.Error("%s", err)
+			return 1
+		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Run(ctx, names, forceMode, spinner)
@@ -102,9 +111,14 @@ func run() int {
 			usage()
 			return 1
 		}
+		names := args[1:]
+		if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
+			ui.Error("%s", err)
+			return 1
+		}
 		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Run(ctx, args[1:], spinner)
+			return svc.Run(ctx, names, spinner)
 		})
 
 	case "update":
@@ -112,9 +126,14 @@ func run() int {
 			usage()
 			return 1
 		}
+		names := args[1:]
+		if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
+			ui.Error("%s", err)
+			return 1
+		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Update(ctx, args[1:], spinner)
+			return svc.Update(ctx, names, spinner)
 		})
 
 	default:
@@ -143,14 +162,18 @@ func parseFlags(args []string) (yes, force bool, rest []string) {
 // every on-disk path involved (see internal/self.Config), and runner is
 // the one CommandRunner instance shared by every installer that needs to
 // shell out.
-func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner) (*pkg.Registry, *installer.Registry, *service.StateManager, error) {
+func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, ui ports.UI) (*pkg.Registry, *installer.Registry, *service.StateManager, error) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys))
+	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys))
 	instReg.Register(pkg.TypeSource, srcInst.NewInstaller(runner, fsys))
 	instReg.Register(pkg.TypeConfig, cfgInst.NewInstaller(runner, fsys))
+
+	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
+		return nil, nil, nil, fmt.Errorf("load definitions: %w", err)
+	}
 
 	st := store.NewStore[service.State](fsys, cfg.StatePath)
 	stateSvc := service.NewStateManager(st)
@@ -159,6 +182,21 @@ func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunn
 	}
 
 	return reg, instReg, stateSvc, nil
+}
+
+func loadYAMLDefinitions(reg *pkg.Registry, names []string, fsys ports.FileSystem) error {
+	for i, n := range names {
+		if !strings.HasSuffix(n, ".yaml") {
+			continue
+		}
+		p, err := definition.Parse(n, fsys)
+		if err != nil {
+			return fmt.Errorf("load %s: %w", n, err)
+		}
+		reg.Register(p)
+		names[i] = p.Name
+	}
+	return nil
 }
 
 func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error) int {
@@ -186,6 +224,9 @@ func usage() {
 	fmt.Println("    -f, --force         Force operation (reinstall)")
 	fmt.Println()
 	fmt.Println("Commands:")
+	fmt.Println("    install <name>...    Install packages")
+	fmt.Println("    remove <name>...    Remove packages")
+	fmt.Println("    update <name>...    Reinstall packages")
 	fmt.Println("    --self-update       Update debforge")
 	fmt.Println("    --self-remove       Remove debforge")
 	fmt.Println("    --help              Show this help")
