@@ -8,6 +8,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/lockrun"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 type InstallService struct {
@@ -104,7 +105,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 		if err := s.state.Save(st); err != nil {
 			return fmt.Errorf("save state after %s: %w", dep.Name, err)
 		}
-		spinner.SetDesc(dep.Name + " " + verb + "ed")
+		spinner.SetDesc(textutil.UcFirst(dep.Name + " " + verb + "ed"))
 	}
 
 	return nil

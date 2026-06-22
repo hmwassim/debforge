@@ -7,6 +7,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 type RemoveService struct {
@@ -74,6 +75,6 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return fmt.Errorf("save state after %s: %w", name, err)
 	}
 
-	spinner.SetDesc(name + " removed")
+	spinner.SetDesc(textutil.UcFirst(name + " removed"))
 	return nil
 }
