@@ -106,7 +106,7 @@ func (u *Updater) update(ctx context.Context) error {
 	if sourceExists {
 		spinner.SetDesc("Updated to latest version")
 	} else {
-		spinner.SetDesc("debforge installed")
+		spinner.SetDesc("Debforge installed")
 	}
 	return nil
 }
