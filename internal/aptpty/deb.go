@@ -14,3 +14,13 @@ func IsPackageInstalled(ctx context.Context, runner ports.CommandRunner, name st
 	}
 	return strings.TrimSpace(string(out)) == "installed"
 }
+
+func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) []string {
+	var found []string
+	for _, name := range names {
+		if IsPackageInstalled(ctx, runner, name) {
+			found = append(found, name)
+		}
+	}
+	return found
+}

@@ -39,18 +39,29 @@ func NewInstallService(
 }
 
 func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
-	return s.processAll(ctx, names, force, spinner, "install", "installed")
+	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
+		return s.processAll(ctx, names, force, st, spinner, "install", "installed")
+	})
 }
 
-func (s *InstallService) processAll(ctx context.Context, names []string, force bool, spinner ports.Spinner, verb, pastTense string) error {
-	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
-		for _, name := range names {
-			if err := s.processOne(ctx, name, force, st, spinner, verb, pastTense); err != nil {
-				return err
-			}
+func (s *InstallService) processAll(ctx context.Context, names []string, force bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
+	workDone := false
+	for _, name := range names {
+		didWork, err := s.processOne(ctx, name, force, st, spinner, verb, pastTense)
+		if err != nil {
+			spinner.Fail()
+			return err
 		}
-		return nil
-	})
+		if didWork {
+			workDone = true
+		}
+	}
+	if workDone {
+		spinner.Done()
+	} else {
+		spinner.DoneInfo()
+	}
+	return nil
 }
 
 func withState(ctx context.Context, locker ports.Locker, lockPath string, state *StateManager, fn func(*State) error) error {
@@ -63,15 +74,15 @@ func withState(ctx context.Context, locker ports.Locker, lockPath string, state 
 	})
 }
 
-func (s *InstallService) processOne(ctx context.Context, name string, force bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
+func (s *InstallService) processOne(ctx context.Context, name string, force bool, st *State, spinner ports.Spinner, verb, pastTense string) (bool, error) {
 	p, err := LookupPackage(s.reg, name)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if s.state.IsInstalled(st, name) && !force {
 		spinner.SetDesc(textutil.UcFirst(name + " already installed"))
-		return nil
+		return false, nil
 	}
 
 	if force {
@@ -81,7 +92,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 
 	ordered, err := s.resolver.Resolve(p, s.state.InstalledMap(st), force)
 	if err != nil {
-		return fmt.Errorf("resolve deps: %w", err)
+		return false, fmt.Errorf("resolve deps: %w", err)
 	}
 
 	for _, dep := range ordered {
@@ -91,18 +102,18 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 
 		inst, err := LookupInstaller(s.instReg, dep.Type)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if err := inst.Install(ctx, dep, spinner); err != nil {
-			return fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+			return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
 		}
 
 		s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version, Variant: dep.Variant})
 		if err := saveState(s.state, st, dep.Name); err != nil {
-			return err
+			return false, err
 		}
 		spinner.SetDesc(textutil.UcFirst(dep.Name + " " + pastTense))
 	}
 
-	return nil
+	return true, nil
 }

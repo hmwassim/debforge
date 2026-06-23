@@ -158,5 +158,6 @@ func (d *Display) doneWith(mark, code string) {
 func (d *Display) Done()     { d.doneWith("*", green) }
 func (d *Display) Fail()     { d.doneWith("x", red) }
 func (d *Display) DoneWarn() { d.doneWith("!", yellow) }
+func (d *Display) DoneInfo() { d.doneWith("i", blue) }
 
 var _ ports.Spinner = (*Display)(nil)

@@ -189,11 +189,29 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string) {
 }
 
 func after(s, prefix string) string {
-	i := strings.Index(s, prefix)
-	if i < 0 {
-		return ""
+	_, after, _ := strings.Cut(s, prefix)
+	return after
+}
+
+func processSegments(data []byte, state *runState, cur, total *int64, pkg *string, aptErrs *[]string) {
+	for _, seg := range bytes.Split(data, []byte{'\r'}) {
+		if len(seg) == 0 {
+			continue
+		}
+		handleLine(string(seg), state, cur, total, pkg)
+		collectErr(string(seg), aptErrs)
 	}
-	return s[i+len(prefix):]
+}
+
+func collectErr(s string, aptErrs *[]string) {
+	s = stripANSI(s)
+	if len(*aptErrs) >= 5 {
+		return
+	}
+	if strings.HasPrefix(s, "E: ") || strings.HasPrefix(s, "W: ") ||
+		strings.HasPrefix(s, "dpkg: ") {
+		*aptErrs = append(*aptErrs, s)
+	}
 }
 
 // ---- display --------------------------------------------------------------
@@ -311,17 +329,6 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 		aptErrs  []string
 	)
 
-	collectErr := func(s string) {
-		s = stripANSI(s)
-		if len(aptErrs) >= 5 {
-			return
-		}
-		if strings.HasPrefix(s, "E: ") || strings.HasPrefix(s, "W: ") ||
-			strings.HasPrefix(s, "dpkg: ") {
-			aptErrs = append(aptErrs, s)
-		}
-	}
-
 	timer := time.NewTimer(0)
 	if !timer.Stop() {
 		<-timer.C
@@ -342,13 +349,7 @@ mainLoop:
 				if nl < 0 {
 					break
 				}
-				for _, seg := range bytes.Split(sbuf[:nl], []byte{'\r'}) {
-					if len(seg) == 0 {
-						continue
-					}
-					handleLine(string(seg), state, &cur, &total, &pkg)
-					collectErr(string(seg))
-				}
+				processSegments(sbuf[:nl], state, &cur, &total, &pkg, &aptErrs)
 				sbuf = sbuf[nl+1:]
 			}
 
@@ -359,12 +360,10 @@ mainLoop:
 				if lastR := bytes.LastIndexByte(sbuf, '\r'); lastR >= 0 {
 					sbuf = sbuf[lastR+1:]
 				}
-			if len(sbuf) > 0 {
-				seg := stripANSI(string(sbuf))
-				handleLine(seg, state, &cur, &total, &pkg)
-				collectErr(seg)
-				sbuf = sbuf[:0]
-			}
+				if len(sbuf) > 0 {
+					processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs)
+					sbuf = sbuf[:0]
+				}
 			}
 
 		case <-timer.C:
@@ -373,12 +372,7 @@ mainLoop:
 			if err != nil && !errors.Is(err, io.EOF) {
 				break mainLoop
 			}
-			for _, seg := range bytes.Split(sbuf, []byte{'\r'}) {
-				if len(seg) > 0 {
-					handleLine(string(seg), state, &cur, &total, &pkg)
-					collectErr(string(seg))
-				}
-			}
+			processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs)
 			break mainLoop
 		}
 

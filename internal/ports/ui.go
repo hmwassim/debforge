@@ -6,6 +6,7 @@ type Spinner interface {
 	Done()
 	Fail()
 	DoneWarn()
+	DoneInfo()
 	Pause()
 	Resume()
 	SetDesc(string)

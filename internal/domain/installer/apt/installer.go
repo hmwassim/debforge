@@ -91,20 +91,10 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 // ---- conflicts ------------------------------------------------------------
 
 func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if len(p.Conflicts) == 0 {
-		return nil
-	}
-
-	var found []string
-	for _, name := range p.Conflicts {
-		if aptpty.IsPackageInstalled(ctx, i.runner, name) {
-			found = append(found, name)
-		}
-	}
+	found := aptpty.FindInstalledConflicts(ctx, i.runner, p.Conflicts)
 	if len(found) == 0 {
 		return nil
 	}
-
 	return aptpty.RunRemove(ctx, i.runner, found, spinner)
 }
 

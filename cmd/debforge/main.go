@@ -17,9 +17,6 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/definition"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
-	cfgInst "github.com/hmwassim/debforge/internal/domain/installer/config"
-	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
-	srcInst "github.com/hmwassim/debforge/internal/domain/installer/source"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
@@ -107,14 +104,10 @@ func run() int {
 		var conflicts []string
 		for _, name := range names {
 			p, ok := reg.Lookup(name)
-			if !ok || len(p.Conflicts) == 0 {
+			if !ok {
 				continue
 			}
-			for _, c := range p.Conflicts {
-				if aptpty.IsPackageInstalled(ctx, runner, c) {
-					conflicts = append(conflicts, c)
-				}
-			}
+			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, runner, p.Conflicts)...)
 		}
 		if len(conflicts) > 0 {
 			ui.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
@@ -183,9 +176,9 @@ func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunn
 	instReg := installer.NewRegistry()
 
 	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys))
-	instReg.Register(pkg.TypeSource, srcInst.NewInstaller(runner, fsys))
-	instReg.Register(pkg.TypeConfig, cfgInst.NewInstaller(runner, fsys))
+	instReg.Register(pkg.TypeDeb, installer.NewStubInstaller("deb"))
+	instReg.Register(pkg.TypeSource, installer.NewStubInstaller("source"))
+	instReg.Register(pkg.TypeConfig, installer.NewStubInstaller("config"))
 
 	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
 		return nil, nil, nil, fmt.Errorf("load definitions: %w", err)
@@ -230,13 +223,11 @@ func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error)
 	}
 	spinner := ui.Spinner(ctx, "Working")
 	if err := fn(spinner); err != nil {
-		spinner.Fail()
 		if !errors.Is(err, service.ErrNotInstalled) {
 			ui.Error("%s", err)
 		}
 		return 1
 	}
-	spinner.Done()
 	return 0
 }
 

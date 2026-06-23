@@ -10,12 +10,10 @@ func (s *InstallService) Update(ctx context.Context, names []string, spinner por
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		for _, name := range names {
 			if err := checkInstalled(s.state, st, name, spinner); err != nil {
-				return err
-			}
-			if err := s.processOne(ctx, name, true, st, spinner, "update", "updated"); err != nil {
+				spinner.DoneInfo()
 				return err
 			}
 		}
-		return nil
+		return s.processAll(ctx, names, true, st, spinner, "update", "updated")
 	})
 }
