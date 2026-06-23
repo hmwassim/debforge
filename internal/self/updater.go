@@ -45,7 +45,7 @@ func (u *Updater) update(ctx context.Context) error {
 		if !u.logger.Prompt("Install debforge?") {
 			spinner.Resume()
 			spinner.SetDesc("Cancelled")
-			spinner.DoneWarn()
+			spinner.DoneInfo()
 			return nil
 		}
 		spinner.Resume()
@@ -69,7 +69,7 @@ func (u *Updater) update(ctx context.Context) error {
 		}
 		if local == remote {
 			spinner.SetDesc("Already up to date")
-			spinner.DoneWarn()
+			spinner.DoneInfo()
 			return nil
 		}
 
@@ -78,7 +78,7 @@ func (u *Updater) update(ctx context.Context) error {
 		if !u.logger.Prompt("Update debforge?") {
 			spinner.Resume()
 			spinner.SetDesc("Cancelled")
-			spinner.DoneWarn()
+			spinner.DoneInfo()
 			return nil
 		}
 		spinner.Resume()
