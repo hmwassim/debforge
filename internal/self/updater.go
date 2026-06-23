@@ -40,7 +40,8 @@ func (u *Updater) update(ctx context.Context) error {
 	sourceExists := sourceRepoExists(u.fs, u.cfg.SourceDir)
 
 	if !sourceExists {
-		if !confirmMidSpinner(u.logger, spinner, "Debforge is not installed", "Install debforge?") {
+		u.logger.Info("Debforge is not installed")
+		if !u.logger.Prompt("Install debforge?") {
 			spinner.SetDesc("Cancelled")
 			spinner.DoneWarn()
 			return nil
@@ -70,7 +71,8 @@ func (u *Updater) update(ctx context.Context) error {
 			return nil
 		}
 
-		if !confirmMidSpinner(u.logger, spinner, "Update available", "Update debforge?") {
+		u.logger.Info("Update available")
+		if !u.logger.Prompt("Update debforge?") {
 			spinner.SetDesc("Cancelled")
 			spinner.DoneWarn()
 			return nil
@@ -114,22 +116,6 @@ func (u *Updater) update(ctx context.Context) error {
 		spinner.SetDesc("Debforge installed")
 	}
 	return nil
-}
-
-// confirmMidSpinner pauses spinner, surfaces infoMsg, and asks promptMsg,
-// resuming the spinner and returning true if the user agrees to proceed.
-// Update has two points (first install vs. update available) that need to
-// interrupt an in-progress spinner for a yes/no confirmation in exactly
-// this way; this helper exists so that sequence is written once.
-func confirmMidSpinner(logger ports.UI, spinner ports.Spinner, infoMsg, promptMsg string) bool {
-	spinner.Pause()
-	logger.Info(infoMsg)
-	if !logger.Prompt(promptMsg) {
-		logger.Info("Cancelled")
-		return false
-	}
-	spinner.Resume()
-	return true
 }
 
 func sourceRepoExists(fs ports.FileSystem, dir string) bool {

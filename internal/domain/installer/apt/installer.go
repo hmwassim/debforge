@@ -77,7 +77,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return nil
 	}
 
-	spinner.SetDesc("Removing " + p.Name + "...")
+	spinner.SetDesc(textutil.UcFirst("removing " + p.Name + "..."))
 
 	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
 		return err
@@ -97,11 +97,7 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 
 	var found []string
 	for _, name := range p.Conflicts {
-		out, _, err := i.runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", name)
-		if err != nil {
-			continue
-		}
-		if strings.TrimSpace(string(out)) == "installed" {
+		if aptpty.IsPackageInstalled(ctx, i.runner, name) {
 			found = append(found, name)
 		}
 	}

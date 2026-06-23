@@ -1,7 +1,7 @@
 package service
 
 import (
-	"os"
+	"errors"
 	"sync"
 
 	"github.com/hmwassim/debforge/internal/adapters/store"
@@ -32,7 +32,7 @@ func (m *StateManager) Load() (*State, error) {
 	defer m.mu.Unlock()
 	st, err := m.store.Load()
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, store.ErrNotFound) {
 			return &State{Packages: make(map[string]PkgEntry)}, nil
 		}
 		return nil, err

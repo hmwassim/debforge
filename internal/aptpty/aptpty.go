@@ -359,35 +359,12 @@ mainLoop:
 				if lastR := bytes.LastIndexByte(sbuf, '\r'); lastR >= 0 {
 					sbuf = sbuf[lastR+1:]
 				}
-				if len(sbuf) > 0 {
-					seg := stripANSI(string(sbuf))
-					matched := false
-					switch {
-					case strings.Contains(seg, "% ["):
-						if c, t, n, ok := parseProgress(seg); ok {
-							if t != state.prevPkgTotal && state.prevPkgTotal > 0 {
-								state.cumulativeDone += state.prevPkgTotal
-							}
-							state.prevPkgTotal = t
-							cur = c
-							total = t
-							pkg = n
-							matched = true
-						}
-					case strings.Contains(seg, "? [") && strings.Contains(seg, "[Y/n]"):
-						// See the matching comment in handleLine: this is
-						// apt-get's own prompt, forwarded verbatim.
-						fmt.Fprintln(os.Stderr, seg)
-						matched = true
-					case strings.Contains(seg, "Download size:") ||
-						strings.Contains(seg, "Need to get "):
-						handleLine(seg, state, &cur, &total, &pkg)
-						matched = true
-					}
-					if matched {
-						sbuf = sbuf[:0]
-					}
-				}
+			if len(sbuf) > 0 {
+				seg := stripANSI(string(sbuf))
+				handleLine(seg, state, &cur, &total, &pkg)
+				collectErr(seg)
+				sbuf = sbuf[:0]
+			}
 			}
 
 		case <-timer.C:

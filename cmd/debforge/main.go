@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/adapters/exec"
 	"github.com/hmwassim/debforge/internal/adapters/fs"
 	"github.com/hmwassim/debforge/internal/adapters/lock"
@@ -110,11 +111,7 @@ func run() int {
 				continue
 			}
 			for _, c := range p.Conflicts {
-				out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", c)
-				if err != nil {
-					continue
-				}
-				if strings.TrimSpace(string(out)) == "installed" {
+				if aptpty.IsPackageInstalled(ctx, runner, c) {
 					conflicts = append(conflicts, c)
 				}
 			}
