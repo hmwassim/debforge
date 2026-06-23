@@ -31,7 +31,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("no packages or variants defined for apt type")
 	}
 
-	if err := i.checkConflicts(ctx, p); err != nil {
+	if err := i.checkConflicts(ctx, p, spinner); err != nil {
 		return err
 	}
 
@@ -90,7 +90,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 // ---- conflicts ------------------------------------------------------------
 
-func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package) error {
+func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if len(p.Conflicts) == 0 {
 		return nil
 	}
@@ -106,8 +106,19 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package) error {
 			found = append(found, trimmed)
 		}
 	}
-	if len(found) > 0 {
-		return fmt.Errorf("conflicting packages installed: %s", strings.Join(found, ", "))
+	if len(found) == 0 {
+		return nil
+	}
+
+	i.ui.Info("Conflicting package(s) installed: %s", strings.Join(found, ", "))
+
+	if !i.ui.Prompt("Remove conflicts and continue?") {
+		return fmt.Errorf("conflict resolution declined")
+	}
+
+	spinner.SetDesc("Removing conflicts...")
+	if err := aptpty.RunRemove(ctx, i.runner, found, spinner); err != nil {
+		return fmt.Errorf("remove conflicts: %w", err)
 	}
 	return nil
 }
