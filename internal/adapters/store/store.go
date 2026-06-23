@@ -43,5 +43,12 @@ func (s *Store[T]) Save(v *T) error {
 	if err != nil {
 		return err
 	}
-	return s.fs.WriteFile(s.path, data, 0644)
+	// Atomic write: write to a temp file on the same filesystem, then
+	// rename over the target. Rename is atomic on POSIX, so a crash
+	// mid-write leaves the original state intact rather than truncating it.
+	tmpPath := s.path + ".tmp"
+	if err := s.fs.WriteFile(tmpPath, data, 0644); err != nil {
+		return err
+	}
+	return s.fs.Rename(tmpPath, s.path)
 }

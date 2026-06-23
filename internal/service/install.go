@@ -8,7 +8,6 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/lockrun"
 	"github.com/hmwassim/debforge/internal/ports"
-	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 type InstallService struct {
@@ -81,7 +80,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 	}
 
 	if s.state.IsInstalled(st, name) && !force {
-		spinner.SetDesc(textutil.UcFirst(name + " already installed"))
+		spinner.SetDesc(name + " already installed")
 		return false, nil
 	}
 
@@ -112,7 +111,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 		if err := saveState(s.state, st, dep.Name); err != nil {
 			return false, err
 		}
-		spinner.SetDesc(textutil.UcFirst(dep.Name + " " + pastTense))
+		spinner.SetDesc(dep.Name + " " + pastTense)
 	}
 
 	return true, nil

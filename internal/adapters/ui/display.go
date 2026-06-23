@@ -50,7 +50,7 @@ func NewDisplay(ctx context.Context, w io.Writer, content string) *Display {
 
 func (d *Display) SetDesc(content string) {
 	d.mu.Lock()
-	d.content = content
+	d.content = textutil.UcFirst(content)
 	d.mu.Unlock()
 }
 

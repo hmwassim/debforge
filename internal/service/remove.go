@@ -8,7 +8,6 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
-	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 var ErrNotInstalled = errors.New("not installed")
@@ -40,12 +39,12 @@ func NewRemoveService(
 func (s *RemoveService) Run(ctx context.Context, names []string, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		for _, name := range names {
-			if err := checkInstalled(s.state, st, name, spinner); err != nil {
-				spinner.DoneInfo()
-				return err
-			}
 			if err := s.RemoveOne(ctx, name, st, spinner); err != nil {
-				spinner.Fail()
+				if errors.Is(err, ErrNotInstalled) {
+					spinner.DoneInfo()
+				} else {
+					spinner.Fail()
+				}
 				return err
 			}
 		}
@@ -83,6 +82,6 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
-	spinner.SetDesc(textutil.UcFirst(name + " removed"))
+	spinner.SetDesc(name + " removed")
 	return nil
 }

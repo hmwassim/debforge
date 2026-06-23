@@ -10,7 +10,6 @@ import (
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
-	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 type Installer struct {
@@ -77,7 +76,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return nil
 	}
 
-	spinner.SetDesc(textutil.UcFirst("removing " + p.Name + "..."))
+	spinner.SetDesc("removing " + p.Name + "...")
 
 	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
 		return err
@@ -102,13 +101,13 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	for _, repo := range p.Extrepo {
-		spinner.SetDesc(textutil.UcFirst("enabling extrepo " + repo))
+		spinner.SetDesc("enabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
 			return fmt.Errorf("enable extrepo %s: %w", repo, err)
 		}
 	}
 	if len(p.Extrepo) > 0 {
-		spinner.SetDesc(textutil.UcFirst("refreshing package list..."))
+		spinner.SetDesc("refreshing package list...")
 		if _, _, err := i.runner.Run(ctx, "apt-get", "update"); err != nil {
 			return fmt.Errorf("apt-get update: %w", err)
 		}
@@ -118,7 +117,7 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 
 func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) {
 	for _, repo := range p.Extrepo {
-		spinner.SetDesc(textutil.UcFirst("disabling extrepo " + repo))
+		spinner.SetDesc("disabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
 			// best-effort
 		}
@@ -176,7 +175,7 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 	if len(p.Backports) == 0 {
 		return nil
 	}
-	spinner.SetDesc(textutil.UcFirst("installing backports for " + p.Name))
+	spinner.SetDesc("installing backports for " + p.Name)
 	return aptpty.RunInstallBackports(ctx, i.runner, p.Backports, "", spinner)
 }
 
@@ -192,7 +191,7 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 	if len(pkgs) == 0 {
 		return nil
 	}
-	spinner.SetDesc(textutil.UcFirst("installing " + p.Name))
+	spinner.SetDesc("installing " + p.Name)
 	return aptpty.RunInstall(ctx, i.runner, pkgs, spinner)
 }
 
@@ -203,7 +202,7 @@ func (i *Installer) writeConfigs(ctx context.Context, p *pkg.Package, spinner po
 		return nil
 	}
 
-	spinner.SetDesc(textutil.UcFirst("writing configs for " + p.Name))
+	spinner.SetDesc("writing configs for " + p.Name)
 	for path, content := range p.Configs {
 		dir := filepath.Dir(path)
 		if err := i.fs.MkdirAll(dir, 0755); err != nil {
