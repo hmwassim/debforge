@@ -1,0 +1,9 @@
+name: firefox
+type: apt
+install:
+  extrepo:
+    - mozilla
+  packages:
+    - firefox
+  conflicts:
+    - firefox-esr
