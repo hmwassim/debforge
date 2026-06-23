@@ -97,13 +97,12 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 
 	var found []string
 	for _, name := range p.Conflicts {
-		out, _, err := i.runner.Run(ctx, "dpkg-query", "-W", "-f=${Package}\n", name)
+		out, _, err := i.runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", name)
 		if err != nil {
 			continue
 		}
-		trimmed := strings.TrimSpace(string(out))
-		if trimmed != "" {
-			found = append(found, trimmed)
+		if strings.TrimSpace(string(out)) == "installed" {
+			found = append(found, name)
 		}
 	}
 	if len(found) == 0 {

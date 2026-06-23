@@ -110,12 +110,12 @@ func run() int {
 				continue
 			}
 			for _, c := range p.Conflicts {
-				out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${Package}\n", c)
+				out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", c)
 				if err != nil {
 					continue
 				}
-				if trimmed := strings.TrimSpace(string(out)); trimmed != "" {
-					conflicts = append(conflicts, trimmed)
+				if strings.TrimSpace(string(out)) == "installed" {
+					conflicts = append(conflicts, c)
 				}
 			}
 		}
