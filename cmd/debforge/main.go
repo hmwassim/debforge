@@ -102,6 +102,27 @@ func run() int {
 			return 1
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
+
+		var conflicts []string
+		for _, name := range names {
+			p, ok := reg.Lookup(name)
+			if !ok || len(p.Conflicts) == 0 {
+				continue
+			}
+			for _, c := range p.Conflicts {
+				out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${Package}\n", c)
+				if err != nil {
+					continue
+				}
+				if trimmed := strings.TrimSpace(string(out)); trimmed != "" {
+					conflicts = append(conflicts, trimmed)
+				}
+			}
+		}
+		if len(conflicts) > 0 {
+			ui.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
+		}
+
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Run(ctx, names, forceMode, spinner)
 		})

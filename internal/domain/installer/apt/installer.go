@@ -110,17 +110,7 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 		return nil
 	}
 
-	i.ui.Info("Conflicting package(s) installed: %s", strings.Join(found, ", "))
-
-	if !i.ui.Prompt("Remove conflicts and continue?") {
-		return fmt.Errorf("conflict resolution declined")
-	}
-
-	spinner.SetDesc("Removing conflicts...")
-	if err := aptpty.RunRemove(ctx, i.runner, found, spinner); err != nil {
-		return fmt.Errorf("remove conflicts: %w", err)
-	}
-	return nil
+	return aptpty.RunRemove(ctx, i.runner, found, spinner)
 }
 
 // ---- extrepo --------------------------------------------------------------
