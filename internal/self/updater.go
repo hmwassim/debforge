@@ -40,13 +40,15 @@ func (u *Updater) update(ctx context.Context) error {
 	sourceExists := sourceRepoExists(u.fs, u.cfg.SourceDir)
 
 	if !sourceExists {
+		spinner.Pause()
 		u.logger.Info("Debforge is not installed")
 		if !u.logger.Prompt("Install debforge?") {
+			spinner.Resume()
 			spinner.SetDesc("Cancelled")
 			spinner.DoneWarn()
 			return nil
 		}
-
+		spinner.Resume()
 		spinner.SetDesc("Cloning repository")
 		if err := u.cloneRepo(ctx); err != nil {
 			spinner.Fail()
@@ -71,13 +73,15 @@ func (u *Updater) update(ctx context.Context) error {
 			return nil
 		}
 
+		spinner.Pause()
 		u.logger.Info("Update available")
 		if !u.logger.Prompt("Update debforge?") {
+			spinner.Resume()
 			spinner.SetDesc("Cancelled")
 			spinner.DoneWarn()
 			return nil
 		}
-
+		spinner.Resume()
 		spinner.SetDesc("Pulling update")
 		if err := u.gitPull(ctx); err != nil {
 			spinner.Fail()
