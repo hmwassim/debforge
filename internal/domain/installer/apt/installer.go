@@ -117,6 +117,12 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 			return fmt.Errorf("enable extrepo %s: %w", repo, err)
 		}
 	}
+	if len(p.Extrepo) > 0 {
+		spinner.SetDesc(textutil.UcFirst("refreshing package list..."))
+		if _, _, err := i.runner.Run(ctx, "apt-get", "update"); err != nil {
+			return fmt.Errorf("apt-get update: %w", err)
+		}
+	}
 	return nil
 }
 
