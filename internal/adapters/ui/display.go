@@ -10,7 +10,7 @@ import (
 	"github.com/hmwassim/debforge/internal/textutil"
 )
 
-var spinFrames = []string{"|", "/", "-", "\\"}
+var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 func stripTrailingDots(s string) string {
 	for len(s) > 0 && s[len(s)-1] == '.' {
