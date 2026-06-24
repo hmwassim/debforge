@@ -1,8 +1,6 @@
 name: heroic
 type: deb
 package: heroic
-depends:
-  - jq
 version_cmd: curl -fsSL https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest | jq -r .tag_name | sed 's/^v//'
 install:
   url: https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v{version}/Heroic-{version}-linux-amd64.deb
