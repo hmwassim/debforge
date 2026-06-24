@@ -121,6 +121,11 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 			rest := line[i+12:]
 			if of := strings.Index(rest, " of "); of >= 0 {
 				tmp := rest[:of]
+				// tmp may be "6,484 kB/6,815 kB" (remaining/total);
+				// keep only the total part (after last /).
+				if slash := strings.LastIndex(tmp, "/"); slash >= 0 {
+					tmp = strings.TrimSpace(tmp[slash+1:])
+				}
 				if f := strings.Fields(tmp); len(f) >= 2 {
 					state.overallTotal = parseSize(f[0], f[1])
 				}
