@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -58,7 +60,7 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	}
 
 	total := resp.ContentLength
-	filename := filepath.Base(url)
+	filename := FilenameFromURL(url)
 
 	if err := fs.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return err
@@ -106,4 +108,14 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	}
 
 	return nil
+}
+
+// FilenameFromURL extracts the filename (last path segment) from a URL,
+// stripping any query parameters or fragments.
+func FilenameFromURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" {
+		return filepath.Base(rawURL)
+	}
+	return path.Base(u.Path)
 }

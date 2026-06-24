@@ -47,7 +47,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("create temp dir: %w", err)
 	}
 	defer i.fs.RemoveAll(tmpDir)
-	tmpPath := filepath.Join(tmpDir, filepath.Base(url))
+	tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
 
 	spinner.SetDesc("downloading " + p.Name)
 	if err := download.Download(ctx, i.fs, url, tmpPath, spinner, p.SHA256); err != nil {
