@@ -7,8 +7,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-func withRootAndLock(ctx context.Context, action string, locker ports.Locker, lockPath string, fn func(context.Context) error) error {
-	if err := requireRoot(action); err != nil {
+func withRootAndLock(ctx context.Context, action string, sys ports.System, locker ports.Locker, lockPath string, fn func(context.Context) error) error {
+	if err := requireRoot(action, sys); err != nil {
 		return err
 	}
 	return lockrun.WithLock(ctx, locker, lockPath, func() error {

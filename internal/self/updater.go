@@ -17,14 +17,15 @@ type Updater struct {
 	fs     ports.FileSystem
 	logger ports.UI
 	locker ports.Locker
+	sys    ports.System
 }
 
-func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, logger ports.UI, locker ports.Locker) *Updater {
-	return &Updater{cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker}
+func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, logger ports.UI, locker ports.Locker, sys ports.System) *Updater {
+	return &Updater{cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker, sys: sys}
 }
 
 func (u *Updater) Update(ctx context.Context) error {
-	return withRootAndLock(ctx, "self-update", u.locker, u.cfg.LockPath, u.update)
+	return withRootAndLock(ctx, "self-update", u.sys, u.locker, u.cfg.LockPath, u.update)
 }
 
 func (u *Updater) update(ctx context.Context) error {

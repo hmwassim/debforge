@@ -17,6 +17,7 @@ type Remover struct {
 	fs        ports.FileSystem
 	logger    ports.UI
 	locker    ports.Locker
+	sys       ports.System
 	registry  *pkg.Registry
 	instReg   *installer.Registry
 	stateSvc  *service.StateManager
@@ -29,12 +30,13 @@ func NewRemover(
 	fs ports.FileSystem,
 	logger ports.UI,
 	locker ports.Locker,
+	sys ports.System,
 	registry *pkg.Registry,
 	instReg *installer.Registry,
 	stateSvc *service.StateManager,
 ) *Remover {
 	return &Remover{
-		cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker,
+		cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker, sys: sys,
 		registry: registry, instReg: instReg, stateSvc: stateSvc,
 		// removeSvc reuses InstallService's sibling RemoveOne logic (lookup
 		// + remove + state bookkeeping) instead of Remover re-implementing
@@ -45,7 +47,7 @@ func NewRemover(
 }
 
 func (r *Remover) Remove(ctx context.Context) error {
-	return withRootAndLock(ctx, "self-remove", r.locker, r.cfg.LockPath, r.remove)
+	return withRootAndLock(ctx, "self-remove", r.sys, r.locker, r.cfg.LockPath, r.remove)
 }
 
 func (r *Remover) remove(ctx context.Context) error {

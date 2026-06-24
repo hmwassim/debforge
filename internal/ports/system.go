@@ -58,3 +58,7 @@ type FileSystem interface {
 type Locker interface {
 	Acquire(ctx context.Context, path string) (release func(), err error)
 }
+
+type System interface {
+	IsPrivileged() bool
+}

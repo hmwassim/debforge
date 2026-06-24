@@ -12,6 +12,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/fs"
 	"github.com/hmwassim/debforge/internal/adapters/lock"
 	"github.com/hmwassim/debforge/internal/adapters/store"
+	"github.com/hmwassim/debforge/internal/adapters/system"
 	"github.com/hmwassim/debforge/internal/adapters/ui"
 	"github.com/hmwassim/debforge/internal/buildmeta"
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -52,6 +53,7 @@ func run() int {
 	fsys := fs.NewFileSystem()
 	runner := exec.NewRunner()
 	locker := lock.NewFLock()
+	sys := system.NewSystem()
 
 	switch args[0] {
 	case "--version":
@@ -59,7 +61,7 @@ func run() int {
 		return 0
 
 	case "--self-update":
-		updater := self.NewUpdater(cfg, runner, fsys, ui, locker)
+		updater := self.NewUpdater(cfg, runner, fsys, ui, locker, sys)
 		if err := updater.Update(ctx); err != nil {
 			ui.Error("%s", err)
 			return 1
@@ -76,7 +78,7 @@ func run() int {
 			ui.Error("bootstrap: %s", err)
 			return 1
 		}
-		remover := self.NewRemover(cfg, runner, fsys, ui, locker, reg, instReg, stateSvc)
+		remover := self.NewRemover(cfg, runner, fsys, ui, locker, sys, reg, instReg, stateSvc)
 		if err := remover.Remove(ctx); err != nil {
 			ui.Error("%s", err)
 			return 1

@@ -2,11 +2,12 @@ package self
 
 import (
 	"fmt"
-	"os"
+
+	"github.com/hmwassim/debforge/internal/ports"
 )
 
-func requireRoot(action string) error {
-	if os.Geteuid() != 0 {
+func requireRoot(action string, sys ports.System) error {
+	if !sys.IsPrivileged() {
 		return fmt.Errorf("--%s must be run as root", action)
 	}
 	return nil
