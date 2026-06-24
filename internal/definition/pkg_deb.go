@@ -23,6 +23,9 @@ type debDefinition struct {
 	Remove struct {
 		Packages []string `yaml:"packages,omitempty"`
 	} `yaml:"remove,omitempty"`
+
+	PostInstall string `yaml:"post_install,omitempty"`
+	PostRemove  string `yaml:"post_remove,omitempty"`
 }
 
 func parseDeb(name string, data []byte) (*pkg.Package, error) {
@@ -39,6 +42,8 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		VersionCmd: def.VersionCmd,
 		URL:        def.Install.URL,
 		SHA256:     def.Install.SHA256,
-		Remove:     def.Remove.Packages,
+		Remove:      def.Remove.Packages,
+		PostInstall: def.PostInstall,
+		PostRemove:  def.PostRemove,
 	}, nil
 }

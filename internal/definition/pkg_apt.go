@@ -26,6 +26,9 @@ type aptDefinition struct {
 		Packages []string          `yaml:"packages,omitempty"`
 		Configs  map[string]string `yaml:"configs,omitempty"`
 	} `yaml:"remove,omitempty"`
+
+	PostInstall string `yaml:"post_install,omitempty"`
+	PostRemove  string `yaml:"post_remove,omitempty"`
 }
 
 func parseApt(name string, data []byte) (*pkg.Package, error) {
@@ -49,5 +52,7 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 		Conflicts: def.Install.Conflicts,
 		Configs:   def.Install.Configs,
 		RemoveConfigs: def.Remove.Configs,
+		PostInstall:   def.PostInstall,
+		PostRemove:    def.PostRemove,
 	}, nil
 }

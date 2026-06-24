@@ -25,6 +25,9 @@ type sourceDefinition struct {
 	Remove struct {
 		Packages []string `yaml:"packages,omitempty"`
 	} `yaml:"remove,omitempty"`
+
+	PostInstall string `yaml:"post_install,omitempty"`
+	PostRemove  string `yaml:"post_remove,omitempty"`
 }
 
 func parseSource(name string, data []byte) (*pkg.Package, error) {
@@ -44,5 +47,7 @@ func parseSource(name string, data []byte) (*pkg.Package, error) {
 		VersionCmd:   def.Install.VersionCmd,
 		Packages:     def.Install.Packages,
 		Remove:       def.Remove.Packages,
+		PostInstall:  def.PostInstall,
+		PostRemove:   def.PostRemove,
 	}, nil
 }

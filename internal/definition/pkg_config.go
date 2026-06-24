@@ -20,6 +20,9 @@ type configDefinition struct {
 	Remove struct {
 		Configs map[string]string `yaml:"configs,omitempty"`
 	} `yaml:"remove,omitempty"`
+
+	PostInstall string `yaml:"post_install,omitempty"`
+	PostRemove  string `yaml:"post_remove,omitempty"`
 }
 
 func parseConfig(name string, data []byte) (*pkg.Package, error) {
@@ -34,5 +37,7 @@ func parseConfig(name string, data []byte) (*pkg.Package, error) {
 		Depends:       def.Depends,
 		Configs:       def.Install.Configs,
 		RemoveConfigs: def.Remove.Configs,
+		PostInstall:   def.PostInstall,
+		PostRemove:    def.PostRemove,
 	}, nil
 }
