@@ -99,9 +99,13 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		return false, fmt.Errorf("resolve deps: %w", err)
 	}
 
+	didWork := false
 	for _, dep := range ordered {
-		if entry, exists := s.state.Entry(st, dep.Name); exists {
+		entry, exists := s.state.Entry(st, dep.Name)
+		oldVersion := ""
+		if exists {
 			dep.Version = entry.Version
+			oldVersion = entry.Version
 		}
 
 		inst, err := LookupInstaller(s.instReg, dep.Type)
@@ -112,12 +116,17 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
 		}
 
-		s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version, Variant: dep.Variant})
-		if err := saveState(s.state, st, dep.Name); err != nil {
-			return false, err
+		if dep.ForceInstall || !exists || dep.Version != oldVersion {
+			s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version, Variant: dep.Variant})
+			if err := saveState(s.state, st, dep.Name); err != nil {
+				return false, err
+			}
+			spinner.SetDesc(dep.Name + " " + pastTense)
+			didWork = true
+		} else {
+			spinner.SetDesc(dep.Name + " already up to date")
 		}
-		spinner.SetDesc(dep.Name + " " + pastTense)
 	}
 
-	return true, nil
+	return didWork, nil
 }
