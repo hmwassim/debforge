@@ -87,6 +87,14 @@ func run() int {
 		return 0
 	}
 
+	// Reject unknown flags before bootstrapping
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			ui.Error("unknown flag: %s", a)
+			return 1
+		}
+	}
+
 	reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner, ui)
 	if err != nil {
 		ui.Error("bootstrap: %s", err)
