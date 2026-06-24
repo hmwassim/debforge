@@ -146,7 +146,7 @@ func run() int {
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Update(ctx, names, spinner)
+			return svc.Update(ctx, names, forceMode, spinner)
 		})
 
 	default:
