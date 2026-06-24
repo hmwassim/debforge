@@ -17,6 +17,7 @@ type InstallService struct {
 	state    *StateManager
 	locker   ports.Locker
 	lockPath string
+	runner   ports.CommandRunner
 }
 
 func NewInstallService(
@@ -26,6 +27,7 @@ func NewInstallService(
 	state *StateManager,
 	locker ports.Locker,
 	lockPath string,
+	runner ports.CommandRunner,
 ) *InstallService {
 	return &InstallService{
 		reg:      reg,
@@ -34,6 +36,7 @@ func NewInstallService(
 		state:    state,
 		locker:   locker,
 		lockPath: lockPath,
+		runner:   runner,
 	}
 }
 
@@ -80,8 +83,10 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	if s.state.IsInstalled(st, name) && !rerun {
-		spinner.SetDesc(name + " already installed")
-		return false, nil
+		if (p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt) || systemPackageInstalled(ctx, s.runner, p.Package) {
+			spinner.SetDesc(name + " already installed")
+			return false, nil
+		}
 	}
 
 	if force {

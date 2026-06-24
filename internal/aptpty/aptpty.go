@@ -64,6 +64,14 @@ func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []strin
 	return run(ctx, runner, args, spinner)
 }
 
+func RunUpdate(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
+	return run(ctx, runner, []string{"update"}, spinner)
+}
+
+func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
+	return run(ctx, runner, []string{"upgrade", "-y"}, spinner)
+}
+
 // ---- pre-run: --print-uris ------------------------------------------------
 
 // getDownloadSize shells out via the injected ports.CommandRunner (rather

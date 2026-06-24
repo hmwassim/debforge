@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -18,6 +19,7 @@ type RemoveService struct {
 	state    *StateManager
 	locker   ports.Locker
 	lockPath string
+	runner   ports.CommandRunner
 }
 
 func NewRemoveService(
@@ -26,6 +28,7 @@ func NewRemoveService(
 	state *StateManager,
 	locker ports.Locker,
 	lockPath string,
+	runner ports.CommandRunner,
 ) *RemoveService {
 	return &RemoveService{
 		reg:      reg,
@@ -33,6 +36,7 @@ func NewRemoveService(
 		state:    state,
 		locker:   locker,
 		lockPath: lockPath,
+		runner:   runner,
 	}
 }
 
@@ -65,7 +69,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
-	if err := checkInstalled(s.state, st, name, spinner); err != nil {
+	if err := checkInstalled(ctx, s.state, st, name, s.runner, p.Package, p.Type, spinner); err != nil {
 		return err
 	}
 
@@ -78,10 +82,38 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 	}
 
 	s.state.Remove(st, name)
-	if err := saveState(s.state, st, name); err != nil {
+	s.removeOrphaned(ctx, st, spinner)
+	if err := saveState(s.state, st, p.Name); err != nil {
 		return err
 	}
 
 	spinner.SetDesc(name + " removed")
 	return nil
+}
+
+func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) {
+	out, _, err := s.runner.Run(ctx, "dpkg-query", "-W", "-f", "${Package}\n")
+	if err != nil {
+		return
+	}
+	installed := make(map[string]bool, 8000)
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		installed[line] = true
+	}
+	for name := range st.Packages {
+		p, err := LookupPackage(s.reg, name)
+		if err != nil {
+			continue
+		}
+		if p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt {
+			continue
+		}
+		pkgName := p.Package
+		if pkgName == "" {
+			pkgName = name
+		}
+		if !installed[pkgName] {
+			s.state.Remove(st, name)
+		}
+	}
 }

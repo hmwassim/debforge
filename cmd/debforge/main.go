@@ -35,7 +35,7 @@ func main() {
 func run() int {
 	ctx := context.Background()
 
-	yesMode, forceMode, args := parseFlags(os.Args[1:])
+	yesMode, forceMode, allMode, args := parseFlags(os.Args[1:])
 
 	ui := ui.NewConsoleUI()
 	if yesMode {
@@ -111,7 +111,7 @@ func run() int {
 		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner)
 
 		var conflicts []string
 		for _, name := range names {
@@ -138,23 +138,31 @@ func run() int {
 		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
-		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath)
+		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath, runner)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Run(ctx, names, spinner)
 		})
 
 	case "update":
-		if len(args) < 2 {
+		names := args[1:]
+		if len(names) == 0 && !allMode {
 			usage()
 			return 1
 		}
-		names := args[1:]
 		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath)
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Update(ctx, names, forceMode, spinner)
+			if allMode {
+				if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
+					return err
+				}
+				if err := aptpty.RunUpgrade(ctx, runner, spinner); err != nil {
+					return err
+				}
+			}
+			return svc.Update(ctx, names, forceMode, allMode, spinner)
 		})
 
 	default:
@@ -163,13 +171,15 @@ func run() int {
 	return 0
 }
 
-func parseFlags(args []string) (yes, force bool, rest []string) {
+func parseFlags(args []string) (yes, force, all bool, rest []string) {
 	for _, a := range args {
 		switch a {
 		case "-y", "--yes":
 			yes = true
 		case "-f", "--force":
 			force = true
+		case "-a", "--all":
+			all = true
 		default:
 			rest = append(rest, a)
 		}
