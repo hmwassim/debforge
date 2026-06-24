@@ -17,6 +17,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/definition"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
+	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
@@ -176,7 +177,7 @@ func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunn
 	instReg := installer.NewRegistry()
 
 	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeDeb, installer.NewStubInstaller("deb"))
+	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeSource, installer.NewStubInstaller("source"))
 	instReg.Register(pkg.TypeConfig, installer.NewStubInstaller("config"))
 
