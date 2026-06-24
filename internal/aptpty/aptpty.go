@@ -381,7 +381,7 @@ mainLoop:
 			break mainLoop
 		}
 
-		if state.phase == phaseDownload && total > 0 {
+		if state.phase == phaseDownload && total > 0 && state.cumulativeDone+cur > 0 {
 			spinner.SetDesc(progressDesc(state, pkg, state.cumulativeDone+cur))
 		} else if state.phase == phaseInstall {
 			spinner.SetDesc(progressDesc(state, pkg, 0))
