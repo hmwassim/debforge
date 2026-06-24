@@ -61,6 +61,9 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 	if workDone {
 		spinner.Done()
 	} else {
+		if verb == "update" {
+			spinner.SetDesc("All packages up to date")
+		}
 		spinner.DoneInfo()
 	}
 	return nil
