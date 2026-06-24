@@ -73,7 +73,10 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return fmt.Errorf("deb installer called for type %s", p.Type)
 	}
 
-	pkgs := p.Remove
+	pkgs := p.Packages
+	if len(p.Remove) > 0 {
+		pkgs = p.Remove
+	}
 	if len(pkgs) == 0 && p.Package != "" {
 		pkgs = []string{p.Package}
 	}
@@ -81,7 +84,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return nil
 	}
 
-	spinner.SetDesc("removing " + p.Name)
+	spinner.SetDesc("removing " + p.Name + "...")
 	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
 		return err
 	}
