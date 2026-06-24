@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
@@ -31,6 +32,10 @@ func (f *FileSystem) MkdirAll(path string, perm int) error {
 
 func (f *FileSystem) MkdirTemp(pattern string) (string, error) {
 	return os.MkdirTemp("", pattern)
+}
+
+func (f *FileSystem) Create(path string) (io.WriteCloser, error) {
+	return os.Create(path)
 }
 
 func (f *FileSystem) Stat(path string) (ports.FileInfo, error) {

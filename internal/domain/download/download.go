@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -43,7 +42,7 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func Download(ctx context.Context, url, destPath string, spinner ports.Spinner, sha256Hex string) error {
+func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, spinner ports.Spinner, sha256Hex string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -61,11 +60,11 @@ func Download(ctx context.Context, url, destPath string, spinner ports.Spinner, 
 	total := resp.ContentLength
 	filename := filepath.Base(url)
 
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := fs.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return err
 	}
 
-	f, err := os.Create(destPath)
+	f, err := fs.Create(destPath)
 	if err != nil {
 		return err
 	}
@@ -85,7 +84,7 @@ func Download(ctx context.Context, url, destPath string, spinner ports.Spinner, 
 
 	if _, err := io.Copy(f, src); err != nil {
 		f.Close()
-		os.Remove(destPath)
+		fs.RemoveAll(destPath)
 		return err
 	}
 	if total > 0 && spinner != nil {
@@ -94,14 +93,14 @@ func Download(ctx context.Context, url, destPath string, spinner ports.Spinner, 
 		spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", filename, cur, tot))
 	}
 	if err := f.Close(); err != nil {
-		os.Remove(destPath)
+		fs.RemoveAll(destPath)
 		return err
 	}
 
 	if sha256Hex != "" {
 		got := hex.EncodeToString(hash.Sum(nil))
 		if got != sha256Hex {
-			os.Remove(destPath)
+			fs.RemoveAll(destPath)
 			return fmt.Errorf("sha256 mismatch: expected %s, got %s", sha256Hex, got)
 		}
 	}

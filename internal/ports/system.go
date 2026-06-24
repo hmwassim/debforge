@@ -42,6 +42,7 @@ type FileInfo interface {
 type FileSystem interface {
 	ReadFile(path string) ([]byte, error)
 	WriteFile(path string, data []byte, perm int) error
+	Create(path string) (io.WriteCloser, error)
 	RemoveAll(path string) error
 	MkdirAll(path string, perm int) error
 	MkdirTemp(pattern string) (string, error)
