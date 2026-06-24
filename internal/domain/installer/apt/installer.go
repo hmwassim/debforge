@@ -142,7 +142,7 @@ func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner p
 
 	var opts []string
 	for _, name := range names {
-		opts = append(opts, fmt.Sprintf("  %s → %s", name, p.Variants[name]))
+		opts = append(opts, fmt.Sprintf("  %s -> %s", name, p.Variants[name]))
 	}
 
 	msg := fmt.Sprintf("Select variant for %s:\n%s", p.Name, strings.Join(opts, "\n"))
