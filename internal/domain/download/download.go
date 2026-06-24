@@ -9,27 +9,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 func ExpandURL(url, version string) string {
 	return strings.ReplaceAll(url, "{version}", version)
-}
-
-func humanSize(v int64) string {
-	switch {
-	case v >= 1000000000:
-		return strconv.FormatFloat(float64(v)/1000000000, 'f', 1, 64) + "G"
-	case v >= 1000000:
-		return strconv.FormatFloat(float64(v)/1000000, 'f', 1, 64) + "M"
-	case v >= 1000:
-		return strconv.FormatInt(v/1000, 10) + "k"
-	default:
-		return strconv.FormatInt(v, 10)
-	}
 }
 
 type progressReader struct {
@@ -48,8 +35,8 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 		pct := int(pr.done * 100 / pr.total)
 		if pct > pr.lastPct {
 			pr.lastPct = pct
-			cur := humanSize(pr.done)
-			total := humanSize(pr.total)
+			cur := textutil.FormatSize(pr.done)
+			total := textutil.FormatSize(pr.total)
 			pr.spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", pr.filename, cur, total))
 		}
 	}
@@ -102,8 +89,8 @@ func Download(ctx context.Context, url, destPath string, spinner ports.Spinner, 
 		return err
 	}
 	if total > 0 && spinner != nil {
-		cur := humanSize(total)
-		tot := humanSize(total)
+		cur := textutil.FormatSize(total)
+		tot := textutil.FormatSize(total)
 		spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", filename, cur, tot))
 	}
 	if err := f.Close(); err != nil {

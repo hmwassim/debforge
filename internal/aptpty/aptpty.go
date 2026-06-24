@@ -17,6 +17,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 	"golang.org/x/term"
 )
 
@@ -96,7 +97,7 @@ func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode strin
 	}
 
 	if total > 0 {
-		return total, humanSize(total)
+		return total, textutil.FormatSize(total)
 	}
 	return 0, ""
 }
@@ -140,8 +141,8 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 			state.cumulativeDone += state.prevPkgTotal
 		}
 		if state.overallTotal > 0 && spinner != nil {
-			final := humanSize(state.cumulativeDone)
-			tot := humanSize(state.overallTotal)
+			final := textutil.FormatSize(state.cumulativeDone)
+			tot := textutil.FormatSize(state.overallTotal)
 			spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", *pkg, final, tot))
 		}
 		*cur = 0
@@ -225,11 +226,11 @@ func collectErr(s string, aptErrs *[]string) {
 
 func progressDesc(state *runState, pkg string, cur int64) string {
 	if state.phase == phaseDownload {
-		curS := humanSize(cur)
+		curS := textutil.FormatSize(cur)
 		if state.overallLabel != "" {
 			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, state.overallLabel)
 		} else if state.overallTotal > 0 {
-			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, humanSize(state.overallTotal))
+			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, textutil.FormatSize(state.overallTotal))
 		} else {
 			return fmt.Sprintf("Downloading %s... [%s/1]", pkg, curS)
 		}
