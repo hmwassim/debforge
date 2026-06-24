@@ -8,6 +8,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/download"
+	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -59,9 +60,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	}
 
 	if p.PostInstall != "" {
-		spinner.SetDesc("running post-install for " + p.Name)
-		if _, _, err := i.runner.Run(ctx, "sh", "-c", p.PostInstall); err != nil {
-			return fmt.Errorf("post-install %s: %w", p.Name, err)
+		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostInstall, "running post-install for"); err != nil {
+			return err
 		}
 	}
 
@@ -87,9 +87,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	}
 
 	if p.PostRemove != "" {
-		spinner.SetDesc("running post-remove for " + p.Name)
-		if _, _, err := i.runner.Run(ctx, "sh", "-c", p.PostRemove); err != nil {
-			return fmt.Errorf("post-remove %s: %w", p.Name, err)
+		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostRemove, "running post-remove for"); err != nil {
+			return err
 		}
 	}
 
