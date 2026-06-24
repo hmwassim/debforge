@@ -3,7 +3,7 @@ package deb
 import (
 	"context"
 	"fmt"
-	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
@@ -42,13 +42,12 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 	url := download.ExpandURL(p.URL, p.Version)
 
-	tmpFile, err := os.CreateTemp("", "debforge-*.deb")
+	tmpDir, err := i.fs.MkdirTemp("debforge-*")
 	if err != nil {
-		return fmt.Errorf("create temp file: %w", err)
+		return fmt.Errorf("create temp dir: %w", err)
 	}
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+	defer i.fs.RemoveAll(tmpDir)
+	tmpPath := filepath.Join(tmpDir, filepath.Base(url))
 
 	spinner.SetDesc("downloading " + p.Name)
 	if err := download.Download(ctx, url, tmpPath, spinner, p.SHA256); err != nil {

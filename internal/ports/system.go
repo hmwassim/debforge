@@ -44,6 +44,7 @@ type FileSystem interface {
 	WriteFile(path string, data []byte, perm int) error
 	RemoveAll(path string) error
 	MkdirAll(path string, perm int) error
+	MkdirTemp(pattern string) (string, error)
 	Stat(path string) (FileInfo, error)
 	Glob(pattern string) ([]string, error)
 	Walk(root string, fn func(path string, info FileInfo, err error) error) error

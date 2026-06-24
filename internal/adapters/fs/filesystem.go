@@ -29,6 +29,10 @@ func (f *FileSystem) MkdirAll(path string, perm int) error {
 	return os.MkdirAll(path, os.FileMode(perm))
 }
 
+func (f *FileSystem) MkdirTemp(pattern string) (string, error) {
+	return os.MkdirTemp("", pattern)
+}
+
 func (f *FileSystem) Stat(path string) (ports.FileInfo, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
