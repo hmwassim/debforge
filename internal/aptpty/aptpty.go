@@ -158,27 +158,26 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 		return
 	}
 
-	if state.phase == phaseInstall {
-		var p string
-		switch {
-		case strings.Contains(line, "Setting up "):
-			p = after(line, "Setting up ")
-		case strings.Contains(line, "Unpacking "):
-			p = after(line, "Unpacking ")
+	var p string
+	switch {
+	case strings.Contains(line, "Setting up "):
+		p = after(line, "Setting up ")
+	case strings.Contains(line, "Unpacking "):
+		p = after(line, "Unpacking ")
+	}
+	if p != "" {
+		state.phase = phaseInstall
+		slash := strings.Index(p, "/")
+		space := strings.Index(p, " ")
+		if slash >= 0 && (space < 0 || slash < space) {
+			p = p[slash+1:]
 		}
-		if p != "" {
-			slash := strings.Index(p, "/")
-			space := strings.Index(p, " ")
-			if slash >= 0 && (space < 0 || slash < space) {
-				p = p[slash+1:]
-			}
-			end := strings.IndexAny(p, " (")
-			if end < 0 {
-				end = len(p)
-			}
-			state.installPkg = p[:end]
-			return
+		end := strings.IndexAny(p, " (")
+		if end < 0 {
+			end = len(p)
 		}
+		state.installPkg = p[:end]
+		return
 	}
 
 	if strings.Contains(line, "? [") && strings.Contains(line, "[Y/n]") {
