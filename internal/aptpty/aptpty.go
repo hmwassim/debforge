@@ -131,15 +131,13 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 	}
 
 	if strings.HasPrefix(line, "Fetched ") && strings.Contains(line, " in ") {
-		if *total > 0 {
-			if state.prevPkgTotal > 0 {
-				state.cumulativeDone += state.prevPkgTotal
-			}
-			if state.overallTotal > 0 && spinner != nil {
-				final := humanSize(state.cumulativeDone)
-				tot := humanSize(state.overallTotal)
-				spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", *pkg, final, tot))
-			}
+		if state.prevPkgTotal > 0 {
+			state.cumulativeDone += state.prevPkgTotal
+		}
+		if state.overallTotal > 0 && spinner != nil {
+			final := humanSize(state.cumulativeDone)
+			tot := humanSize(state.overallTotal)
+			spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", *pkg, final, tot))
 		}
 		*cur = 0
 		*total = 0

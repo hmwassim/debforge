@@ -55,7 +55,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("download %s: %w", p.Name, err)
 	}
 
-	spinner.SetDesc("installing " + p.Name)
 	if err := aptpty.RunInstall(ctx, i.runner, []string{tmpPath}, spinner); err != nil {
 		return err
 	}
