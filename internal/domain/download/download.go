@@ -1,4 +1,4 @@
-package deb
+package download
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-func expandURL(url, version string) string {
+func ExpandURL(url, version string) string {
 	return strings.ReplaceAll(url, "{version}", version)
 }
 
@@ -56,7 +56,7 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func Download(ctx context.Context, url, sha256Hex, destPath string, spinner ports.Spinner) error {
+func Download(ctx context.Context, url, destPath string, spinner ports.Spinner, sha256Hex string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func Download(ctx context.Context, url, sha256Hex, destPath string, spinner port
 	body := io.TeeReader(resp.Body, hash)
 
 	src := io.Reader(body)
-	if total > 0 {
+	if total > 0 && spinner != nil {
 		src = &progressReader{
 			reader:   body,
 			total:    total,
@@ -100,6 +100,11 @@ func Download(ctx context.Context, url, sha256Hex, destPath string, spinner port
 		f.Close()
 		os.Remove(destPath)
 		return err
+	}
+	if total > 0 && spinner != nil {
+		cur := humanSize(total)
+		tot := humanSize(total)
+		spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", filename, cur, tot))
 	}
 	if err := f.Close(); err != nil {
 		os.Remove(destPath)

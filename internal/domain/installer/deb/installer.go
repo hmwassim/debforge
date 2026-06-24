@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
+	"github.com/hmwassim/debforge/internal/domain/download"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -39,7 +40,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	url := expandURL(p.URL, p.Version)
+	url := download.ExpandURL(p.URL, p.Version)
 
 	tmpFile, err := os.CreateTemp("", "debforge-*.deb")
 	if err != nil {
@@ -50,11 +51,11 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	defer os.Remove(tmpPath)
 
 	spinner.SetDesc("downloading " + p.Name)
-	if err := Download(ctx, url, p.SHA256, tmpPath, spinner); err != nil {
+	if err := download.Download(ctx, url, tmpPath, spinner, p.SHA256); err != nil {
 		return fmt.Errorf("download %s: %w", p.Name, err)
 	}
 
-	spinner.SetDesc("installing " + p.Name)
+	spinner.SetDesc("resolving dependencies for " + p.Name)
 	if err := aptpty.RunInstall(ctx, i.runner, []string{tmpPath}, spinner); err != nil {
 		return err
 	}

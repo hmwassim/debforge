@@ -103,7 +103,7 @@ func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode strin
 
 // ---- line processing ------------------------------------------------------
 
-func handleLine(line string, state *runState, cur, total *int64, pkg *string) {
+func handleLine(line string, state *runState, cur, total *int64, pkg *string, spinner ports.Spinner) {
 	line = stripANSI(line)
 
 	if strings.Contains(line, "Download size:") {
@@ -134,6 +134,11 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string) {
 		if *total > 0 {
 			if state.prevPkgTotal > 0 {
 				state.cumulativeDone += state.prevPkgTotal
+			}
+			if state.overallTotal > 0 && spinner != nil {
+				final := humanSize(state.cumulativeDone)
+				tot := humanSize(state.overallTotal)
+				spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", *pkg, final, tot))
 			}
 		}
 		*cur = 0
@@ -193,12 +198,12 @@ func after(s, prefix string) string {
 	return after
 }
 
-func processSegments(data []byte, state *runState, cur, total *int64, pkg *string, aptErrs *[]string) {
+func processSegments(data []byte, state *runState, cur, total *int64, pkg *string, aptErrs *[]string, spinner ports.Spinner) {
 	for _, seg := range bytes.Split(data, []byte{'\r'}) {
 		if len(seg) == 0 {
 			continue
 		}
-		handleLine(string(seg), state, cur, total, pkg)
+		handleLine(string(seg), state, cur, total, pkg, spinner)
 		collectErr(string(seg), aptErrs)
 	}
 }
@@ -349,7 +354,7 @@ mainLoop:
 				if nl < 0 {
 					break
 				}
-				processSegments(sbuf[:nl], state, &cur, &total, &pkg, &aptErrs)
+				processSegments(sbuf[:nl], state, &cur, &total, &pkg, &aptErrs, spinner)
 				sbuf = sbuf[nl+1:]
 			}
 
@@ -361,7 +366,7 @@ mainLoop:
 					sbuf = sbuf[lastR+1:]
 				}
 				if len(sbuf) > 0 {
-					processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs)
+					processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs, spinner)
 					sbuf = sbuf[:0]
 				}
 			}
@@ -372,7 +377,7 @@ mainLoop:
 			if err != nil && !errors.Is(err, io.EOF) {
 				break mainLoop
 			}
-			processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs)
+			processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs, spinner)
 			break mainLoop
 		}
 
