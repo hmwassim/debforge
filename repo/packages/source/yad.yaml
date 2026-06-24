@@ -2,7 +2,7 @@ name: yad
 type: source
 install:
   version_cmd: "curl -sL https://api.github.com/repos/v1cont/yad/releases/latest | sed -n 's/.*\"tag_name\": *\"v\\([^\"]*\\)\".*/\\1/p'"
-  url: "https://github.com/v1cont/yad/archive/v{version}.tar.gz"
+  url: "https://github.com/v1cont/yad/releases/download/v{version}/yad-{version}.tar.xz"
   packages:
     - curl
     - build-essential
