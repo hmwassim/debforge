@@ -52,9 +52,10 @@ type Package struct {
 	PostInstall string
 	PostRemove  string
 
-	// metadata
-	ForceInstall bool
-	Version      string
+	// runtime flags (not persisted)
+	ForceInstall  bool
+	SkipRepoSetup bool // skip extrepo setup (used during update)
+	Version       string
 }
 
 func (p *Package) Clone() *Package {

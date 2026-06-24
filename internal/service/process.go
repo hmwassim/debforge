@@ -63,6 +63,11 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			oldVersion = entry.Version
 		}
 
+		if verb == "update" {
+			dep = dep.Clone()
+			dep.SkipRepoSetup = true
+		}
+
 		inst, err := LookupInstaller(s.instReg, dep.Type)
 		if err != nil {
 			return false, err

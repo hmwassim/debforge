@@ -35,8 +35,10 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
-	if err := i.enableExtrepos(ctx, p, spinner); err != nil {
-		return err
+	if !p.SkipRepoSetup {
+		if err := i.enableExtrepos(ctx, p, spinner); err != nil {
+			return err
+		}
 	}
 
 	if err := i.selectVariant(ctx, p, spinner); err != nil {

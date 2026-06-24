@@ -154,10 +154,10 @@ func run() int {
 		}
 		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
+			if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
+				return err
+			}
 			if allMode {
-				if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
-					return err
-				}
 				if err := aptpty.RunUpgrade(ctx, runner, spinner); err != nil {
 					return err
 				}
