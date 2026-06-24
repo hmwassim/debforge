@@ -38,6 +38,10 @@ type Package struct {
 	SourceSubdir string
 	SkipClone    bool
 	Checks       []string
+	BuildScript  string
+	InstallScript string
+	PostinstallScript string
+	RemoveScript string
 
 	// config
 	Configs      map[string]string

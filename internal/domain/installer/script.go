@@ -16,3 +16,12 @@ func RunScript(ctx context.Context, runner ports.CommandRunner, spinner ports.Sp
 	}
 	return nil
 }
+
+// RunScriptInDir is like RunScript but runs the script in the given directory.
+func RunScriptInDir(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner, name, script, verb, dir string) error {
+	spinner.SetDesc(verb + " " + name)
+	if _, _, err := runner.RunWithOptions(ctx, ports.RunOptions{Dir: dir}, "sh", "-c", script); err != nil {
+		return fmt.Errorf("%s %s: %w", verb, name, err)
+	}
+	return nil
+}
