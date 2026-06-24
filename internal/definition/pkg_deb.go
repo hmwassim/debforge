@@ -9,21 +9,19 @@ import (
 )
 
 type debDefinition struct {
-	Name    string   `yaml:"name"`
-	Type    string   `yaml:"type"`
-	Depends []string `yaml:"depends,omitempty"`
+	Name       string   `yaml:"name"`
+	Type       string   `yaml:"type"`
+	Package    string   `yaml:"package"`
+	Depends    []string `yaml:"depends,omitempty"`
+	VersionCmd string   `yaml:"version_cmd,omitempty"`
 
 	Install struct {
-		URL           string `yaml:"url,omitempty"`
-		Package       string `yaml:"package,omitempty"`
-		VersionPrefix string `yaml:"version_prefix,omitempty"`
-		AssetMatch    string `yaml:"asset_match,omitempty"`
-		AssetArch     string `yaml:"asset_arch,omitempty"`
-		SHA256        string `yaml:"sha256,omitempty"`
+		URL    string `yaml:"url,omitempty"`
+		SHA256 string `yaml:"sha256,omitempty"`
 	} `yaml:"install"`
 
 	Remove struct {
-		Package string `yaml:"package,omitempty"`
+		Packages []string `yaml:"packages,omitempty"`
 	} `yaml:"remove,omitempty"`
 }
 
@@ -34,14 +32,13 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 	}
 
 	return &pkg.Package{
-		Name:          name,
-		Type:          pkg.TypeDeb,
-		Depends:       def.Depends,
-		URL:           def.Install.URL,
-		Package:       def.Install.Package,
-		VersionPrefix: def.Install.VersionPrefix,
-		AssetMatch:    def.Install.AssetMatch,
-		AssetArch:     def.Install.AssetArch,
-		SHA256:        def.Install.SHA256,
+		Name:       name,
+		Type:       pkg.TypeDeb,
+		Depends:    def.Depends,
+		Package:    def.Package,
+		VersionCmd: def.VersionCmd,
+		URL:        def.Install.URL,
+		SHA256:     def.Install.SHA256,
+		Remove:     def.Remove.Packages,
 	}, nil
 }

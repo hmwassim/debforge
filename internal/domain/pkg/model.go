@@ -27,19 +27,17 @@ type Package struct {
 	Variant   string
 
 	// deb
-	URL           string
-	Package       string
-	VersionPrefix string
-	AssetMatch    string
-	AssetArch     string
-	SHA256        string
+	URL     string
+	Package string
+	SHA256  string
+
+	VersionCmd string
 
 	// source
 	Repo         string
 	SourceSubdir string
 	SkipClone    bool
 	Checks       []string
-	VersionCmd   string
 
 	// config
 	Configs      map[string]string
