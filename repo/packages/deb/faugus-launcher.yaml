@@ -1,0 +1,6 @@
+name: faugus-launcher
+type: deb
+package: faugus-launcher
+version_cmd: curl -fsSL https://api.github.com/repos/Faugus/faugus-launcher/releases/latest | jq -r .tag_name
+install:
+  url: https://github.com/Faugus/faugus-launcher/releases/download/{version}/faugus-launcher_{version}-1_all.deb
