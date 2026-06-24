@@ -36,7 +36,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		if err != nil {
 			return err
 		}
-		if !updated {
+		if !updated && !p.ForceInstall {
 			return nil
 		}
 	}

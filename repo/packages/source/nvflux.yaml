@@ -1,0 +1,16 @@
+name: nvflux
+type: source
+install:
+  repo: https://github.com/hmwassim/NvFlux.git
+  packages:
+    - gcc
+    - make
+  build: |
+    make
+  install: |
+    make install
+remove:
+  script: |
+    rm -f /usr/local/bin/nvflux
+    rm -rf /var/lib/nvflux
+    rm -f /etc/xdg/autostart/nvflux-restore.desktop

@@ -28,12 +28,12 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("source installer called for type %s", p.Type)
 	}
 
-	if p.VersionCmd != "" {
+	if p.VersionCmd != "" || p.Repo != "" {
 		updated, err := i.checkVersion(ctx, p, spinner)
 		if err != nil {
 			return err
 		}
-		if !updated {
+		if !updated && !p.ForceInstall {
 			return nil
 		}
 	}
@@ -151,11 +151,25 @@ func (i *Installer) interpolate(script, version string) string {
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
-	out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
-	if err != nil {
-		return false, fmt.Errorf("version check %s: %w", p.Name, err)
+	var latest string
+
+	if p.VersionCmd != "" {
+		out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
+		if err != nil {
+			return false, fmt.Errorf("version check %s: %w", p.Name, err)
+		}
+		latest = strings.TrimSpace(string(out))
+	} else if p.Repo != "" {
+		spinner.SetDesc("checking version for " + p.Name)
+		out, _, err := i.runner.Run(ctx, "git", "ls-remote", p.Repo, "HEAD")
+		if err != nil {
+			return false, fmt.Errorf("version check %s: %w", p.Name, err)
+		}
+		if parts := strings.Fields(string(out)); len(parts) > 0 {
+			latest = parts[0]
+		}
 	}
-	latest := strings.TrimSpace(string(out))
+
 	if latest == "" {
 		return false, fmt.Errorf("version check %s: empty output", p.Name)
 	}
