@@ -65,7 +65,9 @@ func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []strin
 }
 
 func RunUpdate(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
-	return run(ctx, runner, []string{"update"}, spinner)
+	spinner.SetDesc("Refreshing repositories...")
+	_, _, err := runner.Run(ctx, "apt-get", "update")
+	return err
 }
 
 func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
