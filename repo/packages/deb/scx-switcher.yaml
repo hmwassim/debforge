@@ -1,0 +1,9 @@
+name: scx-switcher
+type: deb
+package: scx-switcher
+depends:
+  - scx-scheds
+  - scx-tools
+version_cmd: curl -fsSL https://api.github.com/repos/hmwassim/scx-switcher/releases/latest | jq -r .tag_name | sed 's/^v//'
+install:
+  url: https://github.com/hmwassim/scx-switcher/releases/download/v{version}/scx-switcher_{version}_amd64.deb

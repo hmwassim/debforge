@@ -39,14 +39,14 @@ func NewInstallService(
 
 func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
-		return s.processAll(ctx, names, force, st, spinner, "install", "installed")
+		return s.processAll(ctx, names, force, force, st, spinner, "install", "installed")
 	})
 }
 
-func (s *InstallService) processAll(ctx context.Context, names []string, force bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
+func (s *InstallService) processAll(ctx context.Context, names []string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
 	workDone := false
 	for _, name := range names {
-		didWork, err := s.processOne(ctx, name, force, st, spinner, verb, pastTense)
+		didWork, err := s.processOne(ctx, name, force, rerun, st, spinner, verb, pastTense)
 		if err != nil {
 			spinner.Fail()
 			return err
@@ -73,13 +73,13 @@ func withState(ctx context.Context, locker ports.Locker, lockPath string, state 
 	})
 }
 
-func (s *InstallService) processOne(ctx context.Context, name string, force bool, st *State, spinner ports.Spinner, verb, pastTense string) (bool, error) {
+func (s *InstallService) processOne(ctx context.Context, name string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) (bool, error) {
 	p, err := LookupPackage(s.reg, name)
 	if err != nil {
 		return false, err
 	}
 
-	if s.state.IsInstalled(st, name) && !force {
+	if s.state.IsInstalled(st, name) && !rerun {
 		spinner.SetDesc(name + " already installed")
 		return false, nil
 	}
@@ -89,7 +89,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force bool
 		p.ForceInstall = true
 	}
 
-	ordered, err := s.resolver.Resolve(p, s.state.InstalledMap(st), force)
+	ordered, err := s.resolver.Resolve(p, s.state.InstalledMap(st), rerun)
 	if err != nil {
 		return false, fmt.Errorf("resolve deps: %w", err)
 	}

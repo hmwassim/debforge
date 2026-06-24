@@ -14,6 +14,6 @@ func (s *InstallService) Update(ctx context.Context, names []string, force bool,
 				return err
 			}
 		}
-		return s.processAll(ctx, names, force, st, spinner, "update", "updated")
+		return s.processAll(ctx, names, force, true, st, spinner, "update", "updated")
 	})
 }
