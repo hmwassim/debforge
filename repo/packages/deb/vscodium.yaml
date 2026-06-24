@@ -1,0 +1,6 @@
+name: vscodium
+type: deb
+package: codium
+version_cmd: curl -fsSL https://api.github.com/repos/VSCodium/vscodium/releases/latest | jq -r .tag_name
+install:
+  url: https://github.com/VSCodium/vscodium/releases/download/{version}/codium_{version}_amd64.deb
