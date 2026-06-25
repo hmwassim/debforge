@@ -3,9 +3,11 @@ package version
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
@@ -36,7 +38,12 @@ func RepoFromURL(rawURL string) (string, bool) {
 // given prefix (defaults to "v" when prefix is empty). Only tags starting
 // with a digit (after stripping the prefix) are considered. Tags are sorted
 // by numeric version components (1.9 < 1.10).
-func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix string) (string, error) {
+//
+// When verifyURL is non-empty, each candidate tag is verified by issuing a
+// HEAD request to the URL template (with {version} substituted). Tags whose
+// URL returns 404 are skipped, so only tags with actual release assets are
+// accepted. This avoids relying on the GitHub API for release existence.
+func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix, verifyURL string) (string, error) {
 	out, _, err := runner.Run(ctx, "git", "ls-remote", "--tags", repoURL)
 	if err != nil {
 		return "", fmt.Errorf("ls-remote %s: %w", repoURL, err)
@@ -79,7 +86,31 @@ func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix 
 		return versionLess(strings.TrimPrefix(tags[i], prefix), strings.TrimPrefix(tags[j], prefix))
 	})
 
-	return strings.TrimPrefix(tags[len(tags)-1], prefix), nil
+	if verifyURL == "" {
+		return strings.TrimPrefix(tags[len(tags)-1], prefix), nil
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	for i := len(tags) - 1; i >= 0; i-- {
+		v := strings.TrimPrefix(tags[i], prefix)
+		u := strings.ReplaceAll(verifyURL, "{version}", v)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
+		if err != nil {
+			continue
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusNotFound {
+			return v, nil
+		}
+	}
+
+	return "", fmt.Errorf("no version tag with a valid download URL found in %s", repoURL)
 }
 
 func versionLess(a, b string) bool {
