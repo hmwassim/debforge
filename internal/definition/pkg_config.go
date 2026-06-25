@@ -38,9 +38,14 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 		return nil, fmt.Errorf("config definition %s: %w", name, err)
 	}
 
-	removeConfigs, err := resolveConfigFiles(def.Remove.Configs, fs, configsDir)
-	if err != nil {
-		return nil, fmt.Errorf("config definition %s: %w", name, err)
+	// Remove configs are destination-path-only; values are cosmetic.
+	removeConfigs := def.Remove.Configs
+	if removeConfigs != nil {
+		rm := make(map[string]string, len(removeConfigs))
+		for k := range removeConfigs {
+			rm[k] = ""
+		}
+		removeConfigs = rm
 	}
 
 	return &pkg.Package{
@@ -60,12 +65,17 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 //	<root>/packages/config/<name>.yaml
 //	<root>/configs/<name>/
 func configsDirFromYAMLPath(yamlPath, pkgName string) string {
-	return filepath.Join(filepath.Dir(filepath.Dir(yamlPath)), "configs", pkgName)
+	// yamlPath = .../packages/config/<name>.yaml
+	// want:    .../configs/<name>/
+	packagesDir := filepath.Dir(filepath.Dir(yamlPath)) // .../packages/
+	repoDir := filepath.Dir(packagesDir)                // .../
+	return filepath.Join(repoDir, "configs", pkgName)
 }
 
 // resolveConfigFiles reads config source files from configsDir and replaces
-// filenames with their contents. If the source file doesn't exist, the
-// value is kept as-is (allowing inline content alongside file references).
+// filenames with their contents. Values that contain newlines are treated as
+// inline content and kept as-is. Plain filenames are resolved relative to
+// configsDir and error if the file cannot be read.
 func resolveConfigFiles(raw map[string]string, fs ports.FileSystem, configsDir string) (map[string]string, error) {
 	if raw == nil {
 		return nil, nil
@@ -76,13 +86,25 @@ func resolveConfigFiles(raw map[string]string, fs ports.FileSystem, configsDir s
 			resolved[dest] = src
 			continue
 		}
+		if containsNewline(src) {
+			resolved[dest] = src
+			continue
+		}
 		srcPath := filepath.Join(configsDir, src)
 		data, err := fs.ReadFile(srcPath)
 		if err != nil {
-			resolved[dest] = src
-			continue
+			return nil, fmt.Errorf("read config source %s for %s: %w", srcPath, dest, err)
 		}
 		resolved[dest] = string(data)
 	}
 	return resolved, nil
+}
+
+func containsNewline(s string) bool {
+	for i := range s {
+		if s[i] == '\n' {
+			return true
+		}
+	}
+	return false
 }
