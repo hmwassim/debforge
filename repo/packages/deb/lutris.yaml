@@ -1,0 +1,7 @@
+name: lutris
+type: deb
+package: lutris
+install:
+  url: https://github.com/lutris/lutris/releases/download/v{version}/lutris_{version}_all.deb
+  packages:
+    - lutris

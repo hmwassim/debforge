@@ -42,6 +42,13 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
+	if len(p.Packages) > 0 {
+		spinner.SetDesc("installing prerequisites for " + p.Name)
+		if err := aptpty.RunInstall(ctx, i.runner, p.Packages, spinner); err != nil {
+			return fmt.Errorf("install prerequisites %s: %w", p.Name, err)
+		}
+	}
+
 	url := download.ExpandURL(p.URL, p.Version)
 
 	tmpDir, err := i.fs.MkdirTemp("debforge-*")

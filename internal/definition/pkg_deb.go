@@ -17,8 +17,9 @@ type debDefinition struct {
 	VersionCmd string   `yaml:"version_cmd,omitempty"`
 
 	Install struct {
-		URL    string `yaml:"url,omitempty"`
-		SHA256 string `yaml:"sha256,omitempty"`
+		URL      string   `yaml:"url,omitempty"`
+		SHA256   string   `yaml:"sha256,omitempty"`
+		Packages []string `yaml:"packages,omitempty"`
 	} `yaml:"install"`
 
 	Remove struct {
@@ -44,6 +45,7 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		VersionCmd: def.VersionCmd,
 		URL:        def.Install.URL,
 		SHA256:     def.Install.SHA256,
+		Packages:   def.Install.Packages,
 		Remove:      def.Remove.Packages,
 		PostInstall: def.PostInstall,
 		PostRemove:  def.PostRemove,
