@@ -18,7 +18,7 @@ type UI interface {
 	Warn(format string, args ...any)
 	Error(format string, args ...any)
 	Prompt(format string, args ...any) bool
-	PromptInput(format string, args ...any) string
+	PromptInput(defaultVal, format string, args ...any) string
 	Spinner(ctx context.Context, desc string) Spinner
 	SetYes(yes bool)
 }

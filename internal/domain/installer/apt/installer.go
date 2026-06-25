@@ -164,7 +164,7 @@ func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner p
 
 	i.ui.Info(msg)
 
-	input := i.ui.PromptInput("Variant [%s]", names[0])
+	input := i.ui.PromptInput(names[0], "Variant [%s]", names[0])
 	if input == "" {
 		input = names[0]
 	}

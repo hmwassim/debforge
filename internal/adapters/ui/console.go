@@ -38,7 +38,10 @@ func (u *ConsoleUI) Success(format string, args ...any) { u.logger.Success(forma
 func (u *ConsoleUI) Warn(format string, args ...any)    { u.logger.Warn(format, args...) }
 func (u *ConsoleUI) Error(format string, args ...any)   { u.logger.Error(format, args...) }
 
-func (u *ConsoleUI) PromptInput(format string, args ...any) string {
+func (u *ConsoleUI) PromptInput(defaultVal, format string, args ...any) string {
+	if u.yes {
+		return defaultVal
+	}
 	var result string
 	u.withSpinnerPaused(func() {
 		msg := fmt.Sprintf(format, args...)
