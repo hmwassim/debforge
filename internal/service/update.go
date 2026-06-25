@@ -15,13 +15,14 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		if all {
 			names = allManagedPackageNames(s.reg, st)
-		} else {
-			for _, name := range names {
-				p, err := LookupPackage(s.reg, name)
-				if err != nil {
-					return err
-				}
-				cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
+		}
+
+		for _, name := range names {
+			p, err := LookupPackage(s.reg, name)
+			if err != nil {
+				return err
+			}
+			cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
 			if err != nil {
 				if cleanedUp {
 					if saveErr := saveState(s.state, st, name); saveErr != nil {
@@ -31,8 +32,8 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 				spinner.DoneInfo()
 				return err
 			}
-			}
 		}
+
 		return s.processAll(ctx, names, force, true, st, spinner, "update", "updated")
 	})
 }

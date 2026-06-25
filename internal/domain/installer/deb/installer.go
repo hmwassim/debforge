@@ -10,6 +10,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/installer/version"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -37,7 +38,12 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 			return err
 		}
 		if !updated && !p.ForceInstall {
-			return nil
+			// Only short-circuit when the package is actually on the
+			// system.  A manual dpkg -r between two install commands
+			// would otherwise be silently ignored.
+			if dpkg.IsInstalled(ctx, i.runner, p.PrimarySystemPackage()) {
+				return nil
+			}
 		}
 	}
 

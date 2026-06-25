@@ -12,6 +12,9 @@ package deb
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -107,5 +110,68 @@ func TestCheckVersion_runnerErrorPropagates(t *testing.T) {
 
 	if _, err := inst.checkVersion(context.Background(), p, &testutil.MockSpinner{}); err == nil {
 		t.Error("expected an error to propagate from a failing version command")
+	}
+}
+
+func TestInstall_shortCircuitsWhenInstalledAndVersionUnchanged(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return []byte("installed\n"), nil, nil
+			}
+			return []byte("abc\trefs/tags/v1.0.0\n"), nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+	p := &pkg.Package{
+		Name:    "test-deb",
+		Type:    pkg.TypeDeb,
+		URL:     srv.URL + "/{version}.deb",
+		Version: "1.0.0",
+		Repo:    "https://github.com/o/p.git",
+		Deb:     &pkg.DebConfig{Package: "test-deb"},
+	}
+
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err != nil {
+		t.Fatalf("expected nil (short-circuit) when installed and version is current, got: %v", err)
+	}
+}
+
+func TestInstall_proceedsWhenNotInstalledEvenIfVersionUnchanged(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return nil, nil, errors.New("package not installed")
+			}
+			return []byte("abc\trefs/tags/v1.0.0\n"), nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+	p := &pkg.Package{
+		Name:    "test-deb",
+		Type:    pkg.TypeDeb,
+		URL:     srv.URL + "/{version}.deb",
+		Version: "1.0.0",
+		Repo:    "https://github.com/o/p.git",
+		Deb:     &pkg.DebConfig{Package: "test-deb"},
+	}
+
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil {
+		t.Fatal("expected an error from the install phase (not a nil short-circuit)")
+	}
+	if strings.Contains(err.Error(), "up to date") {
+		t.Error("install short-circuited due to version match when package is not on the system")
 	}
 }

@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/adapters/fs"
@@ -11,6 +13,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 type mockSpinner struct{ desc string }
@@ -635,6 +638,75 @@ func TestCheckInstalled_notInstalled(t *testing.T) {
 	}
 	if len(loaded.Packages) != 0 {
 		t.Error("expected persisted state to remain empty")
+	}
+}
+
+func TestUpdate_allCleansUpStaleEntry(t *testing.T) {
+	svc, statePath, cleanup := setupPersistenceTest(t)
+	defer cleanup()
+
+	svc.locker = &testutil.MockLocker{}
+	svc.lockPath = filepath.Join(t.TempDir(), "lock")
+
+	st := &State{Packages: map[string]PkgEntry{
+		"test-pkg": {Type: "apt"},
+	}}
+	if err := svc.state.Save(st); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	err := svc.Update(ctx, nil, false, true, spinner)
+	if err == nil {
+		t.Fatal("expected ErrNotInstalled from Update for stale entry")
+	}
+	if !errors.Is(err, ErrNotInstalled) {
+		t.Errorf("expected ErrNotInstalled, got: %v", err)
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["test-pkg"]; ok {
+		t.Error("expected test-pkg removed from persisted state")
+	}
+}
+
+func TestUpdate_allWithNoStaleEntries(t *testing.T) {
+	svc, statePath, cleanup := setupPersistenceTest(t)
+	defer cleanup()
+
+	svc.locker = &testutil.MockLocker{}
+	svc.lockPath = filepath.Join(t.TempDir(), "lock")
+
+	st := &State{Packages: map[string]PkgEntry{
+		"test-pkg": {Type: "apt"},
+	}}
+	if err := svc.state.Save(st); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	svc.runner = &successRunner{}
+
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	err := svc.Update(ctx, nil, false, true, spinner)
+	if err != nil {
+		t.Fatalf("expected no error for installed package, got: %v", err)
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg still in persisted state")
 	}
 }
 
