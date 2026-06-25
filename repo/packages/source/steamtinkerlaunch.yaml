@@ -5,7 +5,17 @@ depends:
 install:
   url: https://github.com/sonic2kk/steamtinkerlaunch/archive/refs/tags/v{version}.tar.gz
   packages:
-    - gawk bash procps unzip wget xdotool x11-utils x11-xserver-utils xxd jq xdg-utils
+    - gawk
+    - bash
+    - procps
+    - unzip
+    - wget
+    - xdotool
+    - x11-utils
+    - x11-xserver-utils
+    - xxd
+    - jq
+    - xdg-utils
   install: |
     install -Dm755 steamtinkerlaunch -t /usr/bin
     install -d /usr/share/steamtinkerlaunch
