@@ -97,13 +97,9 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		}
 	}
 
-	pkgs := p.Packages
 	if len(p.Remove) > 0 {
-		pkgs = p.Remove
-	}
-	if len(pkgs) > 0 {
 		spinner.SetDesc("removing " + p.Name + "...")
-		if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
+		if err := aptpty.RunRemove(ctx, i.runner, p.Remove, spinner); err != nil {
 			return err
 		}
 	}
