@@ -55,14 +55,6 @@ func (m *StateManager) Entry(st *State, name string) (PkgEntry, bool) {
 	return e, ok
 }
 
-func (m *StateManager) InstalledMap(st *State) map[string]bool {
-	installed := make(map[string]bool, len(st.Packages))
-	for n := range st.Packages {
-		installed[n] = true
-	}
-	return installed
-}
-
 func (m *StateManager) ListPackages(st *State) []string {
 	names := make([]string, 0, len(st.Packages))
 	for n := range st.Packages {

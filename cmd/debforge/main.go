@@ -150,6 +150,10 @@ func run() int {
 			usage()
 			return 1
 		}
+		if allMode && len(names) > 0 {
+			u.Warn("--all updates every managed package; ignoring explicit name(s): %s", strings.Join(names, ", "))
+			names = nil
+		}
 		if !loadDefs(reg, names, fsys, u) {
 			return 1
 		}

@@ -48,6 +48,8 @@ type FileSystem interface {
 	MkdirTemp(pattern string) (string, error)
 	Stat(path string) (FileInfo, error)
 	Glob(pattern string) ([]string, error)
+	// Walk mirrors filepath.Walk's contract: info is nil exactly when err
+	// is non-nil. Implementations and callers must preserve/respect that.
 	Walk(root string, fn func(path string, info FileInfo, err error) error) error
 	Rename(oldPath, newPath string) error
 	Symlink(target, link string) error

@@ -62,6 +62,9 @@ func (f *FileSystem) Symlink(target, link string) error {
 
 func (f *FileSystem) Walk(root string, fn func(path string, info ports.FileInfo, err error) error) error {
 	return filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return fn(path, nil, err)
+		}
 		return fn(path, &osFileInfo{fi: fi}, err)
 	})
 }
