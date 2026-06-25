@@ -18,6 +18,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/definition"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
+	configInst "github.com/hmwassim/debforge/internal/domain/installer/config"
 	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
 	sourceInst "github.com/hmwassim/debforge/internal/domain/installer/source"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -200,7 +201,7 @@ func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunn
 	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeConfig, installer.NewStubInstaller("config"))
+	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui))
 
 	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
 		return nil, nil, nil, fmt.Errorf("load definitions: %w", err)
