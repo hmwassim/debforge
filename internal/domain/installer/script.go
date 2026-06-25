@@ -186,6 +186,11 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 	switch p.Type {
 	case pkg.TypeApt:
 		names := p.Packages
+		if p.Apt != nil && p.Apt.Variant != "" {
+			if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
+				names = append(names, v)
+			}
+		}
 		if len(names) == 0 {
 			names = []string{p.PrimarySystemPackage()}
 		}

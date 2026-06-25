@@ -72,6 +72,11 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
+	if entry, ok := st.Packages[name]; ok && p.Apt != nil && entry.Variant != "" {
+		p = p.Clone()
+		p.Apt.Variant = entry.Variant
+	}
+
 	cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
 	if err != nil {
 		if cleanedUp {

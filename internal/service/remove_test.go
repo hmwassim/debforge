@@ -21,6 +21,13 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 		Type: pkg.TypeApt,
 		Apt:  &pkg.AptConfig{},
 	})
+	reg.Register(&pkg.Package{
+		Name: "variant-pkg",
+		Type: pkg.TypeApt,
+		Apt: &pkg.AptConfig{
+			Variants: map[string]string{"stable": "real-system-pkg"},
+		},
+	})
 
 	recorder := &variantRecorder{}
 	instReg := installer.NewRegistry()
@@ -109,5 +116,37 @@ func TestRemoveOne_staleEntryPersistsCleanup(t *testing.T) {
 	}
 	if _, ok := loaded.Packages["test-pkg"]; ok {
 		t.Error("expected test-pkg removed from persisted state after stale cleanup")
+	}
+}
+
+func TestRemoveOne_variantOnlyPackage(t *testing.T) {
+	svc, statePath, cleanup := setupRemoveTest(t, &successRunner{})
+	defer cleanup()
+
+	st := &State{Packages: map[string]PkgEntry{
+		"variant-pkg": {Type: "apt", Variant: "stable"},
+	}}
+	if err := svc.state.Save(st); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	if err := svc.RemoveOne(ctx, "variant-pkg", st, spinner); err != nil {
+		t.Fatalf("RemoveOne: %v", err)
+	}
+
+	if _, ok := st.Packages["variant-pkg"]; ok {
+		t.Error("expected variant-pkg removed from in-memory state")
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["variant-pkg"]; ok {
+		t.Error("expected variant-pkg removed from persisted state on disk")
 	}
 }
