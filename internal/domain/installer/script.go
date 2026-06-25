@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -74,6 +75,16 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 		return fmt.Errorf("get home directory: %w", err)
 	}
 
+	var ownerUID, ownerGID int
+	ownerChown := false
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
+		if u, err := user.Lookup(sudoUser); err == nil {
+			ownerUID, _ = strconv.Atoi(u.Uid)
+			ownerGID, _ = strconv.Atoi(u.Gid)
+			ownerChown = true
+		}
+	}
+
 	spinner.SetDesc("writing user configs for " + p.Name)
 	for path, content := range p.UserConfigs {
 		path = expandHome(path, homeDir)
@@ -92,8 +103,14 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 		if err := fs.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create user config dir %s: %w", dir, err)
 		}
+		if ownerChown {
+			os.Chown(dir, ownerUID, ownerGID)
+		}
 		if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
 			return fmt.Errorf("write user config %s: %w", path, err)
+		}
+		if ownerChown {
+			os.Chown(path, ownerUID, ownerGID)
 		}
 	}
 	return nil
