@@ -2,7 +2,6 @@ name: system-settings
 type: config
 install:
   configs:
-    /etc/sysctl.d/99-desktop.conf.template: sysctl-99-desktop.conf
     /etc/systemd/system.conf.d/00-timeout.conf: systemd-00-timeout.conf
     /etc/systemd/system.conf.d/10-limits.conf: systemd-10-limits.conf
     /etc/systemd/user.conf.d/10-limits.conf: user-10-limits.conf
@@ -22,6 +21,37 @@ post_install: |
   DIRTY_MAX=$(( MEM_TOTAL_MB * 20 / 100 ))
   (( DIRTY_MAX > 4096 )) && DIRTY_MAX=4096
   mkdir -p /etc/sysctl.d
+  cat > /etc/sysctl.d/99-desktop.conf.template << 'TEMPLATE_EOF'
+# Virtual Memory (VM) Tuning for zRAM
+vm.swappiness = 100
+vm.vfs_cache_pressure = 50
+vm.dirty_background_bytes = {{DIRTY_BG_BYTES}}
+vm.dirty_bytes = {{DIRTY_MAX_BYTES}}
+vm.page-cluster = 0
+vm.dirty_writeback_centisecs = 1500
+
+# Kernel & Responsiveness Tweaks
+kernel.sched_autogroup_enabled = 1
+kernel.nmi_watchdog = 0
+kernel.printk = 3 3 3 3
+kernel.kptr_restrict = 2
+kernel.kexec_load_disabled = 1
+kernel.split_lock_mitigate = 0
+
+# Network Backlog & TCP Tweaks
+net.core.netdev_max_backlog = 16384
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.tcp_fastopen = 3
+
+# File Handles
+fs.file-max = 2097152
+
+# File watchers (fixes tools that monitor many files)
+fs.inotify.max_user_watches=1048576
+
+# Helps with out-of-the-box compatibility with games (Wine/Proton)
+vm.max_map_count=2147483642
+TEMPLATE_EOF
   sed -e "s/{{DIRTY_BG_BYTES}}/$(( DIRTY_BG * 1024 * 1024 ))/g" \
       -e "s/{{DIRTY_MAX_BYTES}}/$(( DIRTY_MAX * 1024 * 1024 ))/g" \
       /etc/sysctl.d/99-desktop.conf.template > /etc/sysctl.d/99-desktop.conf
