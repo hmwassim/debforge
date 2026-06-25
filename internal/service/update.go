@@ -37,11 +37,17 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 	})
 }
 
+// allManagedPackageNames returns every package name tracked in state that
+// still has a registered definition. apt packages are included: the apt
+// installer's own isUpToDate check (apt-cache policy) short-circuits when
+// nothing changed, the same way deb/source already do, so there is no
+// wasted work in sweeping them here. This also keeps each apt package's
+// recorded Version in state.json from going stale after `update --all`'s
+// system-wide apt-get upgrade bumps installed versions out from under it.
 func allManagedPackageNames(reg *pkg.Registry, st *State) []string {
 	var names []string
 	for name := range st.Packages {
-		p, ok := reg.Lookup(name)
-		if !ok || p.Type == pkg.TypeApt {
+		if _, ok := reg.Lookup(name); !ok {
 			continue
 		}
 		names = append(names, name)
