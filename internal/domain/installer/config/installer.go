@@ -81,6 +81,13 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return err
 	}
 
+	for path := range p.Configs {
+		spinner.SetDesc("removing config " + path)
+		if err := i.fs.RemoveAll(path); err != nil {
+			return fmt.Errorf("remove config %s: %w", path, err)
+		}
+	}
+
 	for path := range p.RemoveConfigs {
 		spinner.SetDesc("removing config " + path)
 		absPath := path
