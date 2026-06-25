@@ -99,6 +99,11 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 		return err
 	}
 
+	if fi, err := fs.Stat(destPath); err == nil && fi.Size() == 0 {
+		fs.RemoveAll(destPath)
+		return fmt.Errorf("downloaded file is empty: %s", url)
+	}
+
 	if sha256Hex != "" {
 		got := hex.EncodeToString(hash.Sum(nil))
 		if got != sha256Hex {
