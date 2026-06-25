@@ -38,7 +38,11 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	if s.state.IsInstalled(st, name) && !rerun {
-		if (p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt) || systemPackageInstalled(ctx, s.runner, p.Package) {
+		pkgName := p.Package
+		if pkgName == "" && p.Type == pkg.TypeApt && len(p.Packages) > 0 {
+			pkgName = p.Packages[0]
+		}
+		if (p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt) || systemPackageInstalled(ctx, s.runner, pkgName) {
 			spinner.SetDesc(name + " already installed")
 			return false, nil
 		}

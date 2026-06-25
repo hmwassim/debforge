@@ -40,7 +40,7 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 		return nil, fmt.Errorf("apt definition %s: no packages or variants defined", name)
 	}
 
-	return &pkg.Package{
+	pkg := &pkg.Package{
 		Name:      name,
 		Type:      pkg.TypeApt,
 		Depends:   def.Depends,
@@ -54,5 +54,9 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 		RemoveConfigs: def.Remove.Configs,
 		PostInstall:   def.PostInstall,
 		PostRemove:    def.PostRemove,
-	}, nil
+	}
+	if len(def.Install.Packages) > 0 {
+		pkg.Primary = def.Install.Packages[0]
+	}
+	return pkg, nil
 }

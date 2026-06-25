@@ -61,16 +61,17 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	installScript := i.interpolate(p.InstallScript, p.Version)
 	postinstallScript := i.interpolate(p.PostinstallScript, p.Version)
 
+	if installScript == "" {
+		installScript = buildScript
+	}
+
 	if buildScript != "" {
 		if err := installer.RunScriptInDir(ctx, i.runner, spinner, p.Name, buildScript, "building", srcDir); err != nil {
 			return err
 		}
 	}
 
-	if installScript == "" {
-		installScript = buildScript
-	}
-	if installScript != "" {
+	if installScript != "" && installScript != buildScript {
 		if err := installer.RunScriptInDir(ctx, i.runner, spinner, p.Name, installScript, "installing", srcDir); err != nil {
 			return err
 		}

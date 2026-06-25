@@ -104,11 +104,23 @@ func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner p
 		if p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt {
 			continue
 		}
-		pkgName := p.Package
-		if pkgName == "" {
-			pkgName = name
+		var allInstalled bool
+		if len(p.Packages) > 0 {
+			allInstalled = true
+			for _, pn := range p.Packages {
+				if !installed[pn] {
+					allInstalled = false
+					break
+				}
+			}
+		} else {
+			pkgName := p.Package
+			if pkgName == "" {
+				pkgName = name
+			}
+			allInstalled = installed[pkgName]
 		}
-		if !installed[pkgName] {
+		if !allInstalled {
 			s.state.Remove(st, name)
 		}
 	}
