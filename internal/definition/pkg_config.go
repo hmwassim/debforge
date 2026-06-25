@@ -16,7 +16,8 @@ type configDefinition struct {
 	Depends []string `yaml:"depends,omitempty"`
 
 	Install struct {
-		Configs map[string]string `yaml:"configs,omitempty"`
+		Configs     map[string]string `yaml:"configs,omitempty"`
+		UserConfigs map[string]string `yaml:"user_configs,omitempty"`
 	} `yaml:"install"`
 
 	Remove struct {
@@ -38,6 +39,11 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 		return nil, fmt.Errorf("config definition %s: %w", name, err)
 	}
 
+	userConfigs, err := resolveConfigFiles(def.Install.UserConfigs, fs, configsDir)
+	if err != nil {
+		return nil, fmt.Errorf("config definition %s: %w", name, err)
+	}
+
 	// Remove configs are destination-path-only; values are cosmetic.
 	removeConfigs := def.Remove.Configs
 	if removeConfigs != nil {
@@ -54,6 +60,7 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 		Depends:       def.Depends,
 		Configs:       configs,
 		RemoveConfigs: removeConfigs,
+		UserConfigs:   userConfigs,
 		PostInstall:   def.PostInstall,
 		PostRemove:    def.PostRemove,
 	}, nil

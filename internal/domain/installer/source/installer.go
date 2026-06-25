@@ -24,7 +24,7 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) 
 	return &Installer{runner: runner, fs: fs, ui: ui}
 }
 
-func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (err error) {
 	if p.Type != pkg.TypeSource {
 		return fmt.Errorf("source installer called for type %s", p.Type)
 	}
@@ -43,7 +43,11 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	if err != nil {
 		return err
 	}
-	defer i.fs.RemoveAll(tmpDir)
+	defer func() {
+		if rmerr := i.fs.RemoveAll(tmpDir); rmerr != nil && err == nil {
+			err = fmt.Errorf("clean up temp dir for %s: %w", p.Name, rmerr)
+		}
+	}()
 
 	srcDir, err := i.getSource(ctx, p, tmpDir, spinner)
 	if err != nil {

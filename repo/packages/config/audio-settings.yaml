@@ -1,0 +1,10 @@
+name: audio-settings
+type: config
+install:
+  configs:
+    /etc/modprobe.d/99-audio-disable-powersave.conf: 99-audio-disable-powersave.conf
+  user_configs:
+    ~/.config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf: 51-disable-suspend.conf
+    ~/.config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf: 52-deprioritize-hdmi.conf
+    ~/.config/pipewire/pipewire.conf.d/10-clock.conf: 10-clock.conf
+    ~/.config/pipewire/pipewire-pulse.conf.d/10-pulse.conf: 10-pulse.conf

@@ -12,7 +12,10 @@ func NewResolver(reg *pkg.Registry) *Resolver {
 	return &Resolver{reg: reg}
 }
 
-func (r *Resolver) Resolve(root *pkg.Package, installed map[string]bool, force bool) ([]*pkg.Package, error) {
+// Resolve performs a DFS of root's Depends and returns every transitive
+// dependency (including root) in topological order (deps before dependents).
+// Each returned package is a clone so callers can safely mutate fields.
+func (r *Resolver) Resolve(root *pkg.Package) ([]*pkg.Package, error) {
 	seen := map[string]bool{}
 	ordered := []*pkg.Package{}
 	var dfs func(name string) error
@@ -21,9 +24,6 @@ func (r *Resolver) Resolve(root *pkg.Package, installed map[string]bool, force b
 			return nil
 		}
 		seen[name] = true
-		if installed[name] && !force {
-			return nil
-		}
 		dep, err := LookupPackage(r.reg, name)
 		if err != nil {
 			return err

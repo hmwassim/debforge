@@ -25,6 +25,9 @@ func ListInstalled(ctx context.Context, runner ports.CommandRunner) (map[string]
 	}
 	installed := make(map[string]bool)
 	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
 		installed[line] = true
 	}
 	return installed, nil

@@ -7,6 +7,10 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Update reinstalls the named packages. rerun is always true — every
+// package reaches the installer so it can check for newer versions.
+// force propagates ForceInstall to the entire tree, overriding the
+// installer's own version short-circuit.
 func (s *InstallService) Update(ctx context.Context, names []string, force, all bool, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		if all {

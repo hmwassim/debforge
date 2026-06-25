@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -36,36 +37,31 @@ func main() {
 func run() int {
 	ctx := context.Background()
 
-	yesMode, forceMode, allMode, args := parseFlags(os.Args[1:])
-
-	ui := ui.NewConsoleUI()
-	if yesMode {
-		ui.SetYes(true)
-	}
-
-	if len(args) == 0 {
+	rawArgs := os.Args[1:]
+	if len(rawArgs) == 0 {
 		usage()
 		return 0
 	}
 
-	cfg := self.DefaultConfig()
+	cfgu := self.DefaultConfig()
 	if v := os.Getenv("DEBFORGE_PKGS_DIR"); v != "" {
-		cfg.PkgsDir = v
+		cfgu.PkgsDir = v
 	}
 	fsys := fs.NewFileSystem()
 	runner := exec.NewRunner()
 	locker := lock.NewFLock()
 	sys := system.NewSystem()
+	u := ui.NewConsoleUI()
 
-	switch args[0] {
+	switch rawArgs[0] {
 	case "--version":
 		fmt.Println("debforge " + version)
 		return 0
 
 	case "--self-update":
-		updater := self.NewUpdater(cfg, runner, fsys, ui, locker, sys)
+		updater := self.NewUpdater(cfgu, runner, fsys, u, locker, sys)
 		if err := updater.Update(ctx); err != nil {
-			ui.Error("%s", err)
+			u.Error("%s", err)
 			return 1
 		}
 		return 0
@@ -75,30 +71,53 @@ func run() int {
 		return 0
 
 	case "--self-remove":
-		reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner, ui)
+		reg, instReg, stateSvc, err := bootstrap(cfgu, fsys, runner, u)
 		if err != nil {
-			ui.Error("bootstrap: %s", err)
+			u.Error("bootstrap: %s", err)
 			return 1
 		}
-		remover := self.NewRemover(cfg, runner, fsys, ui, locker, sys, reg, instReg, stateSvc)
+		remover := self.NewRemover(cfgu, runner, fsys, u, locker, sys, reg, instReg, stateSvc)
 		if err := remover.Remove(ctx); err != nil {
-			ui.Error("%s", err)
+			u.Error("%s", err)
 			return 1
 		}
 		return 0
 	}
 
-	// Reject unknown flags before bootstrapping
-	for _, a := range args {
-		if strings.HasPrefix(a, "-") {
-			ui.Error("unknown flag: %s", a)
-			return 1
+	fs := flag.NewFlagSet("debforge", flag.ContinueOnError)
+	y := fs.Bool("y", false, "Skip confirmation prompts")
+	yes := fs.Bool("yes", false, "Skip confirmation prompts")
+	f := fs.Bool("f", false, "Force operation (reinstall)")
+	force := fs.Bool("force", false, "Force operation (reinstall)")
+	a := fs.Bool("a", false, "Update all packages (update only)")
+	all := fs.Bool("all", false, "Update all packages (update only)")
+	fs.Usage = usage
+
+	if err := fs.Parse(rawArgs); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
 		}
+		u.Error("%s", err)
+		return 1
 	}
 
-	reg, instReg, stateSvc, err := bootstrap(cfg, fsys, runner, ui)
+	yesMode := *y || *yes
+	forceMode := *f || *force
+	allMode := *a || *all
+	args := fs.Args()
+
+	if yesMode {
+		u.SetYes(true)
+	}
+
+	if len(args) == 0 {
+		usage()
+		return 0
+	}
+
+	reg, instReg, stateSvc, err := bootstrap(cfgu, fsys, runner, u)
 	if err != nil {
-		ui.Error("bootstrap: %s", err)
+		u.Error("bootstrap: %s", err)
 		return 1
 	}
 
@@ -109,42 +128,21 @@ func run() int {
 			usage()
 			return 1
 		}
-		if !loadDefs(reg, names, fsys, ui) {
+		if !loadDefs(reg, names, fsys, u) {
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
-
-		var conflicts []string
-		for _, name := range names {
-			p, ok := reg.Lookup(name)
-			if !ok {
-				continue
-			}
-			if p.Apt != nil {
-			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, runner, p.Apt.Conflicts)...)
-		}
-		}
-		if len(conflicts) > 0 {
-			ui.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
-		}
-
-		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Run(ctx, names, forceMode, spinner)
-		})
+		return runInstall(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names, forceMode)
 
 	case "remove":
-		if len(args) < 2 {
+		names := args[1:]
+		if len(names) == 0 {
 			usage()
 			return 1
 		}
-		names := args[1:]
-		if !loadDefs(reg, names, fsys, ui) {
+		if !loadDefs(reg, names, fsys, u) {
 			return 1
 		}
-		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath, runner, fsys)
-		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			return svc.Run(ctx, names, spinner)
-		})
+		return runRemove(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names)
 
 	case "update":
 		names := args[1:]
@@ -152,21 +150,10 @@ func run() int {
 			usage()
 			return 1
 		}
-		if !loadDefs(reg, names, fsys, ui) {
+		if !loadDefs(reg, names, fsys, u) {
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
-		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
-			if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
-				return err
-			}
-			if allMode {
-				if err := aptpty.RunUpgrade(ctx, runner, spinner); err != nil {
-					return err
-				}
-			}
-			return svc.Update(ctx, names, forceMode, allMode, spinner)
-		})
+		return runUpdate(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names, forceMode, allMode)
 
 	default:
 		usage()
@@ -174,28 +161,50 @@ func run() int {
 	return 0
 }
 
-func parseFlags(args []string) (yes, force, all bool, rest []string) {
-	for _, a := range args {
-		switch a {
-		case "-y", "--yes":
-			yes = true
-		case "-f", "--force":
-			force = true
-		case "-a", "--all":
-			all = true
-		default:
-			rest = append(rest, a)
+func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string, forceMode bool) int {
+	svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
+
+	var conflicts []string
+	for _, name := range names {
+		p, ok := reg.Lookup(name)
+		if !ok {
+			continue
+		}
+		if p.Apt != nil {
+			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, runner, p.Apt.Conflicts)...)
 		}
 	}
-	return
+	if len(conflicts) > 0 {
+		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
+	}
+
+	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
+		return svc.Run(ctx, names, forceMode, spinner)
+	})
 }
 
-// bootstrap wires the package registry, installer registry, and state
-// manager shared by every package-management command (install/remove/
-// update) and by --self-remove. cfg is the single source of truth for
-// every on-disk path involved (see internal/self.Config), and runner is
-// the one CommandRunner instance shared by every installer that needs to
-// shell out.
+func runRemove(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string) int {
+	svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath, runner, fsys)
+	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
+		return svc.Run(ctx, names, spinner)
+	})
+}
+
+func runUpdate(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string, forceMode, allMode bool) int {
+	svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
+	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
+		if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
+			return err
+		}
+		if allMode {
+			if err := aptpty.RunUpgrade(ctx, runner, spinner); err != nil {
+				return err
+			}
+		}
+		return svc.Update(ctx, names, forceMode, allMode, spinner)
+	})
+}
+
 func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, ui ports.UI) (*pkg.Registry, *installer.Registry, *service.StateManager, error) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
@@ -233,23 +242,23 @@ func loadYAMLDefinitions(reg *pkg.Registry, names []string, fsys ports.FileSyste
 	return nil
 }
 
-func loadDefs(reg *pkg.Registry, names []string, fsys ports.FileSystem, ui ports.UI) bool {
+func loadDefs(reg *pkg.Registry, names []string, fsys ports.FileSystem, u ports.UI) bool {
 	if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
-		ui.Error("%s", err)
+		u.Error("%s", err)
 		return false
 	}
 	return true
 }
 
-func withConfirm(ctx context.Context, ui ports.UI, fn func(ports.Spinner) error) int {
-	if !ui.Prompt("Continue?") {
-		ui.Info("Cancelled")
+func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) int {
+	if !u.Prompt("Continue?") {
+		u.Info("Cancelled")
 		return 0
 	}
-	spinner := ui.Spinner(ctx, "Working")
+	spinner := u.Spinner(ctx, "Working")
 	if err := fn(spinner); err != nil {
 		if !errors.Is(err, service.ErrNotInstalled) {
-			ui.Error("%s", err)
+			u.Error("%s", err)
 		}
 		return 1
 	}

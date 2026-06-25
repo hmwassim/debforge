@@ -59,8 +59,8 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 		return fmt.Errorf("download %s: %s", url, resp.Status)
 	}
 
-	if strings.HasPrefix(url, "https://") && resp.TLS == nil {
-		return fmt.Errorf("download %s: HTTPS URL but no TLS connection", url)
+	if resp.Request.URL.Scheme != "https" {
+		return fmt.Errorf("download %s: insecure connection (scheme=%s)", url, resp.Request.URL.Scheme)
 	}
 
 	total := resp.ContentLength

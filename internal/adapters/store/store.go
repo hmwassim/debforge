@@ -3,7 +3,6 @@ package store
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"path/filepath"
 
 	"github.com/hmwassim/debforge/internal/ports"
@@ -21,11 +20,15 @@ func NewStore[T any](fs ports.FileSystem, path string) *Store[T] {
 }
 
 func (s *Store[T]) Load() (*T, error) {
+	ok, err := s.fs.Exists(s.path)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrNotFound
+	}
 	data, err := s.fs.ReadFile(s.path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, ErrNotFound
-		}
 		return nil, err
 	}
 	var v T

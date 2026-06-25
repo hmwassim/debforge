@@ -5,7 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/hmwassim/debforge/internal/ports"
 )
+
+var _ ports.Locker = (*FLock)(nil)
 
 type FLock struct{}
 

@@ -8,6 +8,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+var _ ports.FileSystem = (*FileSystem)(nil)
+
 type FileSystem struct{}
 
 func NewFileSystem() *FileSystem {

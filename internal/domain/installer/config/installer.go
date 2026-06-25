@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -46,8 +47,28 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	for path := range p.RemoveConfigs {
 		spinner.SetDesc("removing config " + path)
-		if err := i.fs.RemoveAll(path); err != nil {
+		absPath := path
+		if installer.HasHomePrefix(path) {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("get home directory: %w", err)
+			}
+			absPath = installer.ExpandHome(path, homeDir)
+		}
+		if err := i.fs.RemoveAll(absPath); err != nil {
 			return fmt.Errorf("remove config %s: %w", path, err)
+		}
+	}
+
+	for path := range p.UserConfigs {
+		spinner.SetDesc("removing user config " + path)
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("get home directory: %w", err)
+		}
+		absPath := installer.ExpandHome(path, homeDir)
+		if err := i.fs.RemoveAll(absPath); err != nil {
+			return fmt.Errorf("remove user config %s: %w", path, err)
 		}
 	}
 
@@ -55,5 +76,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 }
 
 func (i *Installer) writeConfigs(_ context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	return installer.WriteConfigs(i.fs, spinner, p)
+	if err := installer.WriteConfigs(i.fs, spinner, p); err != nil {
+		return err
+	}
+	return installer.WriteUserConfigs(i.fs, spinner, p)
 }

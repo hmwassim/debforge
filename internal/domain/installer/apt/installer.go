@@ -40,6 +40,16 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
+	if !p.ForceInstall {
+		upToDate, err := i.isUpToDate(ctx, p, spinner)
+		if err != nil {
+			return err
+		}
+		if upToDate {
+			return nil
+		}
+	}
+
 	if err := i.selectVariant(ctx, p, spinner); err != nil {
 		return err
 	}
@@ -61,6 +71,53 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	}
 
 	return nil
+}
+
+// isUpToDate checks whether all system packages managed by p are already
+// at their candidate version. Returns true (no install needed) when every
+// package is up to date. On first install (p.Version is "") or when a
+// newer candidate is available it returns false so the install proceeds
+// and records the candidate version.
+func (i *Installer) isUpToDate(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
+	name := p.PrimarySystemPackage()
+	candidate, err := i.candidateVersion(ctx, name)
+	if err != nil {
+		return false, err
+	}
+	if candidate == "" {
+		return false, nil // can't determine state, proceed
+	}
+	if p.Version == "" {
+		p.Version = candidate
+		return false, nil // first install, record version and proceed
+	}
+	if candidate == p.Version {
+		spinner.SetDesc(p.Name + " already up to date")
+		return true, nil
+	}
+	p.Version = candidate
+	return false, nil // new candidate available, proceed
+}
+
+// candidateVersion returns the candidate version from apt-cache policy
+// for the given system package name, or "" when the package is not known
+// to the apt cache.
+func (i *Installer) candidateVersion(ctx context.Context, pkgName string) (string, error) {
+	out, _, err := i.runner.Run(ctx, "apt-cache", "policy", pkgName)
+	if err != nil {
+		return "", fmt.Errorf("check policy for %s: %w", pkgName, err)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Candidate: ") {
+			v := strings.TrimPrefix(line, "Candidate: ")
+			if v == "(none)" {
+				return "", nil
+			}
+			return v, nil
+		}
+	}
+	return "", nil
 }
 
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {

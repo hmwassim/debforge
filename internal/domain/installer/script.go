@@ -3,6 +3,7 @@ package installer
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -60,6 +61,50 @@ func WriteConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) er
 	return nil
 }
 
+// WriteUserConfigs writes all user config files defined in p.UserConfigs.
+// Paths starting with ~/ are expanded to the user's home directory.
+func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) error {
+	if len(p.UserConfigs) == 0 {
+		return nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get home directory: %w", err)
+	}
+
+	spinner.SetDesc("writing user configs for " + p.Name)
+	for path, content := range p.UserConfigs {
+		path = expandHome(path, homeDir)
+		dir := filepath.Dir(path)
+		if err := fs.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create user config dir %s: %w", dir, err)
+		}
+		if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
+			return fmt.Errorf("write user config %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func expandHome(path, homeDir string) string {
+	return ExpandHome(path, homeDir)
+}
+
+func ExpandHome(path, homeDir string) string {
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(homeDir, path[2:])
+	}
+	if path == "~" {
+		return homeDir
+	}
+	return path
+}
+
+func HasHomePrefix(path string) bool {
+	return strings.HasPrefix(path, "~/") || path == "~"
+}
+
 // MkdirTemp creates a temporary directory with the debforge-* pattern.
 func MkdirTemp(fs ports.FileSystem) (string, error) {
 	tmpDir, err := fs.MkdirTemp("debforge-*")
@@ -112,6 +157,17 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 	case pkg.TypeConfig:
 		for path := range p.Configs {
 			ok, err := fs.Exists(path)
+			if err != nil || !ok {
+				return false
+			}
+		}
+		homeDir, homeErr := os.UserHomeDir()
+		for path := range p.UserConfigs {
+			if homeErr != nil {
+				return false
+			}
+			absPath := expandHome(path, homeDir)
+			ok, err := fs.Exists(absPath)
 			if err != nil || !ok {
 				return false
 			}
