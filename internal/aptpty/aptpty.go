@@ -323,19 +323,24 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 
 	go func() { io.Copy(ptmx, os.Stdin) }()
 
-	dataCh := make(chan []byte, 100)
-	errCh := make(chan error, 1)
+	type readResult struct {
+		data []byte
+		err  error
+	}
+	resultCh := make(chan readResult, 100)
 	go func() {
 		rbuf := make([]byte, 65536)
 		for {
 			n, err := ptmx.Read(rbuf)
+			if n > 0 {
+				chunk := make([]byte, n)
+				copy(chunk, rbuf[:n])
+				resultCh <- readResult{data: chunk}
+			}
 			if err != nil {
-				errCh <- err
+				resultCh <- readResult{err: err}
 				return
 			}
-			chunk := make([]byte, n)
-			copy(chunk, rbuf[:n])
-			dataCh <- chunk
 		}
 	}()
 
@@ -359,39 +364,41 @@ mainLoop:
 		case <-ctx.Done():
 			break mainLoop
 
-		case chunk := <-dataCh:
-			sbuf = append(sbuf, chunk...)
+		case result := <-resultCh:
+			if len(result.data) > 0 {
+				sbuf = append(sbuf, result.data...)
 
-			for {
-				nl := bytes.IndexByte(sbuf, '\n')
-				if nl < 0 {
-					break
+				for {
+					nl := bytes.IndexByte(sbuf, '\n')
+					if nl < 0 {
+						break
+					}
+					processSegments(sbuf[:nl], state, &cur, &total, &pkg, &aptErrs, spinner)
+					sbuf = sbuf[nl+1:]
 				}
-				processSegments(sbuf[:nl], state, &cur, &total, &pkg, &aptErrs, spinner)
-				sbuf = sbuf[nl+1:]
-			}
 
-			if len(sbuf) > 0 {
-				for len(sbuf) > 0 && sbuf[len(sbuf)-1] == '\r' {
-					sbuf = sbuf[:len(sbuf)-1]
-				}
-				if lastR := bytes.LastIndexByte(sbuf, '\r'); lastR >= 0 {
-					sbuf = sbuf[lastR+1:]
-				}
 				if len(sbuf) > 0 {
-					processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs, spinner)
-					sbuf = sbuf[:0]
+					for len(sbuf) > 0 && sbuf[len(sbuf)-1] == '\r' {
+						sbuf = sbuf[:len(sbuf)-1]
+					}
+					if lastR := bytes.LastIndexByte(sbuf, '\r'); lastR >= 0 {
+						sbuf = sbuf[lastR+1:]
+					}
+					if len(sbuf) > 0 {
+						processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs, spinner)
+						sbuf = sbuf[:0]
+					}
 				}
+			}
+			if result.err != nil {
+				if !errors.Is(result.err, io.EOF) {
+					break mainLoop
+				}
+				processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs, spinner)
+				break mainLoop
 			}
 
 		case <-timer.C:
-
-		case err := <-errCh:
-			if err != nil && !errors.Is(err, io.EOF) {
-				break mainLoop
-			}
-			processSegments(sbuf, state, &cur, &total, &pkg, &aptErrs, spinner)
-			break mainLoop
 		}
 
 		if state.phase == phaseDownload && total > 0 && state.cumulativeDone+cur > 0 {

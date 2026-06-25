@@ -14,7 +14,6 @@ type PkgEntry struct {
 }
 
 type State struct {
-	Version  int                 `json:"version"`
 	Packages map[string]PkgEntry `json:"packages"`
 }
 

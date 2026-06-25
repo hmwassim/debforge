@@ -3,6 +3,7 @@ package lock
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"syscall"
 )
 
@@ -13,6 +14,9 @@ func NewFLock() *FLock {
 }
 
 func (l *FLock) Acquire(ctx context.Context, path string) (func(), error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return nil, err
+	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err

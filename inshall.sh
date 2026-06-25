@@ -21,7 +21,6 @@ VAR_DIR="${ROOT}/var"
 GOPATH="${VAR_DIR}/gopath"
 GOCACHE="${GOPATH}/buildcache"
 STATE_DIR="${VAR_DIR}/states"
-LOCK_DIR="${VAR_DIR}"
 LINK="/usr/local/bin/debforge"
 
 if [ -x "$BIN_DIR/debforge" ]; then
@@ -53,10 +52,8 @@ info "Installing build dependencies..."
 apt-get install -y git golang-go
 
 info "Setting up directory tree..."
-mkdir -p "$BIN_DIR" "$SRC_DIR" "$VAR_DIR" "$GOPATH" "$GOCACHE" "$STATE_DIR" "${VAR_DIR}/cache"
-chmod 755 "$VAR_DIR"
-chmod 755 "$STATE_DIR"
-chmod 700 "$GOPATH" "${VAR_DIR}/cache"
+mkdir -p "$BIN_DIR" "$SRC_DIR" "$VAR_DIR" "$GOPATH" "$GOCACHE" "$STATE_DIR"
+chmod 700 "$GOPATH"
 touch "${VAR_DIR}/lock"
 chmod 600 "${VAR_DIR}/lock"
 

@@ -34,9 +34,3 @@ func (r *Registry[K, V]) Lookup(key K) (V, bool) {
 	return v, ok
 }
 
-// Len reports the number of registered entries.
-func (r *Registry[K, V]) Len() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return len(r.items)
-}
