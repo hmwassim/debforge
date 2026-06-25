@@ -11,68 +11,98 @@ const (
 	TypeConfig Type = "config"
 )
 
-type Package struct {
-	Name      string
-	Type      Type
-	Depends   []string
-	Conflicts []string
-
-	// apt
+// AptConfig holds configuration specific to apt-type packages.
+type AptConfig struct {
 	Extrepo   []string
-	Packages  []string
-	Remove    []string
-	Primary   string
 	Backports []string
 	Variants  map[string]string
 	Variant   string
+	Conflicts []string
+}
 
-	// deb
-	URL     string
+// DebConfig holds configuration specific to deb-type packages.
+type DebConfig struct {
 	Package string
-	SHA256  string
+}
+
+// SourceConfig holds configuration specific to source-type packages.
+type SourceConfig struct {
+	SkipClone         bool
+	BuildScript       string
+	InstallScript     string
+	PostinstallScript string
+	RemoveScript      string
+	SourceSubdir      string
+}
+
+type Package struct {
+	Name    string
+	Type    Type
+	Depends []string
+
+	// cross-type
+	Packages []string
+	Remove   []string
+	URL      string
+	SHA256   string
 
 	VersionCmd string
-
-	// repo (used by deb and source installers for version detection)
-	Repo string
-
-	// source
-	SourceSubdir string
-	SkipClone    bool
-	Checks       []string
-	BuildScript  string
-	InstallScript string
-	PostinstallScript string
-	RemoveScript string
-
-	// config
-	Configs      map[string]string
-	RemoveConfigs map[string]string
-	UserConfigs  map[string]string
+	Repo       string
 
 	// scripts
 	PostInstall string
 	PostRemove  string
 
+	// config
+	Configs       map[string]string
+	RemoveConfigs map[string]string
+	UserConfigs   map[string]string
+
 	// runtime flags (not persisted)
 	ForceInstall  bool
-	SkipRepoSetup bool // skip extrepo setup (used during update)
+	SkipRepoSetup bool
 	Version       string
+
+	// type-specific configuration
+	Apt    *AptConfig
+	Deb    *DebConfig
+	Source *SourceConfig
+}
+
+func (p *Package) PrimarySystemPackage() string {
+	if p.Deb != nil && p.Deb.Package != "" {
+		return p.Deb.Package
+	}
+	if len(p.Packages) > 0 {
+		return p.Packages[0]
+	}
+	return p.Name
 }
 
 func (p *Package) Clone() *Package {
 	cp := *p
 	cp.Depends = copySlice(p.Depends)
-	cp.Conflicts = copySlice(p.Conflicts)
 	cp.Packages = copySlice(p.Packages)
 	cp.Remove = copySlice(p.Remove)
-	cp.Backports = copySlice(p.Backports)
-	cp.Extrepo = copySlice(p.Extrepo)
-	cp.Variants = copyMap(p.Variants)
-	cp.Checks = copySlice(p.Checks)
 	cp.Configs = copyMap(p.Configs)
 	cp.RemoveConfigs = copyMap(p.RemoveConfigs)
 	cp.UserConfigs = copyMap(p.UserConfigs)
+	if p.Apt != nil {
+		c := *p.Apt
+		c.Extrepo = copySlice(p.Apt.Extrepo)
+		c.Backports = copySlice(p.Apt.Backports)
+		c.Variants = copyMap(p.Apt.Variants)
+		c.Conflicts = copySlice(p.Apt.Conflicts)
+		cp.Apt = &c
+	}
+	if p.Deb != nil {
+		c := *p.Deb
+		cp.Deb = &c
+	}
+	if p.Source != nil {
+		c := *p.Source
+		cp.Source = &c
+	}
 	return &cp
 }
 

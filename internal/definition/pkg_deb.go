@@ -40,7 +40,6 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		Name:       name,
 		Type:       pkg.TypeDeb,
 		Depends:    def.Depends,
-		Package:    def.Package,
 		Repo:       def.Repo,
 		VersionCmd: def.VersionCmd,
 		URL:        def.Install.URL,
@@ -49,5 +48,8 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		Remove:      def.Remove.Packages,
 		PostInstall: def.PostInstall,
 		PostRemove:  def.PostRemove,
+		Deb: &pkg.DebConfig{
+			Package: def.Package,
+		},
 	}, nil
 }

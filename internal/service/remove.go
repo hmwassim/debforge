@@ -20,6 +20,7 @@ type RemoveService struct {
 	locker   ports.Locker
 	lockPath string
 	runner   ports.CommandRunner
+	fs       ports.FileSystem
 }
 
 func NewRemoveService(
@@ -29,6 +30,7 @@ func NewRemoveService(
 	locker ports.Locker,
 	lockPath string,
 	runner ports.CommandRunner,
+	fs ports.FileSystem,
 ) *RemoveService {
 	return &RemoveService{
 		reg:      reg,
@@ -37,6 +39,7 @@ func NewRemoveService(
 		locker:   locker,
 		lockPath: lockPath,
 		runner:   runner,
+		fs:       fs,
 	}
 }
 
@@ -69,7 +72,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
-	if err := checkInstalled(ctx, s.state, st, name, s.runner, p.Package, p.Type, spinner); err != nil {
+	if err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner); err != nil {
 		return err
 	}
 
@@ -114,11 +117,7 @@ func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner p
 				}
 			}
 		} else {
-			pkgName := p.Package
-			if pkgName == "" {
-				pkgName = name
-			}
-			allInstalled = installed[pkgName]
+			allInstalled = installed[p.PrimarySystemPackage()]
 		}
 		if !allInstalled {
 			s.state.Remove(st, name)

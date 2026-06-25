@@ -39,20 +39,22 @@ func parseSource(name string, data []byte) (*pkg.Package, error) {
 	}
 
 	return &pkg.Package{
-		Name:              name,
-		Type:              pkg.TypeSource,
-		Depends:           def.Depends,
-		Repo:              def.Install.Repo,
-		URL:               def.Install.URL,
-		SHA256:            def.Install.SHA256,
-		SourceSubdir:      def.Install.SourceSubdir,
-		SkipClone:         def.Install.SkipClone,
-		VersionCmd:        def.Install.VersionCmd,
-		Packages:          def.Install.Packages,
-		Remove:            def.Remove.Packages,
-		BuildScript:       def.Install.Build,
-		InstallScript:     def.Install.Install,
-		PostinstallScript: def.Install.Postinstall,
-		RemoveScript:      def.Remove.Script,
+		Name:       name,
+		Type:       pkg.TypeSource,
+		Depends:    def.Depends,
+		Repo:       def.Install.Repo,
+		URL:        def.Install.URL,
+		SHA256:     def.Install.SHA256,
+		VersionCmd: def.Install.VersionCmd,
+		Packages:   def.Install.Packages,
+		Remove:     def.Remove.Packages,
+		Source: &pkg.SourceConfig{
+			SourceSubdir:      def.Install.SourceSubdir,
+			SkipClone:         def.Install.SkipClone,
+			BuildScript:       def.Install.Build,
+			InstallScript:     def.Install.Install,
+			PostinstallScript: def.Install.Postinstall,
+			RemoveScript:      def.Remove.Script,
+		},
 	}, nil
 }

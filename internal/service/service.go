@@ -18,6 +18,7 @@ type InstallService struct {
 	locker   ports.Locker
 	lockPath string
 	runner   ports.CommandRunner
+	fs       ports.FileSystem
 }
 
 func NewInstallService(
@@ -28,6 +29,7 @@ func NewInstallService(
 	locker ports.Locker,
 	lockPath string,
 	runner ports.CommandRunner,
+	fs ports.FileSystem,
 ) *InstallService {
 	return &InstallService{
 		reg:      reg,
@@ -37,6 +39,7 @@ func NewInstallService(
 		locker:   locker,
 		lockPath: lockPath,
 		runner:   runner,
+		fs:       fs,
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -38,11 +37,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	if s.state.IsInstalled(st, name) && !rerun {
-		pkgName := p.Package
-		if pkgName == "" && p.Type == pkg.TypeApt && len(p.Packages) > 0 {
-			pkgName = p.Packages[0]
-		}
-		if (p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt) || systemPackageInstalled(ctx, s.runner, pkgName) {
+		if allPackagesInstalled(ctx, s.runner, s.fs, p) {
 			spinner.SetDesc(name + " already installed")
 			return false, nil
 		}
@@ -81,7 +76,11 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		}
 
 		if dep.ForceInstall || !exists || dep.Version != oldVersion {
-			s.state.Add(st, dep.Name, PkgEntry{Type: string(dep.Type), Version: dep.Version, Variant: dep.Variant})
+			entry := PkgEntry{Type: string(dep.Type), Version: dep.Version}
+	if dep.Apt != nil {
+		entry.Variant = dep.Apt.Variant
+	}
+	s.state.Add(st, dep.Name, entry)
 			if err := saveState(s.state, st, dep.Name); err != nil {
 				return false, err
 			}

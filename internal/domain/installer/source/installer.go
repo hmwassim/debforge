@@ -39,9 +39,9 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	tmpDir, err := i.fs.MkdirTemp("debforge-*")
+	tmpDir, err := installer.MkdirTemp(i.fs)
 	if err != nil {
-		return fmt.Errorf("create temp dir: %w", err)
+		return err
 	}
 	defer i.fs.RemoveAll(tmpDir)
 
@@ -57,9 +57,9 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	buildScript := i.interpolate(p.BuildScript, p.Version)
-	installScript := i.interpolate(p.InstallScript, p.Version)
-	postinstallScript := i.interpolate(p.PostinstallScript, p.Version)
+	buildScript := i.interpolate(p.Source.BuildScript, p.Version)
+	installScript := i.interpolate(p.Source.InstallScript, p.Version)
+	postinstallScript := i.interpolate(p.Source.PostinstallScript, p.Version)
 
 	if installScript == "" {
 		installScript = buildScript
@@ -77,10 +77,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	if postinstallScript != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, postinstallScript, "running post-install for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, postinstallScript); err != nil {
+		return err
 	}
 
 	return nil
@@ -91,8 +89,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return fmt.Errorf("source installer called for type %s", p.Type)
 	}
 
-	if p.RemoveScript != "" {
-		script := i.interpolate(p.RemoveScript, p.Version)
+	if p.Source.RemoveScript != "" {
+		script := i.interpolate(p.Source.RemoveScript, p.Version)
 		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, script, "removing"); err != nil {
 			return err
 		}
@@ -115,7 +113,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string, spinner ports.Spinner) (string, error) {
 	srcDir := filepath.Join(tmpDir, "src")
 
-	if p.Repo != "" && !p.SkipClone {
+	if p.Repo != "" && !p.Source.SkipClone {
 		spinner.SetDesc("cloning " + p.Name)
 		if _, _, err := i.runner.Run(ctx, "git", "clone", "--depth", "1", "--", p.Repo, srcDir); err != nil {
 			return "", fmt.Errorf("clone %s: %w", p.Name, err)
@@ -149,17 +147,9 @@ func (i *Installer) interpolate(script, version string) string {
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
-	var latest string
-
-	if p.VersionCmd != "" {
-		out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
-		if err != nil {
-			return false, fmt.Errorf("version check %s: %w", p.Name, err)
-		}
-		latest = strings.TrimSpace(string(out))
-	} else if repo := version.RepoFromPkg(p); repo != "" {
-		t, err := version.LatestTag(ctx, i.runner, repo)
-		if err != nil {
+	latest, err := version.GatherVersion(ctx, i.runner, p)
+	if err != nil && p.VersionCmd == "" {
+		if repo := version.RepoFromPkg(p); repo != "" {
 			spinner.SetDesc("checking version for " + p.Name)
 			out, _, err := i.runner.Run(ctx, "git", "ls-remote", repo, "HEAD")
 			if err != nil {
@@ -168,18 +158,10 @@ func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner po
 			if parts := strings.Fields(string(out)); len(parts) > 0 {
 				latest = parts[0]
 			}
-		} else {
-			latest = t
 		}
+	} else if err != nil {
+		return false, err
 	}
 
-	if latest == "" {
-		return false, fmt.Errorf("version check %s: empty output", p.Name)
-	}
-	if latest == p.Version {
-		spinner.SetDesc(p.Name + " already up to date")
-		return false, nil
-	}
-	p.Version = latest
-	return true, nil
+	return version.ApplyVersionUpdate(spinner, p, latest)
 }

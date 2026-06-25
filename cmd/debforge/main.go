@@ -112,7 +112,7 @@ func run() int {
 		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner)
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
 
 		var conflicts []string
 		for _, name := range names {
@@ -120,7 +120,9 @@ func run() int {
 			if !ok {
 				continue
 			}
-			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, runner, p.Conflicts)...)
+			if p.Apt != nil {
+			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, runner, p.Apt.Conflicts)...)
+		}
 		}
 		if len(conflicts) > 0 {
 			ui.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
@@ -139,7 +141,7 @@ func run() int {
 		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
-		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath, runner)
+		svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath, runner, fsys)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			return svc.Run(ctx, names, spinner)
 		})
@@ -153,7 +155,7 @@ func run() int {
 		if !loadDefs(reg, names, fsys, ui) {
 			return 1
 		}
-		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner)
+		svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
 		return withConfirm(ctx, ui, func(spinner ports.Spinner) error {
 			if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
 				return err

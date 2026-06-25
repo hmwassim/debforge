@@ -3,7 +3,6 @@ package apt
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -27,7 +26,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)
 	}
-	if len(p.Packages) == 0 && len(p.Variants) == 0 {
+	if len(p.Packages) == 0 && len(p.Apt.Variants) == 0 {
 		return fmt.Errorf("no packages or variants defined for apt type")
 	}
 
@@ -57,10 +56,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
-	if p.PostInstall != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostInstall, "running post-install for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
+		return err
 	}
 
 	return nil
@@ -75,8 +72,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	if len(p.Remove) > 0 {
 		pkgs = p.Remove
 	}
-	if p.Variant != "" {
-		if v, ok := p.Variants[p.Variant]; ok {
+	if p.Apt.Variant != "" {
+		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
 			pkgs = append(pkgs, v)
 		}
 	}
@@ -93,10 +90,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	i.disableExtrepos(ctx, p, spinner)
 
-	if p.PostRemove != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostRemove, "running post-remove for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostRemove(ctx, i.runner, spinner, p.Name, p.PostRemove); err != nil {
+		return err
 	}
 
 	return nil
@@ -105,7 +100,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 // ---- conflicts ------------------------------------------------------------
 
 func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	found := aptpty.FindInstalledConflicts(ctx, i.runner, p.Conflicts)
+	found := aptpty.FindInstalledConflicts(ctx, i.runner, p.Apt.Conflicts)
 	if len(found) == 0 {
 		return nil
 	}
@@ -115,13 +110,13 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 // ---- extrepo --------------------------------------------------------------
 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	for _, repo := range p.Extrepo {
+	for _, repo := range p.Apt.Extrepo {
 		spinner.SetDesc("enabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
 			return fmt.Errorf("enable extrepo %s: %w", repo, err)
 		}
 	}
-	if len(p.Extrepo) > 0 {
+	if len(p.Apt.Extrepo) > 0 {
 		spinner.SetDesc("refreshing package list...")
 		if _, _, err := i.runner.Run(ctx, "apt-get", "update"); err != nil {
 			return fmt.Errorf("apt-get update: %w", err)
@@ -131,7 +126,7 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 }
 
 func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) {
-	for _, repo := range p.Extrepo {
+	for _, repo := range p.Apt.Extrepo {
 		spinner.SetDesc("disabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
 			// best-effort
@@ -142,22 +137,22 @@ func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner
 // ---- variant selection ----------------------------------------------------
 
 func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if len(p.Variants) == 0 {
+	if len(p.Apt.Variants) == 0 {
 		return nil
 	}
-	if p.Variant != "" {
+	if p.Apt.Variant != "" {
 		return nil
 	}
 
 	var names []string
-	for name := range p.Variants {
+	for name := range p.Apt.Variants {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	var opts []string
 	for _, name := range names {
-		opts = append(opts, fmt.Sprintf("  %s -> %s", name, p.Variants[name]))
+		opts = append(opts, fmt.Sprintf("  %s -> %s", name, p.Apt.Variants[name]))
 	}
 
 	msg := fmt.Sprintf("Select variant for %s:\n%s", p.Name, strings.Join(opts, "\n"))
@@ -180,26 +175,26 @@ func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner p
 		return fmt.Errorf("invalid variant %q for %s (choose from: %s)", input, p.Name, strings.Join(names, ", "))
 	}
 
-	p.Variant = input
+	p.Apt.Variant = input
 	return nil
 }
 
 // ---- backports ------------------------------------------------------------
 
 func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if len(p.Backports) == 0 {
+	if len(p.Apt.Backports) == 0 {
 		return nil
 	}
 	spinner.SetDesc("installing backports for " + p.Name)
-	return aptpty.RunInstallBackports(ctx, i.runner, p.Backports, "", spinner)
+	return aptpty.RunInstallBackports(ctx, i.runner, p.Apt.Backports, "", spinner)
 }
 
 // ---- main packages --------------------------------------------------------
 
 func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	pkgs := p.Packages
-	if p.Variant != "" {
-		if v, ok := p.Variants[p.Variant]; ok {
+	if p.Apt.Variant != "" {
+		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
 			pkgs = append(pkgs, v)
 		}
 	}
@@ -212,20 +207,6 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 
 // ---- config files ---------------------------------------------------------
 
-func (i *Installer) writeConfigs(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if len(p.Configs) == 0 {
-		return nil
-	}
-
-	spinner.SetDesc("writing configs for " + p.Name)
-	for path, content := range p.Configs {
-		dir := filepath.Dir(path)
-		if err := i.fs.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create config dir %s: %w", dir, err)
-		}
-		if err := i.fs.WriteFile(path, []byte(content), 0644); err != nil {
-			return fmt.Errorf("write config %s: %w", path, err)
-		}
-	}
-	return nil
+func (i *Installer) writeConfigs(_ context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	return installer.WriteConfigs(i.fs, spinner, p)
 }

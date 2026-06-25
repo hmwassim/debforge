@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -29,10 +28,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
-	if p.PostInstall != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostInstall, "running post-install for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
+		return err
 	}
 
 	return nil
@@ -43,10 +40,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return fmt.Errorf("config installer called for type %s", p.Type)
 	}
 
-	if p.PostRemove != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostRemove, "running post-remove for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostRemove(ctx, i.runner, spinner, p.Name, p.PostRemove); err != nil {
+		return err
 	}
 
 	for path := range p.RemoveConfigs {
@@ -59,20 +54,6 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	return nil
 }
 
-func (i *Installer) writeConfigs(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if len(p.Configs) == 0 {
-		return nil
-	}
-
-	spinner.SetDesc("writing configs for " + p.Name)
-	for path, content := range p.Configs {
-		dir := filepath.Dir(path)
-		if err := i.fs.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create config dir %s: %w", dir, err)
-		}
-		if err := i.fs.WriteFile(path, []byte(content), 0644); err != nil {
-			return fmt.Errorf("write config %s: %w", path, err)
-		}
-	}
-	return nil
+func (i *Installer) writeConfigs(_ context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	return installer.WriteConfigs(i.fs, spinner, p)
 }

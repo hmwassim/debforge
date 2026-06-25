@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/download"
@@ -51,9 +50,9 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 	url := download.ExpandURL(p.URL, p.Version)
 
-	tmpDir, err := i.fs.MkdirTemp("debforge-*")
+	tmpDir, err := installer.MkdirTemp(i.fs)
 	if err != nil {
-		return fmt.Errorf("create temp dir: %w", err)
+		return err
 	}
 	defer i.fs.RemoveAll(tmpDir)
 	tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
@@ -67,10 +66,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
-	if p.PostInstall != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostInstall, "running post-install for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
+		return err
 	}
 
 	return nil
@@ -85,8 +82,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	if len(p.Remove) > 0 {
 		pkgs = p.Remove
 	}
-	if len(pkgs) == 0 && p.Package != "" {
-		pkgs = []string{p.Package}
+	if len(pkgs) == 0 && p.Deb != nil && p.Deb.Package != "" {
+		pkgs = []string{p.Deb.Package}
 	}
 	if len(pkgs) == 0 {
 		return nil
@@ -97,39 +94,17 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return err
 	}
 
-	if p.PostRemove != "" {
-		if err := installer.RunScript(ctx, i.runner, spinner, p.Name, p.PostRemove, "running post-remove for"); err != nil {
-			return err
-		}
+	if err := installer.RunPostRemove(ctx, i.runner, spinner, p.Name, p.PostRemove); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
-	var latest string
-
-	if p.VersionCmd != "" {
-		out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
-		if err != nil {
-			return false, fmt.Errorf("version check %s: %w", p.Name, err)
-		}
-		latest = strings.TrimSpace(string(out))
-		if latest == "" {
-			return false, fmt.Errorf("version check %s: empty output", p.Name)
-		}
-	} else if repo := version.RepoFromPkg(p); repo != "" {
-		var err error
-		latest, err = version.LatestTag(ctx, i.runner, repo)
-		if err != nil {
-			return false, fmt.Errorf("version check %s: %w", p.Name, err)
-		}
+	latest, err := version.GatherVersion(ctx, i.runner, p)
+	if err != nil {
+		return false, err
 	}
-
-	if latest == p.Version {
-		spinner.SetDesc(p.Name + " already up to date")
-		return false, nil
-	}
-	p.Version = latest
-	return true, nil
+	return version.ApplyVersionUpdate(spinner, p, latest)
 }

@@ -18,8 +18,8 @@ install:
 	if err != nil {
 		t.Fatalf("parseApt: %v", err)
 	}
-	if p.Primary != "fizmo-sdl2" {
-		t.Errorf("Primary = %q, want fizmo-sdl2", p.Primary)
+	if len(p.Packages) == 0 || p.Packages[0] != "fizmo-sdl2" {
+		t.Errorf("Packages[0] = %v, want fizmo-sdl2", p.Packages)
 	}
 }
 
@@ -36,7 +36,7 @@ install:
 	if err != nil {
 		t.Fatalf("parseApt: %v", err)
 	}
-	if p.Primary != "" {
-		t.Errorf("Primary should be empty for variant-only packages, got %q", p.Primary)
+	if len(p.Packages) != 0 {
+		t.Errorf("Packages should be empty for variant-only packages, got %v", p.Packages)
 	}
 }
