@@ -123,7 +123,7 @@ func run() int {
 
 	switch args[0] {
 	case "install":
-		names := args[1:]
+		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
 		if len(names) == 0 {
 			usage()
 			return 1
@@ -134,7 +134,7 @@ func run() int {
 		return runInstall(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names, forceMode)
 
 	case "remove":
-		names := args[1:]
+		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
 		if len(names) == 0 {
 			usage()
 			return 1
@@ -145,7 +145,7 @@ func run() int {
 		return runRemove(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names)
 
 	case "update":
-		names := args[1:]
+		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
 		if len(names) == 0 && !allMode {
 			usage()
 			return 1
@@ -203,6 +203,27 @@ func runUpdate(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *inst
 		}
 		return svc.Update(ctx, names, forceMode, allMode, spinner)
 	})
+}
+
+// extractFlags scans ss for known boolean flags and updates yes, force,
+// and all accordingly. Interspersed flags are handled, preserving the
+// original behavior where flags like --all could appear after the command
+// (e.g. "debforge update --all").
+func extractFlags(ss []string, yes, force, all *bool) []string {
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		switch s {
+		case "-y", "--yes":
+			*yes = true
+		case "-f", "--force":
+			*force = true
+		case "-a", "--all":
+			*all = true
+		default:
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, ui ports.UI) (*pkg.Registry, *installer.Registry, *service.StateManager, error) {
