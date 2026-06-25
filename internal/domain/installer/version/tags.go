@@ -32,13 +32,18 @@ func RepoFromURL(rawURL string) (string, bool) {
 	return "", false
 }
 
-// LatestTag returns the newest tag from a git repository, stripped of any
-// leading "v". Only tags starting with a digit (after an optional "v") are
-// considered. Tags are sorted by numeric version components (1.9 < 1.10).
-func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL string) (string, error) {
+// LatestTag returns the newest tag from a git repository, stripped of the
+// given prefix (defaults to "v" when prefix is empty). Only tags starting
+// with a digit (after stripping the prefix) are considered. Tags are sorted
+// by numeric version components (1.9 < 1.10).
+func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix string) (string, error) {
 	out, _, err := runner.Run(ctx, "git", "ls-remote", "--tags", repoURL)
 	if err != nil {
 		return "", fmt.Errorf("ls-remote %s: %w", repoURL, err)
+	}
+
+	if prefix == "" {
+		prefix = "v"
 	}
 
 	var tags []string
@@ -58,7 +63,7 @@ func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL string) 
 		}
 		tag = strings.TrimSuffix(tag, "^{}")
 
-		cleaned := strings.TrimPrefix(tag, "v")
+		cleaned := strings.TrimPrefix(tag, prefix)
 		if cleaned == "" || cleaned[0] < '0' || cleaned[0] > '9' {
 			continue
 		}
@@ -71,10 +76,10 @@ func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL string) 
 	}
 
 	sort.Slice(tags, func(i, j int) bool {
-		return versionLess(strings.TrimPrefix(tags[i], "v"), strings.TrimPrefix(tags[j], "v"))
+		return versionLess(strings.TrimPrefix(tags[i], prefix), strings.TrimPrefix(tags[j], prefix))
 	})
 
-	return strings.TrimPrefix(tags[len(tags)-1], "v"), nil
+	return strings.TrimPrefix(tags[len(tags)-1], prefix), nil
 }
 
 func versionLess(a, b string) bool {

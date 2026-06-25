@@ -19,6 +19,7 @@ type sourceDefinition struct {
 		SHA256       string   `yaml:"sha256,omitempty"`
 		SourceSubdir string   `yaml:"source_subdir,omitempty"`
 		SkipClone    bool     `yaml:"skip_clone,omitempty"`
+		TagPrefix    string   `yaml:"tag_prefix,omitempty"`
 		VersionCmd   string   `yaml:"version_cmd,omitempty"`
 		Packages     []string `yaml:"packages,omitempty"`
 		Build        string   `yaml:"build,omitempty"`
@@ -45,6 +46,7 @@ func parseSource(name string, data []byte) (*pkg.Package, error) {
 		Repo:       def.Install.Repo,
 		URL:        def.Install.URL,
 		SHA256:     def.Install.SHA256,
+		TagPrefix:  def.Install.TagPrefix,
 		VersionCmd: def.Install.VersionCmd,
 		Packages:   def.Install.Packages,
 		Remove:     def.Remove.Packages,

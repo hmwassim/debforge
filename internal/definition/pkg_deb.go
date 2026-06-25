@@ -15,6 +15,7 @@ type debDefinition struct {
 	Depends    []string `yaml:"depends,omitempty"`
 	Repo       string   `yaml:"repo,omitempty"`
 	VersionCmd string   `yaml:"version_cmd,omitempty"`
+	TagPrefix  string   `yaml:"tag_prefix,omitempty"`
 
 	Install struct {
 		URL      string   `yaml:"url,omitempty"`
@@ -42,6 +43,7 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		Depends:    def.Depends,
 		Repo:       def.Repo,
 		VersionCmd: def.VersionCmd,
+		TagPrefix:  def.TagPrefix,
 		URL:        def.Install.URL,
 		SHA256:     def.Install.SHA256,
 		Packages:   def.Install.Packages,

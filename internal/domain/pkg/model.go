@@ -47,6 +47,7 @@ type Package struct {
 	SHA256   string
 
 	VersionCmd string
+	TagPrefix  string
 	Repo       string
 
 	// scripts

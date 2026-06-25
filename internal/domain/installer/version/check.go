@@ -22,7 +22,7 @@ func GatherVersion(ctx context.Context, runner ports.CommandRunner, p *pkg.Packa
 	}
 
 	if repo := RepoFromPkg(p); repo != "" {
-		return LatestTag(ctx, runner, repo)
+		return LatestTag(ctx, runner, repo, p.TagPrefix)
 	}
 
 	return "", nil
