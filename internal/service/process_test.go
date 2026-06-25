@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -330,6 +331,16 @@ func (n *nopRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ stri
 	return nil, nil, nil
 }
 
+type successRunner struct{}
+
+func (r *successRunner) Run(_ context.Context, _ string, _ ...string) (stdout, stderr []byte, err error) {
+	return []byte("installed\n"), nil, nil
+}
+
+func (r *successRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ string, _ ...string) (stdout, stderr []byte, err error) {
+	return []byte("installed\n"), nil, nil
+}
+
 func TestProcessAll_sharedDepProcessedOnce(t *testing.T) {
 	svc, recorder, cleanup := setupSharedDepTest(t)
 	defer cleanup()
@@ -355,6 +366,275 @@ func TestProcessAll_sharedDepProcessedOnce(t *testing.T) {
 	}
 	if entry.Type != "apt" {
 		t.Errorf("expected shared type 'apt', got %q", entry.Type)
+	}
+}
+
+type failAfterRecorder struct {
+	variantRecorder
+	failAfter int
+	callCount int
+}
+
+func (r *failAfterRecorder) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	r.callCount++
+	if r.callCount >= r.failAfter {
+		return fmt.Errorf("simulated failure on %s", p.Name)
+	}
+	return r.variantRecorder.Install(ctx, p, spinner)
+}
+
+// setupPersistenceTest creates an InstallService with a single apt package
+// and a real state file on disk.
+func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
+	t.Helper()
+
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "test-pkg",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+
+	recorder := &variantRecorder{}
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, recorder)
+
+	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
+	if err != nil {
+		t.Fatalf("create temp state: %v", err)
+	}
+	tmpFile.Close()
+
+	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
+	stateSvc := NewStateManager(stateStore)
+
+	svc := &InstallService{
+		reg:      reg,
+		instReg:  instReg,
+		resolver: NewResolver(reg),
+		state:    stateSvc,
+	}
+	svc.runner = &nopRunner{}
+	svc.fs = fs.NewFileSystem()
+
+	cleanup := func() { os.Remove(tmpFile.Name()) }
+	return svc, tmpFile.Name(), cleanup
+}
+
+func TestProcessOne_successPersistsState(t *testing.T) {
+	svc, statePath, cleanup := setupPersistenceTest(t)
+	defer cleanup()
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	if err != nil {
+		t.Fatalf("processOne: %v", err)
+	}
+
+	entry, ok := st.Packages["test-pkg"]
+	if !ok {
+		t.Fatal("expected test-pkg in in-memory state")
+	}
+	if entry.Type != "apt" {
+		t.Errorf("expected type 'apt', got %q", entry.Type)
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	diskEntry, ok := loaded.Packages["test-pkg"]
+	if !ok {
+		t.Fatal("expected test-pkg in persisted state on disk")
+	}
+	if diskEntry.Type != "apt" {
+		t.Errorf("expected persisted type 'apt', got %q", diskEntry.Type)
+	}
+}
+
+func TestProcessAll_partialFailurePersistsCompleted(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "root-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	reg.Register(&pkg.Package{
+		Name: "root-b",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+
+	failInst := &failAfterRecorder{failAfter: 2}
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, failInst)
+
+	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
+	if err != nil {
+		t.Fatalf("create temp state: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
+	stateSvc := NewStateManager(stateStore)
+
+	svc := &InstallService{
+		reg:      reg,
+		instReg:  instReg,
+		resolver: NewResolver(reg),
+		state:    stateSvc,
+	}
+	svc.runner = &nopRunner{}
+	svc.fs = fs.NewFileSystem()
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	err = svc.processAll(ctx, []string{"root-a", "root-b"}, false, true, st, spinner, "install", "installed")
+	if err == nil {
+		t.Fatal("expected error from processAll due to root-b failure")
+	}
+
+	if _, ok := st.Packages["root-a"]; !ok {
+		t.Error("expected root-a in in-memory state after partial failure")
+	}
+	if _, ok := st.Packages["root-b"]; ok {
+		t.Error("unexpected root-b in in-memory state after failure")
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["root-a"]; !ok {
+		t.Error("expected root-a in persisted state on disk after partial failure")
+	}
+	if _, ok := loaded.Packages["root-b"]; ok {
+		t.Error("unexpected root-b in persisted state on disk after failure")
+	}
+}
+
+func TestCheckInstalled_doesNotPersist(t *testing.T) {
+	svc, statePath, cleanup := setupPersistenceTest(t)
+	defer cleanup()
+
+	st := &State{Packages: map[string]PkgEntry{
+		"test-pkg": {Type: "apt"},
+	}}
+
+	if err := svc.state.Save(st); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	p, ok := svc.reg.Lookup("test-pkg")
+	if !ok {
+		t.Fatal("lookup test-pkg")
+	}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	cleanedUp, err := checkInstalled(ctx, svc.state, st, "test-pkg", svc.runner, svc.fs, p, spinner)
+	if err == nil {
+		t.Fatal("expected ErrNotInstalled from checkInstalled")
+	}
+	if !cleanedUp {
+		t.Error("expected cleanedUp=true for stale entry")
+	}
+
+	if _, ok := st.Packages["test-pkg"]; ok {
+		t.Error("expected test-pkg removed from in-memory state by checkInstalled")
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg still in persisted state (checkInstalled must not persist)")
+	}
+}
+
+func TestCheckInstalled_installed(t *testing.T) {
+	svc, statePath, cleanup := setupPersistenceTest(t)
+	defer cleanup()
+
+	st := &State{Packages: map[string]PkgEntry{
+		"test-pkg": {Type: "apt"},
+	}}
+	if err := svc.state.Save(st); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	p, ok := svc.reg.Lookup("test-pkg")
+	if !ok {
+		t.Fatal("lookup test-pkg")
+	}
+
+	svc.runner = &successRunner{}
+
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	cleanedUp, err := checkInstalled(ctx, svc.state, st, "test-pkg", svc.runner, svc.fs, p, spinner)
+	if err != nil {
+		t.Fatalf("expected no error for installed package, got: %v", err)
+	}
+	if cleanedUp {
+		t.Error("expected cleanedUp=false for installed package")
+	}
+	if _, ok := st.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg still in in-memory state")
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg still in persisted state")
+	}
+}
+
+func TestCheckInstalled_notInstalled(t *testing.T) {
+	svc, statePath, cleanup := setupPersistenceTest(t)
+	defer cleanup()
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	if err := svc.state.Save(st); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	p, ok := svc.reg.Lookup("test-pkg")
+	if !ok {
+		t.Fatal("lookup test-pkg")
+	}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	cleanedUp, err := checkInstalled(ctx, svc.state, st, "test-pkg", svc.runner, svc.fs, p, spinner)
+	if err == nil {
+		t.Fatal("expected ErrNotInstalled for missing package")
+	}
+	if cleanedUp {
+		t.Error("expected cleanedUp=false for package not in state")
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if len(loaded.Packages) != 0 {
+		t.Error("expected persisted state to remain empty")
 	}
 }
 

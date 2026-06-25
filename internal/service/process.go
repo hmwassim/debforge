@@ -32,9 +32,6 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 	}
 	if workDone {
 		spinner.Done()
-		if err := saveState(s.state, st, pastTense); err != nil {
-			return err
-		}
 	} else {
 		if verb == "update" && len(names) != 1 {
 			spinner.SetDesc("All packages up to date")
@@ -124,6 +121,12 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			spinner.SetDesc(dep.Name + " already up to date")
 		}
 		sessionProcessed[dep.Name] = true
+	}
+
+	if didWork {
+		if err := saveState(s.state, st, pastTense); err != nil {
+			return false, err
+		}
 	}
 
 	return didWork, nil

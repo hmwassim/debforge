@@ -60,7 +60,7 @@ func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []strin
 	if len(packages) == 0 {
 		return nil
 	}
-	args := append([]string{"autoremove", "-y"}, packages...)
+	args := append([]string{"remove", "-y"}, packages...)
 	return run(ctx, runner, args, spinner)
 }
 

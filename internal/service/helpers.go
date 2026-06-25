@@ -16,18 +16,17 @@ func saveState(state *StateManager, st *State, context string) error {
 	return nil
 }
 
-func checkInstalled(ctx context.Context, state *StateManager, st *State, name string, runner ports.CommandRunner, fs ports.FileSystem, p *pkg.Package, spinner ports.Spinner) error {
+func checkInstalled(ctx context.Context, state *StateManager, st *State, name string, runner ports.CommandRunner, fs ports.FileSystem, p *pkg.Package, spinner ports.Spinner) (cleanedUp bool, err error) {
 	if !state.IsInstalled(st, name) {
 		spinner.SetDesc(name + " not installed")
-		return fmt.Errorf("%w: %s", ErrNotInstalled, name)
+		return false, fmt.Errorf("%w: %s", ErrNotInstalled, name)
 	}
 	if !allPackagesInstalled(ctx, runner, fs, p) {
 		state.Remove(st, name)
-		state.Save(st) // best-effort cleanup of stale state
 		spinner.SetDesc(name + " not installed")
-		return fmt.Errorf("%w: %s", ErrNotInstalled, name)
+		return true, fmt.Errorf("%w: %s", ErrNotInstalled, name)
 	}
-	return nil
+	return false, nil
 }
 
 // allPackagesInstalled delegates to installer.CheckInstalled. The function

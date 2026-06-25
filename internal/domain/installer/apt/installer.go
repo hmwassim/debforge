@@ -195,10 +195,14 @@ func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner
 
 func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if len(p.Apt.Variants) == 0 {
+		p.Apt.Variant = ""
 		return nil
 	}
 	if p.Apt.Variant != "" {
-		return nil
+		if _, ok := p.Apt.Variants[p.Apt.Variant]; ok {
+			return nil
+		}
+		p.Apt.Variant = ""
 	}
 
 	var names []string

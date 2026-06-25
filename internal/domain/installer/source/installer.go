@@ -119,7 +119,16 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 
 	if p.Repo != "" && !p.Source.SkipClone {
 		spinner.SetDesc("cloning " + p.Name)
-		if _, _, err := i.runner.Run(ctx, "git", "clone", "--depth", "1", "--", p.Repo, srcDir); err != nil {
+		args := []string{"clone", "--depth", "1"}
+		if p.Version != "" {
+			prefix := p.TagPrefix
+			if prefix == "" {
+				prefix = "v"
+			}
+			args = append(args, "--branch", prefix+p.Version)
+		}
+		args = append(args, "--", p.Repo, srcDir)
+		if _, _, err := i.runner.Run(ctx, "git", args...); err != nil {
 			return "", fmt.Errorf("clone %s: %w", p.Name, err)
 		}
 		return srcDir, nil

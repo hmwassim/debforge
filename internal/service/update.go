@@ -21,10 +21,16 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 				if err != nil {
 					return err
 				}
-				if err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner); err != nil {
-					spinner.DoneInfo()
-					return err
+				cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
+			if err != nil {
+				if cleanedUp {
+					if saveErr := saveState(s.state, st, name); saveErr != nil {
+						return saveErr
+					}
 				}
+				spinner.DoneInfo()
+				return err
+			}
 			}
 		}
 		return s.processAll(ctx, names, force, true, st, spinner, "update", "updated")
