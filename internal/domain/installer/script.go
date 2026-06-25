@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -68,7 +69,7 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 		return nil
 	}
 
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("get home directory: %w", err)
 	}
@@ -89,6 +90,20 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 
 func expandHome(path, homeDir string) string {
 	return ExpandHome(path, homeDir)
+}
+
+// UserHomeDir returns the home directory appropriate for the invoking user.
+// When running under sudo (root with SUDO_USER set), it returns the original
+// user's home directory so that ~ expansion in user_configs paths resolves
+// to the real user's home (e.g. /home/wassim) rather than /root.
+func UserHomeDir() (string, error) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
+		u, err := user.Lookup(sudoUser)
+		if err == nil {
+			return u.HomeDir, nil
+		}
+	}
+	return os.UserHomeDir()
 }
 
 func ExpandHome(path, homeDir string) string {
@@ -161,7 +176,7 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 				return false
 			}
 		}
-		homeDir, homeErr := os.UserHomeDir()
+		homeDir, homeErr := UserHomeDir()
 		for path := range p.UserConfigs {
 			if homeErr != nil {
 				return false

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"sort"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -87,7 +86,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	for path := range p.UserConfigs {
 		spinner.SetDesc("removing user config " + path)
-		homeDir, err := os.UserHomeDir()
+		homeDir, err := installer.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
 		}
@@ -101,7 +100,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		spinner.SetDesc("removing config " + path)
 		absPath := path
 		if installer.HasHomePrefix(path) {
-			homeDir, err := os.UserHomeDir()
+			homeDir, err := installer.UserHomeDir()
 			if err != nil {
 				return fmt.Errorf("get home directory: %w", err)
 			}
