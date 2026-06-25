@@ -77,6 +77,17 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 	spinner.SetDesc("writing user configs for " + p.Name)
 	for path, content := range p.UserConfigs {
 		path = expandHome(path, homeDir)
+
+		if !p.ForceInstall {
+			if ok, _ := fs.Exists(path); ok {
+				existing, err := fs.ReadFile(path)
+				if err == nil && string(existing) != content {
+					spinner.SetDesc("skipping modified user config " + path)
+					continue
+				}
+			}
+		}
+
 		dir := filepath.Dir(path)
 		if err := fs.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create user config dir %s: %w", dir, err)

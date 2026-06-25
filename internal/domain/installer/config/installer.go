@@ -84,13 +84,24 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	// paths, so that a permission error on a system config doesn't orphan
 	// user configs.
 
-	for path := range p.UserConfigs {
+	for path, content := range p.UserConfigs {
 		spinner.SetDesc("removing user config " + path)
 		homeDir, err := installer.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
 		}
 		absPath := installer.ExpandHome(path, homeDir)
+
+		if !p.ForceInstall {
+			if ok, _ := i.fs.Exists(absPath); ok {
+				existing, err := i.fs.ReadFile(absPath)
+				if err == nil && string(existing) != content {
+					spinner.SetDesc("skipping modified user config " + path)
+					continue
+				}
+			}
+		}
+
 		if err := i.fs.RemoveAll(absPath); err != nil {
 			return fmt.Errorf("remove user config %s: %w", path, err)
 		}
