@@ -81,10 +81,19 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return err
 	}
 
-	for path := range p.Configs {
-		spinner.SetDesc("removing config " + path)
-		if err := i.fs.RemoveAll(path); err != nil {
-			return fmt.Errorf("remove config %s: %w", path, err)
+	// Remove user-owned paths first (no root needed), then system-level
+	// paths, so that a permission error on a system config doesn't orphan
+	// user configs.
+
+	for path := range p.UserConfigs {
+		spinner.SetDesc("removing user config " + path)
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("get home directory: %w", err)
+		}
+		absPath := installer.ExpandHome(path, homeDir)
+		if err := i.fs.RemoveAll(absPath); err != nil {
+			return fmt.Errorf("remove user config %s: %w", path, err)
 		}
 	}
 
@@ -103,15 +112,10 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		}
 	}
 
-	for path := range p.UserConfigs {
-		spinner.SetDesc("removing user config " + path)
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("get home directory: %w", err)
-		}
-		absPath := installer.ExpandHome(path, homeDir)
-		if err := i.fs.RemoveAll(absPath); err != nil {
-			return fmt.Errorf("remove user config %s: %w", path, err)
+	for path := range p.Configs {
+		spinner.SetDesc("removing config " + path)
+		if err := i.fs.RemoveAll(path); err != nil {
+			return fmt.Errorf("remove config %s: %w", path, err)
 		}
 	}
 
