@@ -18,9 +18,10 @@ import (
 //     early-return gate are bypassed, so every package reaches the installer.
 //     The installer may still short-circuit unless force is also true.
 func (s *InstallService) processAll(ctx context.Context, names []string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
+	sessionProcessed := make(map[string]bool)
 	workDone := false
 	for _, name := range names {
-		didWork, err := s.processOne(ctx, name, force, rerun, st, spinner, verb, pastTense)
+		didWork, err := s.processOne(ctx, name, force, rerun, st, spinner, verb, pastTense, sessionProcessed)
 		if err != nil {
 			spinner.Fail()
 			return err
@@ -45,7 +46,10 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 
 // processOne processes a single named package and its transitive
 // dependencies. See processAll for the semantics of force and rerun.
-func (s *InstallService) processOne(ctx context.Context, name string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) (bool, error) {
+func (s *InstallService) processOne(ctx context.Context, name string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string, sessionProcessed map[string]bool) (bool, error) {
+	if sessionProcessed == nil {
+		sessionProcessed = make(map[string]bool)
+	}
 	p, err := LookupPackage(s.reg, name)
 	if err != nil {
 		return false, err
@@ -65,6 +69,9 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 
 	didWork := false
 	for _, dep := range ordered {
+		if sessionProcessed[dep.Name] {
+			continue
+		}
 		if force {
 			dep.ForceInstall = true
 		}
@@ -116,6 +123,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		} else {
 			spinner.SetDesc(dep.Name + " already up to date")
 		}
+		sessionProcessed[dep.Name] = true
 	}
 
 	return didWork, nil

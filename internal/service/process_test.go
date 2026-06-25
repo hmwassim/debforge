@@ -84,7 +84,7 @@ func TestProcessOne_variant_firstInstall(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed")
+	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestProcessOne_variant_reinstall(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed")
+	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestProcessOne_variant_update(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "update", "updated")
+	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "update", "updated", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestProcessOne_forcePropagatesToDeps(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "root", true, true, st, spinner, "install", "installed")
+	_, err := svc.processOne(ctx, "root", true, true, st, spinner, "install", "installed", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestProcessOne_forceFalseDoesNotSetForceInstall(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "root", false, true, st, spinner, "install", "installed")
+	_, err := svc.processOne(ctx, "root", false, true, st, spinner, "install", "installed", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestProcessOne_forceStateUpdateOnUnchangedDep(t *testing.T) {
 	// condition (dep.ForceInstall || !exists || dep.Version != oldVersion)
 	// fires for ForceInstall even when the version hasn't changed,
 	// guaranteeing the state entry is written/re-written.
-	_, err := svc.processOne(ctx, "root", true, true, st, spinner, "install", "installed")
+	_, err := svc.processOne(ctx, "root", true, true, st, spinner, "install", "installed", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -261,6 +261,101 @@ func TestProcessOne_forceStateUpdateOnUnchangedDep(t *testing.T) {
 		t.Fatalf("expected 2 packages in state, got %d", len(st.Packages))
 	}
 
+}
+
+// setupSharedDepTest creates a service with three packages:
+//
+//	root-a (apt) depends-on shared (apt)
+//	root-b (apt) depends-on shared (apt)
+func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
+	t.Helper()
+
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name:    "root-a",
+		Type:    pkg.TypeApt,
+		Depends: []string{"shared"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "root-b",
+		Type:    pkg.TypeApt,
+		Depends: []string{"shared"},
+	})
+	reg.Register(&pkg.Package{
+		Name: "shared",
+		Type: pkg.TypeApt,
+	})
+
+	// countInstallCalls records every Install call.
+	type callCountRecorder struct {
+		variantRecorder
+	}
+	recorder := &callCountRecorder{}
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, recorder)
+
+	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
+	if err != nil {
+		t.Fatalf("create temp state: %v", err)
+	}
+	tmpFile.Close()
+
+	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
+	stateSvc := NewStateManager(stateStore)
+
+	svc := &InstallService{
+		reg:      reg,
+		instReg:  instReg,
+		resolver: NewResolver(reg),
+		state:    stateSvc,
+	}
+
+	// Provide the fields checkInstalled needs (it calls runner.Run for dpkg).
+	// Use a runner that reports nothing installed so the system-installed
+	// check never short-circuits.
+	svc.runner = &nopRunner{}
+	svc.fs = fs.NewFileSystem()
+
+	cleanup := func() { os.Remove(tmpFile.Name()) }
+	return svc, &recorder.variantRecorder, cleanup
+}
+
+type nopRunner struct{}
+
+func (n *nopRunner) Run(_ context.Context, _ string, _ ...string) (stdout, stderr []byte, err error) {
+	return nil, nil, nil
+}
+func (n *nopRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ string, _ ...string) (stdout, stderr []byte, err error) {
+	return nil, nil, nil
+}
+
+func TestProcessAll_sharedDepProcessedOnce(t *testing.T) {
+	svc, recorder, cleanup := setupSharedDepTest(t)
+	defer cleanup()
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	err := svc.processAll(ctx, []string{"root-a", "root-b"}, false, true, st, spinner, "install", "installed")
+	if err != nil {
+		t.Fatalf("processAll: %v", err)
+	}
+
+	// 3 calls: root-a, shared, root-b  (not 4: root-a, shared, root-b, shared)
+	if len(recorder.forceFlags) != 3 {
+		t.Fatalf("expected 3 install calls (root-a + shared + root-b), got %d", len(recorder.forceFlags))
+	}
+
+	// shared should be in state
+	entry, ok := st.Packages["shared"]
+	if !ok {
+		t.Fatal("expected shared to be in state")
+	}
+	if entry.Type != "apt" {
+		t.Errorf("expected shared type 'apt', got %q", entry.Type)
+	}
 }
 
 func TestProcessOne_variant_switching(t *testing.T) {
@@ -273,7 +368,7 @@ func TestProcessOne_variant_switching(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed")
+	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
