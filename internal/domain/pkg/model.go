@@ -33,8 +33,10 @@ type Package struct {
 
 	VersionCmd string
 
+	// repo (used by deb and source installers for version detection)
+	Repo string
+
 	// source
-	Repo         string
 	SourceSubdir string
 	SkipClone    bool
 	Checks       []string

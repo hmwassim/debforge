@@ -9,6 +9,7 @@ import (
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/download"
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	"github.com/hmwassim/debforge/internal/domain/installer/version"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -31,7 +32,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("deb definition %s: no install url", p.Name)
 	}
 
-	if p.VersionCmd != "" {
+	if p.VersionCmd != "" || version.RepoFromPkg(p) != "" {
 		updated, err := i.checkVersion(ctx, p, spinner)
 		if err != nil {
 			return err
@@ -99,14 +100,25 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
-	out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
-	if err != nil {
-		return false, fmt.Errorf("version check %s: %w", p.Name, err)
+	var latest string
+
+	if p.VersionCmd != "" {
+		out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
+		if err != nil {
+			return false, fmt.Errorf("version check %s: %w", p.Name, err)
+		}
+		latest = strings.TrimSpace(string(out))
+		if latest == "" {
+			return false, fmt.Errorf("version check %s: empty output", p.Name)
+		}
+	} else if repo := version.RepoFromPkg(p); repo != "" {
+		var err error
+		latest, err = version.LatestTag(ctx, i.runner, repo)
+		if err != nil {
+			return false, fmt.Errorf("version check %s: %w", p.Name, err)
+		}
 	}
-	latest := strings.TrimSpace(string(out))
-	if latest == "" {
-		return false, fmt.Errorf("version check %s: empty output", p.Name)
-	}
+
 	if latest == p.Version {
 		spinner.SetDesc(p.Name + " already up to date")
 		return false, nil

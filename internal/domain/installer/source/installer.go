@@ -9,6 +9,7 @@ import (
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/download"
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	"github.com/hmwassim/debforge/internal/domain/installer/version"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -28,7 +29,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("source installer called for type %s", p.Type)
 	}
 
-	if p.VersionCmd != "" || p.Repo != "" {
+	if p.VersionCmd != "" || version.RepoFromPkg(p) != "" {
 		updated, err := i.checkVersion(ctx, p, spinner)
 		if err != nil {
 			return err
@@ -159,14 +160,19 @@ func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner po
 			return false, fmt.Errorf("version check %s: %w", p.Name, err)
 		}
 		latest = strings.TrimSpace(string(out))
-	} else if p.Repo != "" {
-		spinner.SetDesc("checking version for " + p.Name)
-		out, _, err := i.runner.Run(ctx, "git", "ls-remote", p.Repo, "HEAD")
+	} else if repo := version.RepoFromPkg(p); repo != "" {
+		t, err := version.LatestTag(ctx, i.runner, repo)
 		if err != nil {
-			return false, fmt.Errorf("version check %s: %w", p.Name, err)
-		}
-		if parts := strings.Fields(string(out)); len(parts) > 0 {
-			latest = parts[0]
+			spinner.SetDesc("checking version for " + p.Name)
+			out, _, err := i.runner.Run(ctx, "git", "ls-remote", repo, "HEAD")
+			if err != nil {
+				return false, fmt.Errorf("version check %s: %w", p.Name, err)
+			}
+			if parts := strings.Fields(string(out)); len(parts) > 0 {
+				latest = parts[0]
+			}
+		} else {
+			latest = t
 		}
 	}
 

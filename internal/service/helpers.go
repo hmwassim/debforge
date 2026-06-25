@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -31,9 +31,5 @@ func checkInstalled(ctx context.Context, state *StateManager, st *State, name st
 }
 
 func systemPackageInstalled(ctx context.Context, runner ports.CommandRunner, pkgName string) bool {
-	out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f", "${Status}", pkgName)
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(out), "install ok installed")
+	return dpkg.IsInstalled(ctx, runner, pkgName)
 }

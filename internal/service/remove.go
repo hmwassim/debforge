@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
@@ -92,13 +92,9 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 }
 
 func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) {
-	out, _, err := s.runner.Run(ctx, "dpkg-query", "-W", "-f", "${Package}\n")
+	installed, err := dpkg.ListInstalled(ctx, s.runner)
 	if err != nil {
 		return
-	}
-	installed := make(map[string]bool, 8000)
-	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
-		installed[line] = true
 	}
 	for name := range st.Packages {
 		p, err := LookupPackage(s.reg, name)

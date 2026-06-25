@@ -3,6 +3,5 @@ type: deb
 package: scx-tools
 depends:
   - scx-scheds
-version_cmd: curl -fsSL https://api.github.com/repos/hmwassim/scx-bundler/releases/latest | jq -r .tag_name | sed 's/^v//'
 install:
   url: https://github.com/hmwassim/scx-bundler/releases/download/v{version}/scx-tools_{version}_amd64.deb
