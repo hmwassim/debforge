@@ -1,6 +1,9 @@
 package textutil
 
-import "strconv"
+import (
+	"strconv"
+	"unicode"
+)
 
 func FormatSize(v int64) string {
 	switch {
@@ -13,4 +16,13 @@ func FormatSize(v int64) string {
 	default:
 		return strconv.FormatInt(v, 10)
 	}
+}
+
+func UcFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
 }

@@ -1,0 +1,120 @@
+package installer
+
+import (
+	"fmt"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
+)
+
+// WriteConfigs writes all config files defined in p.Configs.
+func WriteConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) error {
+	if len(p.Configs) == 0 {
+		return nil
+	}
+
+	spinner.SetDesc("writing configs for " + p.Name)
+	for path, content := range p.Configs {
+		dir := filepath.Dir(path)
+		if err := fs.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create config dir %s: %w", dir, err)
+		}
+		if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
+			return fmt.Errorf("write config %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+// WriteUserConfigs writes all user config files defined in p.UserConfigs.
+// Paths starting with ~/ are expanded to the user's home directory.
+func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) error {
+	if len(p.UserConfigs) == 0 {
+		return nil
+	}
+
+	homeDir, err := UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get home directory: %w", err)
+	}
+
+	ownerUID, ownerGID, ownerChown := resolveSudoOwner()
+
+	spinner.SetDesc("writing user configs for " + p.Name)
+	for path, content := range p.UserConfigs {
+		path = ExpandHome(path, homeDir)
+
+		if !p.ForceInstall {
+			if ok, _ := fs.Exists(path); ok {
+				existing, err := fs.ReadFile(path)
+				if err == nil && string(existing) != content {
+					spinner.SetDesc("skipping modified user config " + path)
+					continue
+				}
+			}
+		}
+
+		dir := filepath.Dir(path)
+		if err := fs.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create user config dir %s: %w", dir, err)
+		}
+		if ownerChown {
+			os.Chown(dir, ownerUID, ownerGID)
+		}
+		if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
+			return fmt.Errorf("write user config %s: %w", path, err)
+		}
+		if ownerChown {
+			os.Chown(path, ownerUID, ownerGID)
+		}
+	}
+	return nil
+}
+
+// UserHomeDir returns the home directory appropriate for the invoking user.
+// When running under sudo (root with SUDO_USER set), it returns the original
+// user's home directory so that ~ expansion in user_configs paths resolves
+// to the real user's home (e.g. /home/wassim) rather than /root.
+func UserHomeDir() (string, error) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
+		u, err := user.Lookup(sudoUser)
+		if err == nil {
+			return u.HomeDir, nil
+		}
+	}
+	return os.UserHomeDir()
+}
+
+func ExpandHome(path, homeDir string) string {
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(homeDir, path[2:])
+	}
+	if path == "~" {
+		return homeDir
+	}
+	return path
+}
+
+// resolveSudoOwner returns the uid/gid of the original user when running
+// under sudo (root with SUDO_USER set), so that user config files written
+// by debforge are owned by the invoking user rather than root.
+func resolveSudoOwner() (uid, gid int, ok bool) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
+		u, err := user.Lookup(sudoUser)
+		if err == nil {
+			uid, _ = strconv.Atoi(u.Uid)
+			gid, _ = strconv.Atoi(u.Gid)
+			return uid, gid, true
+		}
+	}
+	return 0, 0, false
+}
+
+func HasHomePrefix(path string) bool {
+	return strings.HasPrefix(path, "~/") || path == "~"
+}

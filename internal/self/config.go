@@ -2,14 +2,14 @@ package self
 
 import (
 	"path/filepath"
-
-	"github.com/hmwassim/debforge/internal/deploy"
 )
 
 const (
-	DefaultRepoURL  = "https://github.com/hmwassim/debforge"
-	DefaultBranch   = "main"
-	DefaultGoBinary = "go"
+	DefaultRepoURL   = "https://github.com/hmwassim/debforge"
+	DefaultBranch    = "main"
+	DefaultGoBinary  = "go"
+	DefaultRootDir   = "/opt/debforge"
+	DefaultLinkPath  = "/usr/local/bin/debforge"
 )
 
 // Config holds every filesystem location debforge's self-management
@@ -43,7 +43,7 @@ type Config struct {
 }
 
 func DefaultConfig() *Config {
-	root := deploy.DefaultRootDir
+	root := DefaultRootDir
 	varDir := filepath.Join(root, "var")
 	goPath := filepath.Join(varDir, "gopath")
 	sourceDir := filepath.Join(root, "src")
@@ -53,7 +53,7 @@ func DefaultConfig() *Config {
 		BinDir:    filepath.Join(root, "bin"),
 		GoPath:    goPath,
 		GoCache:   filepath.Join(goPath, "buildcache"),
-		LinkPath:  deploy.DefaultLinkPath,
+		LinkPath:  DefaultLinkPath,
 		RepoURL:   DefaultRepoURL,
 		Branch:    DefaultBranch,
 		GoBinary:  DefaultGoBinary,
