@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/adapters/fs"
@@ -33,25 +32,16 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
-	if err != nil {
-		t.Fatalf("create temp state: %v", err)
-	}
-	tmpFile.Close()
-
-	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
-	stateSvc := NewStateManager(stateStore)
+	stateSvc, statePath, cleanup := newStateManagerForTest(t)
 
 	svc := &RemoveService{
-		reg:     reg,
-		instReg: instReg,
-		state:   stateSvc,
-		runner:  runner,
-		fs:      fs.NewFileSystem(),
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			runner: runner, fs: fs.NewFileSystem(),
+		},
 	}
 
-	cleanup := func() { os.Remove(tmpFile.Name()) }
-	return svc, tmpFile.Name(), cleanup
+	return svc, statePath, cleanup
 }
 
 func TestRemoveOne_successPersistsState(t *testing.T) {

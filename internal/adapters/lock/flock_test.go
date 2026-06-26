@@ -56,5 +56,4 @@ func TestAcquire_releaseAllowsReacquire(t *testing.T) {
 // syscall.Flock happens to be granted it after the fd was already closed.
 // This is a real, pre-existing gap in FLock.Acquire that's out of scope
 // for this pass (no current debforge call site constructs a Locker
-// context with a deadline, so it's not hit in production today) - see
-// FOLLOW-UPS.md.
+// context with a deadline, so it's not hit in production today).

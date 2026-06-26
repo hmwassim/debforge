@@ -9,16 +9,6 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-type mockSpinner struct{}
-
-func (m *mockSpinner) Done()          {}
-func (m *mockSpinner) Fail()          {}
-func (m *mockSpinner) DoneWarn()      {}
-func (m *mockSpinner) DoneInfo()      {}
-func (m *mockSpinner) Pause()         {}
-func (m *mockSpinner) Resume()        {}
-func (m *mockSpinner) SetDesc(string) {}
-
 // recordingRunner records every "sh -c <script>" invocation it sees (in
 // order) and treats every command as succeeding. "git clone" is special-
 // cased so getSource's repo-clone path can complete without touching a
@@ -74,7 +64,7 @@ func TestInstall_buildOnlyRunsOnce(t *testing.T) {
 
 	p := newTestPackage("echo building", "")
 
-	if err := inst.Install(context.Background(), p, &mockSpinner{}); err != nil {
+	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -95,7 +85,7 @@ func TestInstall_buildAndInstallBothRunOnceInOrder(t *testing.T) {
 
 	p := newTestPackage("echo building", "echo installing")
 
-	if err := inst.Install(context.Background(), p, &mockSpinner{}); err != nil {
+	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -111,7 +101,7 @@ func TestInstall_neitherBuildNorInstallRunsNothing(t *testing.T) {
 
 	p := newTestPackage("", "")
 
-	if err := inst.Install(context.Background(), p, &mockSpinner{}); err != nil {
+	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -127,7 +117,7 @@ func TestInstall_postinstallAlwaysRunsAfterInstall(t *testing.T) {
 	p := newTestPackage("echo building", "echo installing")
 	p.Source.PostinstallScript = "echo postinstalling"
 
-	if err := inst.Install(context.Background(), p, &mockSpinner{}); err != nil {
+	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -143,7 +133,7 @@ func TestInstall_versionInterpolation(t *testing.T) {
 
 	p := newTestPackage("make VERSION={version}", "")
 
-	if err := inst.Install(context.Background(), p, &mockSpinner{}); err != nil {
+	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 

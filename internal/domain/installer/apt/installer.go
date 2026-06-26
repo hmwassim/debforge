@@ -3,7 +3,8 @@ package apt
 import (
 	"context"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
@@ -62,7 +63,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
-	if err := i.writeConfigs(ctx, p, spinner); err != nil {
+	if err := i.writeConfigs(p, spinner); err != nil {
 		return err
 	}
 
@@ -205,11 +206,8 @@ func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner p
 		p.Apt.Variant = ""
 	}
 
-	var names []string
-	for name := range p.Apt.Variants {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := slices.Collect(maps.Keys(p.Apt.Variants))
+	slices.Sort(names)
 
 	var opts []string
 	for _, name := range names {
@@ -224,15 +222,7 @@ func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner p
 	if input == "" {
 		input = names[0]
 	}
-	// validate
-	valid := false
-	for _, name := range names {
-		if input == name {
-			valid = true
-			break
-		}
-	}
-	if !valid {
+	if !slices.Contains(names, input) {
 		return fmt.Errorf("invalid variant %q for %s (choose from: %s)", input, p.Name, strings.Join(names, ", "))
 	}
 
@@ -268,6 +258,6 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 
 // ---- config files ---------------------------------------------------------
 
-func (i *Installer) writeConfigs(_ context.Context, p *pkg.Package, spinner ports.Spinner) error {
+func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
 	return installer.WriteConfigs(i.fs, spinner, p)
 }

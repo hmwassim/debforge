@@ -74,12 +74,13 @@ func (d *Display) Resume() {
 }
 
 func (d *Display) run() {
+	defer close(d.sdone)
+
 	if !d.tty {
 		// Nothing to animate without a terminal: emit one line up front
 		// and let doneWith print the final state when the spinner ends.
 		defaultConsole.writef(d.w, "[%s] %s\n", "i", d.content)
 		<-d.stopOrCtxDone()
-		close(d.sdone)
 		return
 	}
 
@@ -90,10 +91,8 @@ func (d *Display) run() {
 	for {
 		select {
 		case <-d.ctx.Done():
-			close(d.sdone)
 			return
 		case <-d.stop:
-			close(d.sdone)
 			return
 		case <-ticker.C:
 			d.mu.Lock()

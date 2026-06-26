@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -10,15 +11,21 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-type InstallService struct {
+var ErrNotInstalled = errors.New("not installed")
+
+type baseService struct {
 	reg      *pkg.Registry
 	instReg  *installer.Registry
-	resolver *Resolver
 	state    *StateManager
 	locker   ports.Locker
 	lockPath string
 	runner   ports.CommandRunner
 	fs       ports.FileSystem
+}
+
+type InstallService struct {
+	baseService
+	resolver *Resolver
 }
 
 func NewInstallService(
@@ -32,15 +39,24 @@ func NewInstallService(
 	fs ports.FileSystem,
 ) *InstallService {
 	return &InstallService{
-		reg:      reg,
-		instReg:  instReg,
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: state, locker: locker,
+			lockPath: lockPath, runner: runner, fs: fs,
+		},
 		resolver: resolver,
-		state:    state,
-		locker:   locker,
-		lockPath: lockPath,
-		runner:   runner,
-		fs:       fs,
 	}
+}
+
+// Run installs the named packages.
+//
+// When force is true both the force and rerun parameters are set on
+// processAll: ForceInstall is propagated to every dependency (overriding
+// installer-level version short-circuits) and the system-installed check
+// is bypassed, guaranteeing a full reinstall of the entire tree.
+func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
+	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
+		return s.processAll(ctx, names, force, force, st, spinner, "install", "installed")
+	})
 }
 
 func withState(ctx context.Context, locker ports.Locker, lockPath string, state *StateManager, fn func(*State) error) error {

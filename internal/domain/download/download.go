@@ -44,7 +44,7 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, spinner ports.Spinner, sha256Hex string) error {
+func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, spinner ports.Spinner, sha256Hex string) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -74,6 +74,12 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	if err != nil {
 		return err
 	}
+	defer func() {
+		f.Close()
+		if err != nil {
+			fs.RemoveAll(destPath)
+		}
+	}()
 
 	hash := sha256.New()
 	body := io.TeeReader(resp.Body, hash)
@@ -89,8 +95,6 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	}
 
 	if _, err := io.Copy(f, src); err != nil {
-		f.Close()
-		fs.RemoveAll(destPath)
 		return err
 	}
 	if total > 0 && spinner != nil {
@@ -99,19 +103,16 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 		spinner.SetDesc(fmt.Sprintf("Downloading %s... [%s/%s]", filename, cur, tot))
 	}
 	if err := f.Close(); err != nil {
-		fs.RemoveAll(destPath)
 		return err
 	}
 
 	if fi, err := fs.Stat(destPath); err == nil && fi.Size() == 0 {
-		fs.RemoveAll(destPath)
 		return fmt.Errorf("downloaded file is empty: %s", url)
 	}
 
 	if sha256Hex != "" {
 		got := hex.EncodeToString(hash.Sum(nil))
 		if got != sha256Hex {
-			fs.RemoveAll(destPath)
 			return fmt.Errorf("sha256 mismatch: expected %s, got %s", sha256Hex, got)
 		}
 	}

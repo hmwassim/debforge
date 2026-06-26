@@ -7,6 +7,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 type mockFileSystem struct {
@@ -45,15 +46,7 @@ func (m *mockFileSystem) Exists(path string) (bool, error) {
 	return ok, nil
 }
 
-type mockSpinnerConfig struct{ desc string }
-
-func (m *mockSpinnerConfig) Done()            {}
-func (m *mockSpinnerConfig) Fail()            {}
-func (m *mockSpinnerConfig) DoneWarn()        {}
-func (m *mockSpinnerConfig) DoneInfo()        {}
-func (m *mockSpinnerConfig) Pause()           {}
-func (m *mockSpinnerConfig) Resume()          {}
-func (m *mockSpinnerConfig) SetDesc(d string) { m.desc = d }
+var _ ports.Spinner = (*testutil.MockSpinner)(nil)
 
 func TestInstall_skipsWhenHashMatches(t *testing.T) {
 	fs := newMockFS()
@@ -68,7 +61,7 @@ func TestInstall_skipsWhenHashMatches(t *testing.T) {
 	hash := computeConfigHash(p)
 	p.Version = hash
 
-	err := inst.Install(context.Background(), p, &mockSpinnerConfig{})
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install: %v", err)
 	}
@@ -91,7 +84,7 @@ func TestInstall_writesConfigsOnFirstInstall(t *testing.T) {
 		Configs: map[string]string{"/etc/foo.conf": "content"},
 	}
 
-	err := inst.Install(context.Background(), p, &mockSpinnerConfig{})
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install: %v", err)
 	}
@@ -122,7 +115,7 @@ func TestInstall_updatesVersionOnConfigChange(t *testing.T) {
 		Configs: map[string]string{"/etc/foo.conf": "old"},
 	}
 
-	err := inst.Install(context.Background(), p, &mockSpinnerConfig{})
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install: %v", err)
 	}
@@ -136,7 +129,7 @@ func TestInstall_updatesVersionOnConfigChange(t *testing.T) {
 
 	// Now change config content
 	p.Configs["/etc/foo.conf"] = "new content"
-	err = inst.Install(context.Background(), p, &mockSpinnerConfig{})
+	err = inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install after config change: %v", err)
 	}
@@ -164,7 +157,7 @@ func TestInstall_forceBypassesHashCheck(t *testing.T) {
 	hash := computeConfigHash(p)
 	p.Version = hash
 
-	err := inst.Install(context.Background(), p, &mockSpinnerConfig{})
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install: %v", err)
 	}
@@ -193,7 +186,7 @@ func TestInstall_includesUserConfigsInHash(t *testing.T) {
 	hash := computeConfigHash(p)
 	p.Version = hash
 
-	err := inst.Install(context.Background(), p, &mockSpinnerConfig{})
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install: %v", err)
 	}

@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"sort"
+	"io"
+	"maps"
+	"slices"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -32,7 +34,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return nil
 	}
 
-	if err := i.writeConfigs(ctx, p, spinner); err != nil {
+	if err := i.writeConfigs(p, spinner); err != nil {
 		return err
 	}
 
@@ -46,29 +48,20 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 func computeConfigHash(p *pkg.Package) string {
 	h := sha256.New()
-	paths := make([]string, 0, len(p.Configs))
-	for path := range p.Configs {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
+	hashMap(h, p.Configs)
+	hashMap(h, p.UserConfigs)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func hashMap(h io.Writer, m map[string]string) {
+	paths := slices.Collect(maps.Keys(m))
+	slices.Sort(paths)
 	for _, path := range paths {
 		h.Write([]byte(path))
 		h.Write([]byte{0})
-		h.Write([]byte(p.Configs[path]))
+		h.Write([]byte(m[path]))
 		h.Write([]byte{0})
 	}
-	userPaths := make([]string, 0, len(p.UserConfigs))
-	for path := range p.UserConfigs {
-		userPaths = append(userPaths, path)
-	}
-	sort.Strings(userPaths)
-	for _, path := range userPaths {
-		h.Write([]byte(path))
-		h.Write([]byte{0})
-		h.Write([]byte(p.UserConfigs[path]))
-		h.Write([]byte{0})
-	}
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
@@ -132,7 +125,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	return nil
 }
 
-func (i *Installer) writeConfigs(_ context.Context, p *pkg.Package, spinner ports.Spinner) error {
+func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
 	if err := installer.WriteConfigs(i.fs, spinner, p); err != nil {
 		return err
 	}

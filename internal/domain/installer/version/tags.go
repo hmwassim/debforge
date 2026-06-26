@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -82,8 +82,11 @@ func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix,
 		return "", fmt.Errorf("no version tags found in %s", repoURL)
 	}
 
-	sort.Slice(tags, func(i, j int) bool {
-		return versionLess(strings.TrimPrefix(tags[i], prefix), strings.TrimPrefix(tags[j], prefix))
+	slices.SortFunc(tags, func(a, b string) int {
+		if versionLess(strings.TrimPrefix(a, prefix), strings.TrimPrefix(b, prefix)) {
+			return -1
+		}
+		return 1
 	})
 
 	if verifyURL == "" {

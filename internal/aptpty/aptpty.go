@@ -74,12 +74,19 @@ func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.S
 	return run(ctx, runner, []string{"upgrade", "-y"}, spinner)
 }
 
+func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) []string {
+	var found []string
+	for _, name := range names {
+		out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", name)
+		if err == nil && strings.TrimSpace(string(out)) == "installed" {
+			found = append(found, name)
+		}
+	}
+	return found
+}
+
 // ---- pre-run: --print-uris ------------------------------------------------
 
-// getDownloadSize shells out via the injected ports.CommandRunner (rather
-// than os/exec directly) to ask apt-get how much it would download, so this
-// is a plain non-interactive command and fits the CommandRunner abstraction
-// like any other.
 func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode string, args []string) (int64, string) {
 	cmdLine := []string{mode, "--print-uris", "-y"}
 	cmdLine = append(cmdLine, args...)
@@ -127,21 +134,17 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 		}
 		return
 	}
-	if strings.Contains(line, "Need to get ") {
-		if i := strings.Index(line, "Need to get "); i >= 0 {
-			rest := line[i+12:]
-			if of := strings.Index(rest, " of "); of >= 0 {
-				tmp := rest[:of]
-				// tmp may be "6,484 kB/6,815 kB" (remaining/total);
-				// keep only the total part (after last /).
-				if slash := strings.LastIndex(tmp, "/"); slash >= 0 {
-					tmp = strings.TrimSpace(tmp[slash+1:])
-				}
-				if f := strings.Fields(tmp); len(f) >= 2 {
-					state.overallTotal = parseSize(f[0], f[1])
-				}
-				state.overallLabel = tmp
+	if i := strings.Index(line, "Need to get "); i >= 0 {
+		rest := line[i+12:]
+		if of := strings.Index(rest, " of "); of >= 0 {
+			tmp := rest[:of]
+			if slash := strings.LastIndex(tmp, "/"); slash >= 0 {
+				tmp = strings.TrimSpace(tmp[slash+1:])
 			}
+			if f := strings.Fields(tmp); len(f) >= 2 {
+				state.overallTotal = parseSize(f[0], f[1])
+			}
+			state.overallLabel = tmp
 		}
 		return
 	}
@@ -197,11 +200,6 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 	}
 
 	if strings.Contains(line, "? [") && strings.Contains(line, "[Y/n]") {
-		// Forward apt-get's own interactive prompt (e.g. an unexpected
-		// debconf question) verbatim. This is the wrapped tool's own
-		// output, not a debforge status message, so it intentionally
-		// bypasses the spinner/UI abstraction rather than being phrased
-		// as a SetDesc update.
 		fmt.Fprintln(os.Stderr, line)
 	}
 }
@@ -231,8 +229,6 @@ func collectErr(s string, aptErrs *[]string) {
 		*aptErrs = append(*aptErrs, s)
 	}
 }
-
-// ---- display --------------------------------------------------------------
 
 func progressDesc(state *runState, pkg string, cur int64) string {
 	if state.phase == phaseDownload {
@@ -345,11 +341,11 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 	}()
 
 	var (
-		sbuf     []byte
-		cur      int64
-		total    int64
-		pkg      string
-		aptErrs  []string
+		sbuf   []byte
+		cur    int64
+		total  int64
+		pkg    string
+		aptErrs []string
 	)
 
 	timer := time.NewTimer(0)

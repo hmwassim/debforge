@@ -161,19 +161,22 @@ func (i *Installer) interpolate(script, version string) string {
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
 	latest, err := version.GatherVersion(ctx, i.runner, p)
-	if err != nil && p.VersionCmd == "" {
-		if repo := version.RepoFromPkg(p); repo != "" {
-			spinner.SetDesc("checking version for " + p.Name)
-			out, _, err := i.runner.Run(ctx, "git", "ls-remote", repo, "HEAD")
-			if err != nil {
-				return false, fmt.Errorf("version check %s: %w", p.Name, err)
-			}
-			if parts := strings.Fields(string(out)); len(parts) > 0 {
-				latest = parts[0]
-			}
+	if err != nil {
+		if p.VersionCmd != "" {
+			return false, err
 		}
-	} else if err != nil {
-		return false, err
+		repo := version.RepoFromPkg(p)
+		if repo == "" {
+			return false, err
+		}
+		spinner.SetDesc("checking version for " + p.Name)
+		out, _, err := i.runner.Run(ctx, "git", "ls-remote", repo, "HEAD")
+		if err != nil {
+			return false, fmt.Errorf("version check %s: %w", p.Name, err)
+		}
+		if parts := strings.Fields(string(out)); len(parts) > 0 {
+			latest = parts[0]
+		}
 	}
 
 	return version.ApplyVersionUpdate(spinner, p, latest)

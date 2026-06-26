@@ -11,16 +11,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-var ErrNotInstalled = errors.New("not installed")
-
 type RemoveService struct {
-	reg      *pkg.Registry
-	instReg  *installer.Registry
-	state    *StateManager
-	locker   ports.Locker
-	lockPath string
-	runner   ports.CommandRunner
-	fs       ports.FileSystem
+	baseService
 }
 
 func NewRemoveService(
@@ -33,13 +25,10 @@ func NewRemoveService(
 	fs ports.FileSystem,
 ) *RemoveService {
 	return &RemoveService{
-		reg:      reg,
-		instReg:  instReg,
-		state:    state,
-		locker:   locker,
-		lockPath: lockPath,
-		runner:   runner,
-		fs:       fs,
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: state, locker: locker,
+			lockPath: lockPath, runner: runner, fs: fs,
+		},
 	}
 }
 
@@ -72,10 +61,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
-	if entry, ok := st.Packages[name]; ok && p.Apt != nil && entry.Variant != "" {
-		p = p.Clone()
-		p.Apt.Variant = entry.Variant
-	}
+	p = applyVariant(p, st, name)
 
 	cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
 	if err != nil {
@@ -115,23 +101,25 @@ func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner p
 		if err != nil {
 			continue
 		}
-		if p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt {
-			continue
-		}
-		var allInstalled bool
-		if len(p.Packages) > 0 {
-			allInstalled = true
-			for _, pn := range p.Packages {
-				if !installed[pn] {
-					allInstalled = false
-					break
-				}
-			}
-		} else {
-			allInstalled = installed[p.PrimarySystemPackage()]
-		}
-		if !allInstalled {
+		if pkgIsOrphaned(p, installed) {
 			s.state.Remove(st, name)
 		}
 	}
+}
+
+// pkgIsOrphaned reports whether p tracks system packages (apt or deb) that
+// are no longer installed on the system, meaning the state entry is stale.
+func pkgIsOrphaned(p *pkg.Package, installed map[string]bool) bool {
+	if p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt {
+		return false
+	}
+	if len(p.Packages) > 0 {
+		for _, pn := range p.Packages {
+			if !installed[pn] {
+				return true
+			}
+		}
+		return false
+	}
+	return !installed[p.PrimarySystemPackage()]
 }

@@ -22,10 +22,7 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 			if err != nil {
 				return err
 			}
-			if entry, ok := st.Packages[name]; ok && p.Apt != nil && entry.Variant != "" {
-				p = p.Clone()
-				p.Apt.Variant = entry.Variant
-			}
+				p = applyVariant(p, st, name)
 			cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
 			if err != nil {
 				if cleanedUp {
