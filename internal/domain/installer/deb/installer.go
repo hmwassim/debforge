@@ -1,3 +1,5 @@
+// Package deb implements installer.Installer for deb-type packages (deb
+// archives downloaded from a URL and installed via apt-get).
 package deb
 
 import (
@@ -13,16 +15,20 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Installer installs and removes .deb packages.
 type Installer struct {
 	runner ports.CommandRunner
 	fs     ports.FileSystem
 	ui     ports.UI
 }
 
+// NewInstaller returns a new deb Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
 	return &Installer{runner: runner, fs: fs, ui: ui}
 }
 
+// Install downloads the .deb file from p.URL, installs it via apt-get,
+// and runs the post-install script.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (err error) {
 	if p.Type != pkg.TypeDeb {
 		return fmt.Errorf("deb installer called for type %s", p.Type)
@@ -79,6 +85,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	return nil
 }
 
+// Remove removes the system packages tracked by p via apt-get remove.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeDeb {
 		return fmt.Errorf("deb installer called for type %s", p.Type)

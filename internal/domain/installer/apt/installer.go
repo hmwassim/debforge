@@ -1,3 +1,5 @@
+// Package apt implements installer.Installer for apt-type packages (system
+// packages managed via apt-get).
 package apt
 
 import (
@@ -13,16 +15,20 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Installer installs and removes apt packages.
 type Installer struct {
 	runner ports.CommandRunner
 	fs     ports.FileSystem
 	ui     ports.UI
 }
 
+// NewInstaller returns a new apt Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
 	return &Installer{runner: runner, fs: fs, ui: ui}
 }
 
+// Install installs the apt packages described by p, including extrepo
+// setup, conflict resolution, variant selection, and backports.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)
@@ -121,6 +127,8 @@ func (i *Installer) candidateVersion(ctx context.Context, pkgName string) (strin
 	return "", nil
 }
 
+// Remove removes the apt packages described by p, including extrepo
+// cleanup and variant handling.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeApt {
 		return fmt.Errorf("apt installer called for type %s", p.Type)

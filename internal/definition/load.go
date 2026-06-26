@@ -8,6 +8,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// LoadAll walks dir for .yaml files, parses each one, and registers the
+// resulting packages into reg. It is a no-op when dir does not exist.
 func LoadAll(dir string, fsys ports.FileSystem, reg *pkg.Registry) error {
 	exists, err := fsys.Exists(dir)
 	if err != nil || !exists {

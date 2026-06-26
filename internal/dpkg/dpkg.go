@@ -1,3 +1,4 @@
+// Package dpkg provides helpers for querying the dpkg package database.
 package dpkg
 
 import (

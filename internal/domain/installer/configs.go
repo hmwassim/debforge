@@ -90,6 +90,7 @@ func UserHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
+// ExpandHome replaces a leading ~/ with homeDir, or returns homeDir for ~.
 func ExpandHome(path, homeDir string) string {
 	if strings.HasPrefix(path, "~/") {
 		return filepath.Join(homeDir, path[2:])
@@ -115,6 +116,7 @@ func resolveSudoOwner() (uid, gid int, ok bool) {
 	return 0, 0, false
 }
 
+// HasHomePrefix reports whether path starts with ~/ or is exactly ~.
 func HasHomePrefix(path string) bool {
 	return strings.HasPrefix(path, "~/") || path == "~"
 }

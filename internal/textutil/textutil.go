@@ -1,3 +1,5 @@
+// Package textutil provides simple text formatting helpers used across
+// the codebase.
 package textutil
 
 import (
@@ -5,6 +7,7 @@ import (
 	"unicode"
 )
 
+// FormatSize formats a byte count as a human-readable string (e.g., "1.5M").
 func FormatSize(v int64) string {
 	switch {
 	case v >= 1000000000:
@@ -18,6 +21,7 @@ func FormatSize(v int64) string {
 	}
 }
 
+// UcFirst returns s with its first Unicode character converted to upper case.
 func UcFirst(s string) string {
 	if s == "" {
 		return ""

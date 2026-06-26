@@ -1,3 +1,5 @@
+// Package aptpty drives apt-get interactively through a PTY so its native
+// progress output can be parsed and turned into spinner updates.
 package aptpty
 
 import (
@@ -37,6 +39,7 @@ type runState struct {
 
 // ---- public API -----------------------------------------------------------
 
+// RunInstall runs apt-get install -y for the given packages.
 func RunInstall(ctx context.Context, runner ports.CommandRunner, packages []string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
@@ -45,6 +48,7 @@ func RunInstall(ctx context.Context, runner ports.CommandRunner, packages []stri
 	return run(ctx, runner, args, spinner)
 }
 
+// RunInstallBackports runs apt-get install -y -t <suite> for the given packages.
 func RunInstallBackports(ctx context.Context, runner ports.CommandRunner, packages []string, suite string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
@@ -56,6 +60,7 @@ func RunInstallBackports(ctx context.Context, runner ports.CommandRunner, packag
 	return run(ctx, runner, args, spinner)
 }
 
+// RunRemove runs apt-get remove -y for the given packages.
 func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []string, spinner ports.Spinner) error {
 	if len(packages) == 0 {
 		return nil
@@ -64,16 +69,20 @@ func RunRemove(ctx context.Context, runner ports.CommandRunner, packages []strin
 	return run(ctx, runner, args, spinner)
 }
 
+// RunUpdate runs apt-get update to refresh repository metadata.
 func RunUpdate(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
 	spinner.SetDesc("Refreshing repositories...")
 	_, _, err := runner.Run(ctx, "apt-get", "update")
 	return err
 }
 
+// RunUpgrade runs apt-get upgrade -y.
 func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
 	return run(ctx, runner, []string{"upgrade", "-y"}, spinner)
 }
 
+// FindInstalledConflicts returns the subset of names that are currently
+// installed according to dpkg-query.
 func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) []string {
 	var found []string
 	for _, name := range names {

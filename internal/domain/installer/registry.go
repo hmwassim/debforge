@@ -11,6 +11,7 @@ import (
 // instead of two hand-written copies of the same map+Register+Lookup code.
 type Registry = registry.Registry[pkg.Type, Installer]
 
+// NewRegistry returns an empty installer registry.
 func NewRegistry() *Registry {
 	return registry.New[pkg.Type, Installer]()
 }

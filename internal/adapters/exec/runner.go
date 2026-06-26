@@ -1,3 +1,5 @@
+// Package exec provides a concrete implementation of ports.CommandRunner
+// using os/exec.
 package exec
 
 import (
@@ -9,8 +11,10 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Runner executes external commands via os/exec.
 type Runner struct{}
 
+// NewRunner returns a new Runner.
 func NewRunner() *Runner {
 	return &Runner{}
 }

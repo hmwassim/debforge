@@ -1,3 +1,4 @@
+// Package lock provides a file-based locking implementation using flock(2).
 package lock
 
 import (
@@ -11,12 +12,17 @@ import (
 
 var _ ports.Locker = (*FLock)(nil)
 
+// FLock implements ports.Locker using the flock(2) system call.
 type FLock struct{}
 
+// NewFLock returns a new FLock.
 func NewFLock() *FLock {
 	return &FLock{}
 }
 
+// Acquire acquires an exclusive lock on the file at path, blocking until
+// the lock is acquired or the context is cancelled. It returns a release
+// function that must be called to unlock.
 func (l *FLock) Acquire(ctx context.Context, path string) (func(), error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return nil, err

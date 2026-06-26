@@ -1,7 +1,9 @@
+// Package pkg defines the Package model and package type constants.
 package pkg
 
 import "github.com/hmwassim/debforge/internal/registry"
 
+// Type identifies the kind of package (apt, deb, source, or config).
 type Type string
 
 const (
@@ -35,6 +37,7 @@ type SourceConfig struct {
 	SourceSubdir      string
 }
 
+// Package represents a single package definition loaded from a YAML file.
 type Package struct {
 	Name    string
 	Type    Type
@@ -70,6 +73,8 @@ type Package struct {
 	Source *SourceConfig
 }
 
+// PrimarySystemPackage returns the primary system package name, preferring
+// Deb.Package over Packages[0] over p.Name.
 func (p *Package) PrimarySystemPackage() string {
 	if p.Deb != nil && p.Deb.Package != "" {
 		return p.Deb.Package
@@ -80,6 +85,7 @@ func (p *Package) PrimarySystemPackage() string {
 	return p.Name
 }
 
+// Clone returns a deep copy of p, including all slices and sub-configs.
 func (p *Package) Clone() *Package {
 	cp := *p
 	cp.Depends = copySlice(p.Depends)
@@ -135,6 +141,7 @@ type Registry struct {
 	*registry.Registry[string, *Package]
 }
 
+// NewRegistry returns an empty package registry.
 func NewRegistry() *Registry {
 	return &Registry{Registry: registry.New[string, *Package]()}
 }

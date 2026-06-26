@@ -11,10 +11,13 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// RemoveService orchestrates the removal of one or more packages, including
+// orphan cleanup and state persistence.
 type RemoveService struct {
 	baseService
 }
 
+// NewRemoveService returns a new RemoveService.
 func NewRemoveService(
 	reg *pkg.Registry,
 	instReg *installer.Registry,
@@ -32,6 +35,7 @@ func NewRemoveService(
 	}
 }
 
+// Run removes each named package in sequence, acquiring the lock first.
 func (s *RemoveService) Run(ctx context.Context, names []string, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		for _, name := range names {

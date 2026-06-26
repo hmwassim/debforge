@@ -1,3 +1,6 @@
+// Package service implements the high-level install, remove, and update
+// workflows that coordinate package resolution, execution, and state
+// persistence.
 package service
 
 import (
@@ -11,6 +14,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// ErrNotInstalled is returned when attempting to remove or update a package
+// that is not recorded in the state file.
 var ErrNotInstalled = errors.New("not installed")
 
 type baseService struct {
@@ -23,11 +28,14 @@ type baseService struct {
 	fs       ports.FileSystem
 }
 
+// InstallService orchestrates the installation of one or more packages
+// along with their transitive dependencies.
 type InstallService struct {
 	baseService
 	resolver *Resolver
 }
 
+// NewInstallService returns a new InstallService.
 func NewInstallService(
 	reg *pkg.Registry,
 	instReg *installer.Registry,

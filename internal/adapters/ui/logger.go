@@ -39,10 +39,13 @@ func isTerminal(w io.Writer) bool {
 	return false
 }
 
+// ConsoleLogger writes formatted log lines to stderr, using color and
+// symbols on terminals and plain text otherwise.
 type ConsoleLogger struct {
 	mu sync.Mutex
 }
 
+// NewConsoleLogger returns a new ConsoleLogger.
 func NewConsoleLogger() *ConsoleLogger {
 	return &ConsoleLogger{}
 }
@@ -59,11 +62,16 @@ func (l *ConsoleLogger) line(color, symbol, format string, args ...any) {
 	}
 }
 
-func (l *ConsoleLogger) Info(format string, args ...any)    { l.line(blue, "i", format, args...) }
+// Info prints a blue [i] message.
+func (l *ConsoleLogger) Info(format string, args ...any) { l.line(blue, "i", format, args...) }
+// Success prints a green [*] message.
 func (l *ConsoleLogger) Success(format string, args ...any) { l.line(green, "*", format, args...) }
-func (l *ConsoleLogger) Warn(format string, args ...any)    { l.line(yellow, "!", format, args...) }
-func (l *ConsoleLogger) Error(format string, args ...any)   { l.line(red, "x", format, args...) }
+// Warn prints a yellow [!] message.
+func (l *ConsoleLogger) Warn(format string, args ...any) { l.line(yellow, "!", format, args...) }
+// Error prints a red [x] message.
+func (l *ConsoleLogger) Error(format string, args ...any) { l.line(red, "x", format, args...) }
 
+// Prompt asks a yes/no question on stderr and returns true for y/yes.
 func (l *ConsoleLogger) Prompt(format string, args ...any) bool {
 	l.mu.Lock()
 	msg := fmt.Sprintf(format, args...)

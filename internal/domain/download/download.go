@@ -1,3 +1,5 @@
+// Package download fetches remote files over HTTPS with progress reporting
+// and optional SHA-256 verification.
 package download
 
 import (
@@ -16,6 +18,7 @@ import (
 	"github.com/hmwassim/debforge/internal/textutil"
 )
 
+// ExpandURL replaces {version} placeholders in url with the given version.
 func ExpandURL(url, version string) string {
 	return strings.ReplaceAll(url, "{version}", version)
 }
@@ -44,6 +47,8 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// Download fetches a file from url over HTTPS, writes it to destPath,
+// optionally verifies its SHA-256 hash, and reports progress via spinner.
 func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, spinner ports.Spinner, sha256Hex string) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

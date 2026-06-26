@@ -1,3 +1,4 @@
+// Package store provides a generic JSON file store backed by ports.FileSystem.
 package store
 
 import (
@@ -8,17 +9,22 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// ErrNotFound is returned by Store.Load when the backing file does not exist.
 var ErrNotFound = errors.New("store: not found")
 
+// Store is a generic JSON-backed store for a single value of type T.
 type Store[T any] struct {
 	fs   ports.FileSystem
 	path string
 }
 
+// NewStore returns a Store that reads and writes a JSON file at path using fs.
 func NewStore[T any](fs ports.FileSystem, path string) *Store[T] {
 	return &Store[T]{fs: fs, path: path}
 }
 
+// Load reads and deserializes the stored value from the JSON file.
+// Returns ErrNotFound when the file does not exist.
 func (s *Store[T]) Load() (*T, error) {
 	ok, err := s.fs.Exists(s.path)
 	if err != nil {
@@ -38,6 +44,8 @@ func (s *Store[T]) Load() (*T, error) {
 	return &v, nil
 }
 
+// Save serializes v as indented JSON and writes it atomically to the
+// store's path (write to temp file, rename over target).
 func (s *Store[T]) Save(v *T) error {
 	if err := s.fs.MkdirAll(filepath.Dir(s.path), 0755); err != nil {
 		return err

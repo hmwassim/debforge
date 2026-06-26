@@ -1,3 +1,5 @@
+// Package version provides version-checking helpers for deb and source
+// packages, supporting VersionCmd scripts and Git tag-based lookups.
 package version
 
 import (

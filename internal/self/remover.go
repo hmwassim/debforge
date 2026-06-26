@@ -11,6 +11,8 @@ import (
 	"github.com/hmwassim/debforge/internal/service"
 )
 
+// Remover handles the self-remove operation — removing all managed
+// packages, then deleting debforge's root directory and link.
 type Remover struct {
 	cfg       *Config
 	runner    ports.CommandRunner
@@ -24,6 +26,7 @@ type Remover struct {
 	removeSvc *service.RemoveService
 }
 
+// NewRemover returns a new Remover with the given dependencies.
 func NewRemover(
 	cfg *Config,
 	runner ports.CommandRunner,
@@ -46,6 +49,8 @@ func NewRemover(
 	}
 }
 
+// Remove runs the self-remove flow: confirmation prompt, removal of
+// managed packages, then deletion of the root directory and symlink.
 func (r *Remover) Remove(ctx context.Context) error {
 	return withRootAndLock(ctx, "self-remove", r.sys, r.locker, r.cfg.LockPath, r.remove)
 }

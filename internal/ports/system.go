@@ -1,3 +1,5 @@
+// Package ports defines the core interfaces (ports) that adapters implement
+// and services depend on.
 package ports
 
 import (
@@ -33,12 +35,15 @@ type CommandRunner interface {
 	RunWithOptions(ctx context.Context, opts RunOptions, name string, args ...string) (stdout, stderr []byte, err error)
 }
 
+// FileInfo is the minimal file metadata interface used by the codebase.
 type FileInfo interface {
 	Name() string
 	Size() int64
 	IsDir() bool
 }
 
+// FileSystem is the port for file I/O operations, abstracting os and
+// filepath so tests can use a mock implementation.
 type FileSystem interface {
 	ReadFile(path string) ([]byte, error)
 	WriteFile(path string, data []byte, perm int) error
@@ -57,10 +62,12 @@ type FileSystem interface {
 	Exists(path string) (bool, error)
 }
 
+// Locker is the port for distributed mutual exclusion via file locking.
 type Locker interface {
 	Acquire(ctx context.Context, path string) (release func(), err error)
 }
 
+// System is the port for OS-level checks such as privilege detection.
 type System interface {
 	IsPrivileged() bool
 }

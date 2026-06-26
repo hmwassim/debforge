@@ -4,10 +4,13 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 )
 
+// Resolver computes the transitive dependency closure for a package in
+// topological order (dependencies before dependents).
 type Resolver struct {
 	reg *pkg.Registry
 }
 
+// NewResolver returns a new Resolver.
 func NewResolver(reg *pkg.Registry) *Resolver {
 	return &Resolver{reg: reg}
 }

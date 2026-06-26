@@ -19,6 +19,9 @@ func stripTrailingDots(s string) string {
 	return s
 }
 
+// Display is an animated terminal spinner that shows a rotating frame and
+// a description string. It degrades gracefully to a static [i] prefix when
+// the output is not a terminal.
 type Display struct {
 	w       io.Writer
 	content string
@@ -39,6 +42,8 @@ type Display struct {
 	dOnce  sync.Once
 }
 
+// NewDisplay starts a new spinner goroutine that animates content on w
+// until Done, Fail, DoneWarn, or DoneInfo is called.
 func NewDisplay(ctx context.Context, w io.Writer, content string) *Display {
 	content = textutil.UcFirst(content)
 	d := &Display{w: w, content: content, ctx: ctx, tty: isTerminal(w)}
@@ -48,12 +53,14 @@ func NewDisplay(ctx context.Context, w io.Writer, content string) *Display {
 	return d
 }
 
+// SetDesc updates the spinner's description text.
 func (d *Display) SetDesc(content string) {
 	d.mu.Lock()
 	d.content = textutil.UcFirst(content)
 	d.mu.Unlock()
 }
 
+// Pause temporarily stops the spinner animation and clears the current line.
 func (d *Display) Pause() {
 	d.mu.Lock()
 	d.paused = true
@@ -63,6 +70,7 @@ func (d *Display) Pause() {
 	}
 }
 
+// Resume restarts the spinner animation after a Pause.
 func (d *Display) Resume() {
 	d.mu.Lock()
 	d.paused = false
@@ -154,9 +162,13 @@ func (d *Display) doneWith(mark, code string) {
 	}
 }
 
-func (d *Display) Done()     { d.doneWith("*", green) }
-func (d *Display) Fail()     { d.doneWith("x", red) }
+// Done marks the spinner as successfully completed with a checkmark.
+func (d *Display) Done() { d.doneWith("*", green) }
+// Fail marks the spinner as failed with an x mark.
+func (d *Display) Fail() { d.doneWith("x", red) }
+// DoneWarn marks the spinner as completed with a warning.
 func (d *Display) DoneWarn() { d.doneWith("!", yellow) }
+// DoneInfo marks the spinner as completed with an informational marker.
 func (d *Display) DoneInfo() { d.doneWith("i", blue) }
 
 var _ ports.Spinner = (*Display)(nil)

@@ -1,3 +1,5 @@
+// Package definition parses YAML package definition files into pkg.Package
+// values.
 package definition
 
 import (
@@ -9,6 +11,7 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Parse reads a YAML definition from path and returns the parsed Package.
 func Parse(path string, fs ports.FileSystem) (*pkg.Package, error) {
 	data, err := fs.ReadFile(path)
 	if err != nil {

@@ -1,3 +1,5 @@
+// Package config implements installer.Installer for config-type packages
+// (static configuration files and user-level config files).
 package config
 
 import (
@@ -14,16 +16,20 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Installer installs and removes config files defined by a Package.
 type Installer struct {
 	runner ports.CommandRunner
 	fs     ports.FileSystem
 	ui     ports.UI
 }
 
+// NewInstaller returns a new config Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
 	return &Installer{runner: runner, fs: fs, ui: ui}
 }
 
+// Install writes the config files and user config files defined by p,
+// skipping install when the version hash matches (unless ForceInstall).
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeConfig {
 		return fmt.Errorf("config installer called for type %s", p.Type)
@@ -64,6 +70,8 @@ func hashMap(h io.Writer, m map[string]string) {
 	}
 }
 
+// Remove deletes the user configs, remove configs, and system configs
+// defined by p, skipping modified files unless ForceInstall is set.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeConfig {
 		return fmt.Errorf("config installer called for type %s", p.Type)

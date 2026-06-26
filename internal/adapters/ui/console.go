@@ -1,3 +1,5 @@
+// Package ui provides terminal UI primitives including logging, interactive
+// prompts, and an animated spinner display.
 package ui
 
 import (
@@ -10,18 +12,23 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// ConsoleUI implements ports.UI with terminal output and interactive prompts.
 type ConsoleUI struct {
 	logger         *ConsoleLogger
 	currentSpinner *Display
 	yes            bool
 }
 
+// NewConsoleUI returns a ConsoleUI that writes to stderr.
 func NewConsoleUI() *ConsoleUI {
 	return &ConsoleUI{logger: NewConsoleLogger()}
 }
 
+// SetYes sets whether yes/no prompts automatically return the default value.
 func (u *ConsoleUI) SetYes(yes bool) { u.yes = yes }
 
+// Prompt asks a yes/no question formatted with format and args,
+// returning true when the user answers yes.
 func (u *ConsoleUI) Prompt(format string, args ...any) bool {
 	if u.yes {
 		return true
@@ -33,11 +40,18 @@ func (u *ConsoleUI) Prompt(format string, args ...any) bool {
 	return result
 }
 
-func (u *ConsoleUI) Info(format string, args ...any)    { u.logger.Info(format, args...) }
+// Info prints an informational message.
+func (u *ConsoleUI) Info(format string, args ...any) { u.logger.Info(format, args...) }
+// Success prints a success message.
 func (u *ConsoleUI) Success(format string, args ...any) { u.logger.Success(format, args...) }
-func (u *ConsoleUI) Warn(format string, args ...any)    { u.logger.Warn(format, args...) }
-func (u *ConsoleUI) Error(format string, args ...any)   { u.logger.Error(format, args...) }
+// Warn prints a warning message.
+func (u *ConsoleUI) Warn(format string, args ...any) { u.logger.Warn(format, args...) }
+// Error prints an error message.
+func (u *ConsoleUI) Error(format string, args ...any) { u.logger.Error(format, args...) }
 
+// PromptInput asks for text input with a formatted prompt, returning the
+// user's response. When yes mode is set, it returns defaultVal without
+// prompting.
 func (u *ConsoleUI) PromptInput(defaultVal, format string, args ...any) string {
 	if u.yes {
 		return defaultVal
@@ -75,6 +89,7 @@ func (u *ConsoleUI) withSpinnerPaused(fn func()) {
 	fn()
 }
 
+// Spinner creates a new animated spinner with the given description.
 func (u *ConsoleUI) Spinner(ctx context.Context, desc string) ports.Spinner {
 	s := NewDisplay(ctx, os.Stderr, desc)
 	u.currentSpinner = s

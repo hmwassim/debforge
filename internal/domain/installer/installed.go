@@ -1,3 +1,6 @@
+// Package installer provides shared types and helpers for all package-type
+// installers (apt, deb, source, config), including the Installer interface,
+// config file management, script execution, and installation-state checks.
 package installer
 
 import (

@@ -1,3 +1,6 @@
+// Package source implements installer.Installer for source-type packages
+// (source code fetched from git or downloaded as a tarball, then built and
+// installed via custom scripts).
 package source
 
 import (
@@ -14,16 +17,20 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Installer installs and removes source-built packages.
 type Installer struct {
 	runner ports.CommandRunner
 	fs     ports.FileSystem
 	ui     ports.UI
 }
 
+// NewInstaller returns a new source Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
 	return &Installer{runner: runner, fs: fs, ui: ui}
 }
 
+// Install fetches the source code (git clone or download+extract), runs
+// the build and install scripts, then runs the post-install script.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (err error) {
 	if p.Type != pkg.TypeSource {
 		return fmt.Errorf("source installer called for type %s", p.Type)
@@ -88,6 +95,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	return nil
 }
 
+// Remove runs the remove script (if defined) and removes system packages
+// listed in p.Remove via apt-get.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeSource {
 		return fmt.Errorf("source installer called for type %s", p.Type)

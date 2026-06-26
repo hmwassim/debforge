@@ -1,3 +1,5 @@
+// Package self manages debforge's own installation lifecycle — self-update
+// and self-remove.
 package self
 
 import (
@@ -42,6 +44,7 @@ type Config struct {
 	StatePath string
 }
 
+// DefaultConfig returns a Config populated with the default paths.
 func DefaultConfig() *Config {
 	root := DefaultRootDir
 	varDir := filepath.Join(root, "var")

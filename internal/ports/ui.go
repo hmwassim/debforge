@@ -2,6 +2,7 @@ package ports
 
 import "context"
 
+// Spinner is the port for an animated progress indicator.
 type Spinner interface {
 	Done()
 	Fail()

@@ -11,6 +11,8 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// Updater handles the self-update operation — fetching the latest source,
+// building a new binary, and installing it.
 type Updater struct {
 	cfg    *Config
 	runner ports.CommandRunner
@@ -20,10 +22,13 @@ type Updater struct {
 	sys    ports.System
 }
 
+// NewUpdater returns a new Updater with the given dependencies.
 func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, logger ports.UI, locker ports.Locker, sys ports.System) *Updater {
 	return &Updater{cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker, sys: sys}
 }
 
+// Update runs the self-update flow: clone or pull source, build, verify,
+// install binary, and update the symlink.
 func (u *Updater) Update(ctx context.Context) error {
 	return withRootAndLock(ctx, "self-update", u.sys, u.locker, u.cfg.LockPath, u.update)
 }
