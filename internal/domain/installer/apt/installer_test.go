@@ -108,7 +108,7 @@ func TestIsUpToDate_newCandidateProceedsAndUpdatesVersion(t *testing.T) {
 	}
 }
 
-// ---- selectVariant ---------------------------------------------------------
+// ---- SelectVariant ---------------------------------------------------------
 
 func TestSelectVariant_yesModePicksFirstAlphabeticallyWithoutPrompting(t *testing.T) {
 	ui := &testutil.MockUI{Yes: true}
@@ -120,7 +120,7 @@ func TestSelectVariant_yesModePicksFirstAlphabeticallyWithoutPrompting(t *testin
 		},
 	}
 
-	if err := inst.selectVariant(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+	if err := inst.SelectVariant(context.Background(), p); err != nil {
 		t.Fatalf("selectVariant: %v", err)
 	}
 	if p.Apt.Variant != "alpha" {
@@ -142,7 +142,7 @@ func TestSelectVariant_interactiveUsesPromptedValue(t *testing.T) {
 		},
 	}
 
-	if err := inst.selectVariant(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+	if err := inst.SelectVariant(context.Background(), p); err != nil {
 		t.Fatalf("selectVariant: %v", err)
 	}
 	if p.Apt.Variant != "staging" {
@@ -164,7 +164,7 @@ func TestSelectVariant_invalidInputErrors(t *testing.T) {
 		},
 	}
 
-	if err := inst.selectVariant(context.Background(), p, &testutil.MockSpinner{}); err == nil {
+	if err := inst.SelectVariant(context.Background(), p); err == nil {
 		t.Error("expected an error for an invalid variant selection")
 	}
 }
@@ -185,7 +185,7 @@ func TestSelectVariant_noopWhenAlreadySelected(t *testing.T) {
 		},
 	}
 
-	if err := inst.selectVariant(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+	if err := inst.SelectVariant(context.Background(), p); err != nil {
 		t.Fatalf("selectVariant: %v", err)
 	}
 }
@@ -194,7 +194,7 @@ func TestSelectVariant_noopWhenNoVariants(t *testing.T) {
 	inst := &Installer{}
 	p := &pkg.Package{Name: "test-pkg", Apt: &pkg.AptConfig{}}
 
-	if err := inst.selectVariant(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+	if err := inst.SelectVariant(context.Background(), p); err != nil {
 		t.Fatalf("selectVariant: %v", err)
 	}
 }

@@ -18,6 +18,12 @@ import (
 // that is not recorded in the state file.
 var ErrNotInstalled = errors.New("not installed")
 
+// variantSelector is implemented by installers that allow interactive
+// selection of a package variant before the main install flow begins.
+type variantSelector interface {
+	SelectVariant(ctx context.Context, p *pkg.Package) error
+}
+
 type baseService struct {
 	reg      *pkg.Registry
 	instReg  *installer.Registry
@@ -61,6 +67,42 @@ func NewInstallService(
 // processAll: ForceInstall is propagated to every dependency (overriding
 // installer-level version short-circuits) and the system-installed check
 // is bypassed, guaranteeing a full reinstall of the entire tree.
+// SelectVariants runs interactive variant selection for every package in
+// the dependency tree of names. Variants already saved in state are
+// skipped so the user is not re-prompted on re-install or update.
+func (s *InstallService) SelectVariants(ctx context.Context, names []string) error {
+	st, err := s.state.Load()
+	if err != nil {
+		return fmt.Errorf("load state: %w", err)
+	}
+	for _, name := range names {
+		p, err := LookupPackage(s.reg, name)
+		if err != nil {
+			return err
+		}
+		deps, err := s.resolver.Resolve(p)
+		if err != nil {
+			return fmt.Errorf("resolve deps: %w", err)
+		}
+		for _, dep := range deps {
+			if entry, ok := st.Packages[dep.Name]; ok && entry.Variant != "" {
+				dep.Apt.Variant = entry.Variant
+				continue
+			}
+			inst, err := LookupInstaller(s.instReg, dep.Type)
+			if err != nil {
+				return err
+			}
+			if vs, ok := inst.(variantSelector); ok {
+				if err := vs.SelectVariant(ctx, dep); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		return s.processAll(ctx, names, force, force, st, spinner, "install", "installed")

@@ -61,7 +61,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	if err := i.selectVariant(ctx, p, spinner); err != nil {
+	if err := i.SelectVariant(ctx, p); err != nil {
 		return err
 	}
 
@@ -222,7 +222,10 @@ func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner
 
 // ---- variant selection ----------------------------------------------------
 
-func (i *Installer) selectVariant(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+// SelectVariant prompts the user to choose a variant when p has multiple
+// options (e.g. open vs proprietary GPU drivers). When a variant was
+// previously saved on p it is accepted without prompting.
+func (i *Installer) SelectVariant(ctx context.Context, p *pkg.Package) error {
 	if len(p.Apt.Variants) == 0 {
 		p.Apt.Variant = ""
 		return nil

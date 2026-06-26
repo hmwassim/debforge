@@ -62,7 +62,12 @@ func (u *ConsoleUI) PromptInput(defaultVal, format string, args ...any) string {
 	var result string
 	u.withSpinnerPaused(func() {
 		msg := fmt.Sprintf(format, args...)
-		defaultConsole.writef(os.Stderr, "[?] %s ", msg)
+		w := os.Stderr
+		if isTerminal(w) {
+			defaultConsole.writef(w, "%s[?]%s %s ", bold+yellow, reset, msg)
+		} else {
+			defaultConsole.writef(w, "[?] %s ", msg)
+		}
 		tty, err := os.Open("/dev/tty")
 		if err != nil {
 			var s string

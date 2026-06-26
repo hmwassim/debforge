@@ -37,6 +37,11 @@ func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *ins
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
+	if err := svc.SelectVariants(ctx, names); err != nil {
+		u.Error("%s", err)
+		return 1
+	}
+
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		return svc.Run(ctx, names, forceMode, spinner)
 	})
