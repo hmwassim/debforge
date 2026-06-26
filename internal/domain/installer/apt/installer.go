@@ -169,11 +169,13 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 // ---- GPU check ------------------------------------------------------------
 
-func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
-	if strings.ToLower(p.Name) != "nvidia" {
+// CheckGPU verifies that an NVIDIA GPU is present when pkgName is "nvidia".
+// It returns nil when the package is unrelated or the GPU is detected.
+func CheckGPU(ctx context.Context, runner ports.CommandRunner, pkgName string) error {
+	if strings.ToLower(pkgName) != "nvidia" {
 		return nil
 	}
-	out, _, err := i.runner.Run(ctx, "lspci")
+	out, _, err := runner.Run(ctx, "lspci")
 	if err != nil {
 		return fmt.Errorf("check GPU: %w", err)
 	}
@@ -181,6 +183,10 @@ func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
 		return fmt.Errorf("NVIDIA GPU required but not found")
 	}
 	return nil
+}
+
+func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
+	return CheckGPU(ctx, i.runner, p.Name)
 }
 
 // ---- conflicts ------------------------------------------------------------

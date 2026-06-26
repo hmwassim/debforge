@@ -61,15 +61,13 @@ func NewInstallService(
 	}
 }
 
-// Run installs the named packages.
-//
-// When force is true both the force and rerun parameters are set on
-// processAll: ForceInstall is propagated to every dependency (overriding
-// installer-level version short-circuits) and the system-installed check
-// is bypassed, guaranteeing a full reinstall of the entire tree.
 // SelectVariants runs interactive variant selection for every package in
 // the dependency tree of names. Variants already saved in state are
 // skipped so the user is not re-prompted on re-install or update.
+// Selected variants are written directly to the registry copy rather than
+// persisted to state — state persistence only happens inside processOne
+// after a successful install, so a failed download, GPU check, or Ctrl+C
+// does not leave a stale variant record.
 func (s *InstallService) SelectVariants(ctx context.Context, names []string) error {
 	st, err := s.state.Load()
 	if err != nil {
@@ -85,18 +83,25 @@ func (s *InstallService) SelectVariants(ctx context.Context, names []string) err
 			return fmt.Errorf("resolve deps: %w", err)
 		}
 		for _, dep := range deps {
+			if dep.Apt == nil || len(dep.Apt.Variants) == 0 {
+				continue
+			}
 			if entry, ok := st.Packages[dep.Name]; ok && entry.Variant != "" {
-				dep.Apt.Variant = entry.Variant
 				continue
 			}
 			inst, err := LookupInstaller(s.instReg, dep.Type)
 			if err != nil {
 				return err
 			}
-			if vs, ok := inst.(variantSelector); ok {
-				if err := vs.SelectVariant(ctx, dep); err != nil {
-					return err
-				}
+			vs, ok := inst.(variantSelector)
+			if !ok {
+				continue
+			}
+			if err := vs.SelectVariant(ctx, dep); err != nil {
+				return err
+			}
+			if regPkg, ok := s.reg.Lookup(dep.Name); ok && regPkg.Apt != nil {
+				regPkg.Apt.Variant = dep.Apt.Variant
 			}
 		}
 	}

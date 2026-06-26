@@ -23,6 +23,23 @@ import (
 func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string, forceMode bool) int {
 	svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
 
+	for _, name := range names {
+		p, ok := reg.Lookup(name)
+		if !ok || p.Apt == nil {
+			continue
+		}
+		if strings.ToLower(p.Name) != "nvidia" {
+			continue
+		}
+		spinner := u.Spinner(ctx, "checking gpu...")
+		if err := aptInst.CheckGPU(ctx, runner, p.Name); err != nil {
+			spinner.DoneWarn()
+			u.Warn("%s", err)
+			return 1
+		}
+		spinner.Done()
+	}
+
 	var conflicts []string
 	for _, name := range names {
 		p, ok := reg.Lookup(name)
