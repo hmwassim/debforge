@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	DefaultRepoURL   = "https://github.com/hmwassim/debforge"
-	DefaultBranch    = "main"
-	DefaultGoBinary  = "go"
-	DefaultRootDir   = "/opt/debforge"
-	DefaultLinkPath  = "/usr/local/bin/debforge"
+	DefaultRepoURL  = "https://github.com/hmwassim/debforge"
+	DefaultBranch   = "main"
+	DefaultGoBinary = "go"
+	DefaultRootDir  = "/opt/debforge"
+	DefaultLinkPath = "/usr/local/bin/debforge"
 )
 
 // Config holds every filesystem location debforge's self-management

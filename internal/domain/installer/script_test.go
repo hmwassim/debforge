@@ -70,5 +70,3 @@ func TestRunScript_truncatesLongStderr(t *testing.T) {
 }
 
 var _ ports.Spinner = (*testutil.MockSpinner)(nil)
-
-

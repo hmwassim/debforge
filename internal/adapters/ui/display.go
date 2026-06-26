@@ -164,10 +164,13 @@ func (d *Display) doneWith(mark, code string) {
 
 // Done marks the spinner as successfully completed with a checkmark.
 func (d *Display) Done() { d.doneWith("*", green) }
+
 // Fail marks the spinner as failed with an x mark.
 func (d *Display) Fail() { d.doneWith("x", red) }
+
 // DoneWarn marks the spinner as completed with a warning.
 func (d *Display) DoneWarn() { d.doneWith("!", yellow) }
+
 // DoneInfo marks the spinner as completed with an informational marker.
 func (d *Display) DoneInfo() { d.doneWith("i", blue) }
 

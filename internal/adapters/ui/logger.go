@@ -64,10 +64,13 @@ func (l *ConsoleLogger) line(color, symbol, format string, args ...any) {
 
 // Info prints a blue [i] message.
 func (l *ConsoleLogger) Info(format string, args ...any) { l.line(blue, "i", format, args...) }
+
 // Success prints a green [*] message.
 func (l *ConsoleLogger) Success(format string, args ...any) { l.line(green, "*", format, args...) }
+
 // Warn prints a yellow [!] message.
 func (l *ConsoleLogger) Warn(format string, args ...any) { l.line(yellow, "!", format, args...) }
+
 // Error prints a red [x] message.
 func (l *ConsoleLogger) Error(format string, args ...any) { l.line(red, "x", format, args...) }
 

@@ -350,10 +350,10 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 	}()
 
 	var (
-		sbuf   []byte
-		cur    int64
-		total  int64
-		pkg    string
+		sbuf    []byte
+		cur     int64
+		total   int64
+		pkg     string
 		aptErrs []string
 	)
 

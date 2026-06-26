@@ -51,12 +51,12 @@ func TestParseProgress(t *testing.T) {
 			wantOK:    true,
 		},
 		{
-			line:    "not a progress line",
-			wantOK:  false,
+			line:   "not a progress line",
+			wantOK: false,
 		},
 		{
-			line:    "",
-			wantOK:  false,
+			line:   "",
+			wantOK: false,
 		},
 	}
 	for _, tc := range tests {

@@ -149,5 +149,3 @@ func TestProcessAll_partialFailurePersistsCompleted(t *testing.T) {
 		t.Error("unexpected root-b in persisted state on disk after failure")
 	}
 }
-
-

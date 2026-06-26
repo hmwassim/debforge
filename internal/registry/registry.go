@@ -33,4 +33,3 @@ func (r *Registry[K, V]) Lookup(key K) (V, bool) {
 	v, ok := r.items[key]
 	return v, ok
 }
-

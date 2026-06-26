@@ -83,7 +83,7 @@ func (m *MockFileSystem) Stat(path string) (ports.FileInfo, error) {
 	return nil, fmt.Errorf("MockFileSystem.Stat not implemented")
 }
 
-func (m *MockFileSystem) Glob(_ string) ([]string, error)       { return nil, nil }
+func (m *MockFileSystem) Glob(_ string) ([]string, error) { return nil, nil }
 func (m *MockFileSystem) Walk(_ string, _ func(string, ports.FileInfo, error) error) error {
 	return nil
 }

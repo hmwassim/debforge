@@ -42,10 +42,13 @@ func (u *ConsoleUI) Prompt(format string, args ...any) bool {
 
 // Info prints an informational message.
 func (u *ConsoleUI) Info(format string, args ...any) { u.logger.Info(format, args...) }
+
 // Success prints a success message.
 func (u *ConsoleUI) Success(format string, args ...any) { u.logger.Success(format, args...) }
+
 // Warn prints a warning message.
 func (u *ConsoleUI) Warn(format string, args ...any) { u.logger.Warn(format, args...) }
+
 // Error prints an error message.
 func (u *ConsoleUI) Error(format string, args ...any) { u.logger.Error(format, args...) }
 

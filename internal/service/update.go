@@ -22,7 +22,7 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 			if err != nil {
 				return err
 			}
-				p = applyVariant(p, st, name)
+			p = applyVariant(p, st, name)
 			cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
 			if err != nil {
 				if cleanedUp {

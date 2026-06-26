@@ -99,7 +99,8 @@ func TestProcessOne_variant_update(t *testing.T) {
 }
 
 // setupDepTest creates a service with a two-package tree:
-//   root (apt) depends on dep (apt).
+//
+//	root (apt) depends on dep (apt).
 func setupDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
 	t.Helper()
 

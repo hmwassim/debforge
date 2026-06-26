@@ -41,12 +41,12 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 	}
 
 	return &pkg.Package{
-		Name:      name,
-		Type:      pkg.TypeApt,
-		Depends:   def.Depends,
-		Packages:  def.Install.Packages,
-		Remove:    def.Remove.Packages,
-		Configs:   def.Install.Configs,
+		Name:          name,
+		Type:          pkg.TypeApt,
+		Depends:       def.Depends,
+		Packages:      def.Install.Packages,
+		Remove:        def.Remove.Packages,
+		Configs:       def.Install.Configs,
 		RemoveConfigs: def.Remove.Configs,
 		PostInstall:   def.PostInstall,
 		PostRemove:    def.PostRemove,

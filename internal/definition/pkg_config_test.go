@@ -34,7 +34,7 @@ func (m *memFS) Exists(path string) (bool, error) {
 	return ok, nil
 }
 
-func (m *memFS) RemoveAll(path string) error  { return nil }
+func (m *memFS) RemoveAll(path string) error { return nil }
 func (m *memFS) MkdirAll(path string, perm int) error {
 	return nil
 }
@@ -53,7 +53,7 @@ func (m *memFS) Glob(pattern string) ([]string, error) {
 func (m *memFS) Rename(oldPath, newPath string) error {
 	return nil
 }
-func (m *memFS) Symlink(target, link string) error  { return nil }
+func (m *memFS) Symlink(target, link string) error { return nil }
 func (m *memFS) Readlink(path string) (string, error) {
 	return "", nil
 }

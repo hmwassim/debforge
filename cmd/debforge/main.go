@@ -154,8 +154,6 @@ func run() int {
 	return 0
 }
 
-
-
 func usage() {
 	fmt.Println("debforge - package manager")
 	fmt.Println()
