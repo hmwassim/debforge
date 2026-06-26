@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -25,24 +24,14 @@ func (m *MockSpinner) SetDesc(d string) { m.Desc = d }
 type MockUI struct {
 	Yes bool
 
-	Infos    []string
-	Warnings []string
-	Errors   []string
-
 	PromptFunc      func(format string, args ...any) bool
 	PromptInputFunc func(defaultVal, format string, args ...any) string
 }
 
-func (m *MockUI) Info(format string, args ...any) {
-	m.Infos = append(m.Infos, fmt.Sprintf(format, args...))
-}
+func (m *MockUI) Info(format string, args ...any) {}
 func (m *MockUI) Success(format string, args ...any) {}
-func (m *MockUI) Warn(format string, args ...any) {
-	m.Warnings = append(m.Warnings, fmt.Sprintf(format, args...))
-}
-func (m *MockUI) Error(format string, args ...any) {
-	m.Errors = append(m.Errors, fmt.Sprintf(format, args...))
-}
+func (m *MockUI) Warn(format string, args ...any) {}
+func (m *MockUI) Error(format string, args ...any) {}
 
 func (m *MockUI) Prompt(format string, args ...any) bool {
 	if m.PromptFunc != nil {
