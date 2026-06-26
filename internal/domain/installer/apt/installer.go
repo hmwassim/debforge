@@ -37,6 +37,10 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("no packages or variants defined for apt type")
 	}
 
+	if err := i.checkGPU(ctx, p); err != nil {
+		return err
+	}
+
 	if err := i.checkConflicts(ctx, p, spinner); err != nil {
 		return err
 	}
@@ -160,6 +164,22 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return err
 	}
 
+	return nil
+}
+
+// ---- GPU check ------------------------------------------------------------
+
+func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
+	if strings.ToLower(p.Name) != "nvidia" {
+		return nil
+	}
+	out, _, err := i.runner.Run(ctx, "lspci")
+	if err != nil {
+		return fmt.Errorf("check GPU: %w", err)
+	}
+	if !strings.Contains(strings.ToLower(string(out)), "nvidia") {
+		return fmt.Errorf("NVIDIA GPU required but not found")
+	}
 	return nil
 }
 

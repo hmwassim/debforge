@@ -1,0 +1,29 @@
+name: nvidia
+type: apt
+install:
+  extrepo:
+    - nvidia-cuda
+  packages:
+    - nvtop
+  backports:
+    - nvidia-vaapi-driver
+  variants:
+    open: nvidia-open
+    proprietary: cuda-drivers
+  configs:
+    /etc/modprobe.d/99-nvidia.conf: |
+      # NVIDIA kernel module tunables
+          # PAT: better CPU memory management for GPU buffers (faster).
+          # SkipMemoryZero: don't zero GPU allocations on alloc.
+          # AggressiveVblank: lower-latency display-interrupt handling.
+          # DynamicPowerManagement 0x02: allow dGPU idle power-down.
+          options nvidia NVreg_UsePageAttributeTable=1
+          options nvidia NVreg_InitializeSystemMemoryAllocations=0
+          options nvidia NVreg_RegistryDwords=RmEnableAggressiveVblank=1
+          options nvidia NVreg_DynamicPowerManagement=0x02
+remove:
+  packages:
+    - nvidia-vaapi-driver
+    - nvtop
+post_remove: |
+  rm -f /etc/modprobe.d/99-nvidia.conf
