@@ -73,6 +73,14 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
+	if p.Apt != nil && p.Apt.Variant != "" {
+		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
+			if c, err := i.candidateVersion(ctx, v); err == nil && c != "" {
+				p.Version = c
+			}
+		}
+	}
+
 	if err := i.writeConfigs(p, spinner); err != nil {
 		return err
 	}
@@ -91,6 +99,11 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 // and records the candidate version.
 func (i *Installer) isUpToDate(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
 	name := p.PrimarySystemPackage()
+	if p.Apt != nil && p.Apt.Variant != "" {
+		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
+			name = v
+		}
+	}
 	candidate, err := i.candidateVersion(ctx, name)
 	if err != nil {
 		return false, err
