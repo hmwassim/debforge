@@ -17,21 +17,41 @@ func (m *MockSpinner) Pause()           {}
 func (m *MockSpinner) Resume()          {}
 func (m *MockSpinner) SetDesc(d string) { m.Desc = d }
 
-// MockUI is a minimal ports.UI for tests. PromptInputFunc/PromptFunc let a
-// test control interactive answers; when Yes is true, PromptInput mirrors
-// the real ConsoleUI's yes-mode behavior (returns defaultVal immediately)
-// unless PromptInputFunc is explicitly set.
+// MockUI is a minimal ports.UI for tests. Each method's corresponding Func
+// field (e.g. WarnFunc) can be set to intercept calls. When Yes is true,
+// PromptInput mirrors the real ConsoleUI's yes-mode behavior (returns
+// defaultVal immediately) unless PromptInputFunc is explicitly set.
 type MockUI struct {
 	Yes bool
 
+	InfoFunc        func(format string, args ...any)
+	SuccessFunc     func(format string, args ...any)
+	WarnFunc        func(format string, args ...any)
+	ErrorFunc       func(format string, args ...any)
 	PromptFunc      func(format string, args ...any) bool
 	PromptInputFunc func(defaultVal, format string, args ...any) string
 }
 
-func (m *MockUI) Info(format string, args ...any) {}
-func (m *MockUI) Success(format string, args ...any) {}
-func (m *MockUI) Warn(format string, args ...any) {}
-func (m *MockUI) Error(format string, args ...any) {}
+func (m *MockUI) Info(format string, args ...any) {
+	if m.InfoFunc != nil {
+		m.InfoFunc(format, args...)
+	}
+}
+func (m *MockUI) Success(format string, args ...any) {
+	if m.SuccessFunc != nil {
+		m.SuccessFunc(format, args...)
+	}
+}
+func (m *MockUI) Warn(format string, args ...any) {
+	if m.WarnFunc != nil {
+		m.WarnFunc(format, args...)
+	}
+}
+func (m *MockUI) Error(format string, args ...any) {
+	if m.ErrorFunc != nil {
+		m.ErrorFunc(format, args...)
+	}
+}
 
 func (m *MockUI) Prompt(format string, args ...any) bool {
 	if m.PromptFunc != nil {

@@ -12,6 +12,10 @@ import (
 // contents + existence); directory semantics are intentionally trivial
 // (MkdirAll/MkdirTemp/RemoveAll are no-ops/always-succeed) since no
 // current caller needs real directory listing behavior from a mock.
+//
+// Each method has a corresponding Func field (e.g. MkdirAllFunc) that, when
+// set, is called instead of the default implementation. This lets tests
+// inject errors or custom behavior without creating wrapper types.
 type MockFileSystem struct {
 	Files map[string][]byte
 
@@ -19,6 +23,14 @@ type MockFileSystem struct {
 	// when empty, so callers don't need to set it unless a test cares
 	// about the exact path.
 	TempDir string
+
+	MkdirAllFunc  func(path string, perm int) error
+	RemoveAllFunc func(path string) error
+	RenameFunc    func(oldPath, newPath string) error
+	SymlinkFunc   func(target, link string) error
+	ReadlinkFunc  func(path string) (string, error)
+	ExistsFunc    func(path string) (bool, error)
+	StatFunc      func(path string) (ports.FileInfo, error)
 }
 
 // NewMockFileSystem returns an empty MockFileSystem ready to use.
@@ -44,11 +56,19 @@ func (m *MockFileSystem) Create(_ string) (io.WriteCloser, error) {
 }
 
 func (m *MockFileSystem) RemoveAll(path string) error {
+	if m.RemoveAllFunc != nil {
+		return m.RemoveAllFunc(path)
+	}
 	delete(m.Files, path)
 	return nil
 }
 
-func (m *MockFileSystem) MkdirAll(_ string, _ int) error { return nil }
+func (m *MockFileSystem) MkdirAll(path string, perm int) error {
+	if m.MkdirAllFunc != nil {
+		return m.MkdirAllFunc(path, perm)
+	}
+	return nil
+}
 func (m *MockFileSystem) MkdirTemp(_ string) (string, error) {
 	if m.TempDir != "" {
 		return m.TempDir, nil
@@ -56,7 +76,10 @@ func (m *MockFileSystem) MkdirTemp(_ string) (string, error) {
 	return "/tmp/debforge-test", nil
 }
 
-func (m *MockFileSystem) Stat(_ string) (ports.FileInfo, error) {
+func (m *MockFileSystem) Stat(path string) (ports.FileInfo, error) {
+	if m.StatFunc != nil {
+		return m.StatFunc(path)
+	}
 	return nil, fmt.Errorf("MockFileSystem.Stat not implemented")
 }
 
@@ -65,15 +88,31 @@ func (m *MockFileSystem) Walk(_ string, _ func(string, ports.FileInfo, error) er
 	return nil
 }
 func (m *MockFileSystem) Rename(oldPath, newPath string) error {
+	if m.RenameFunc != nil {
+		return m.RenameFunc(oldPath, newPath)
+	}
 	if data, ok := m.Files[oldPath]; ok {
 		m.Files[newPath] = data
 		delete(m.Files, oldPath)
 	}
 	return nil
 }
-func (m *MockFileSystem) Symlink(_, _ string) error         { return nil }
-func (m *MockFileSystem) Readlink(_ string) (string, error) { return "", nil }
+func (m *MockFileSystem) Symlink(target, link string) error {
+	if m.SymlinkFunc != nil {
+		return m.SymlinkFunc(target, link)
+	}
+	return nil
+}
+func (m *MockFileSystem) Readlink(path string) (string, error) {
+	if m.ReadlinkFunc != nil {
+		return m.ReadlinkFunc(path)
+	}
+	return "", nil
+}
 func (m *MockFileSystem) Exists(path string) (bool, error) {
+	if m.ExistsFunc != nil {
+		return m.ExistsFunc(path)
+	}
 	_, ok := m.Files[path]
 	return ok, nil
 }

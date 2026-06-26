@@ -115,10 +115,10 @@ var dangerousRoots = []string{
 }
 
 func verifyRemovablePath(path string) error {
-	clean := filepath.Clean(path)
-	if clean == "" {
+	if path == "" {
 		return fmt.Errorf("path is empty")
 	}
+	clean := filepath.Clean(path)
 	for _, d := range dangerousRoots {
 		if clean == d {
 			return fmt.Errorf("refusing to remove: %q is a dangerous system path", clean)
