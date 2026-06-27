@@ -76,9 +76,17 @@ func RunUpdate(ctx context.Context, runner ports.CommandRunner, spinner ports.Sp
 	return err
 }
 
-// RunUpgrade runs apt-get upgrade -y.
+// RunUpgrade runs apt-get upgrade -y. Unlike install/remove it goes through
+// the CommandRunner directly (not the PTY) because there are no packages to
+// track progress for, and the output format differs from install mode.
+// DEBIAN_FRONTEND=noninteractive prevents debconf prompts (e.g. kernel
+// package configuration) from hanging the terminal.
 func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
-	return run(ctx, runner, []string{"upgrade", "-y"}, spinner)
+	spinner.SetDesc("Upgrading system packages...")
+	_, _, err := runner.RunWithOptions(ctx, ports.RunOptions{
+		Env: []string{"DEBIAN_FRONTEND=noninteractive"},
+	}, "apt-get", "upgrade", "-y")
+	return err
 }
 
 // FindInstalledConflicts returns the subset of names that are currently
