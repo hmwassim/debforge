@@ -49,14 +49,9 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 	for path, content := range p.UserConfigs {
 		path = ExpandHome(path, homeDir)
 
-		if !p.ForceInstall {
-			if ok, _ := fs.Exists(path); ok {
-				existing, err := fs.ReadFile(path)
-				if err == nil && string(existing) != content {
-					spinner.SetDesc("skipping modified user config " + path)
-					continue
-				}
-			}
+		if FileIsModified(fs, path, content, p.ForceInstall) {
+			spinner.SetDesc("skipping modified user config " + path)
+			continue
 		}
 
 		dir := filepath.Dir(path)
@@ -119,4 +114,22 @@ func resolveSudoOwner() (uid, gid int, ok bool) {
 // HasHomePrefix reports whether path starts with ~/ or is exactly ~.
 func HasHomePrefix(path string) bool {
 	return strings.HasPrefix(path, "~/") || path == "~"
+}
+
+// FileIsModified reports whether the file at path exists and its content
+// differs from want. Returns false when the file does not exist, when it
+// matches, or when ForceInstall is true (which skips the check entirely).
+func FileIsModified(fs ports.FileSystem, path string, want string, forceInstall bool) bool {
+	if forceInstall {
+		return false
+	}
+	ok, err := fs.Exists(path)
+	if err != nil || !ok {
+		return false
+	}
+	existing, err := fs.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return string(existing) != want
 }

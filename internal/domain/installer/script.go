@@ -47,6 +47,25 @@ func MkdirTemp(fs ports.FileSystem) (string, error) {
 	return tmpDir, nil
 }
 
+// WithTempDir creates a temporary directory, calls fn with its path, and
+// removes it on return. Cleanup errors are surfaced only when fn itself
+// succeeded, so a failed operation does not produce a misleading secondary
+// error from directory removal.
+func WithTempDir(fs ports.FileSystem, name string, fn func(tmpDir string) error) error {
+	tmpDir, err := MkdirTemp(fs)
+	if err != nil {
+		return err
+	}
+	if err := fn(tmpDir); err != nil {
+		fs.RemoveAll(tmpDir)
+		return err
+	}
+	if rmerr := fs.RemoveAll(tmpDir); rmerr != nil {
+		return fmt.Errorf("clean up temp dir for %s: %w", name, rmerr)
+	}
+	return nil
+}
+
 // RunPostInstall executes the post-install script if non-empty.
 func RunPostInstall(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner, name, script string) error {
 	if script == "" {

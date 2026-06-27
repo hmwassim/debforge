@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/textutil"
 	"golang.org/x/term"
@@ -91,8 +92,7 @@ func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.S
 func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) []string {
 	var found []string
 	for _, name := range names {
-		out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", name)
-		if err == nil && strings.TrimSpace(string(out)) == "installed" {
+		if dpkg.IsInstalled(ctx, runner, name) {
 			found = append(found, name)
 		}
 	}

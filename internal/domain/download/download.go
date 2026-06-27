@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/textutil"
@@ -20,7 +19,7 @@ import (
 
 // ExpandURL replaces {version} placeholders in url with the given version.
 func ExpandURL(url, version string) string {
-	return strings.ReplaceAll(url, "{version}", version)
+	return textutil.ExpandVersion(url, version)
 }
 
 type progressReader struct {

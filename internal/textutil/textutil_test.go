@@ -39,3 +39,17 @@ func TestUcFirst(t *testing.T) {
 		}
 	}
 }
+
+func TestExpandVersion(t *testing.T) {
+	cases := []struct{ template, version, want string }{
+		{"https://example.com/pkg_{version}.deb", "1.2.3", "https://example.com/pkg_1.2.3.deb"},
+		{"no placeholder", "1.0", "no placeholder"},
+		{"https://example.com/pkg_{version}/file-{version}.tar.gz", "v2.0", "https://example.com/pkg_v2.0/file-v2.0.tar.gz"},
+		{"", "1.0", ""},
+	}
+	for _, c := range cases {
+		if got := ExpandVersion(c.template, c.version); got != c.want {
+			t.Errorf("ExpandVersion(%q, %q) = %q, want %q", c.template, c.version, got, c.want)
+		}
+	}
+}

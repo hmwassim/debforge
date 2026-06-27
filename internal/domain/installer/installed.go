@@ -5,9 +5,9 @@ package installer
 
 import (
 	"context"
-	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -33,26 +33,18 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 			names = []string{p.PrimarySystemPackage()}
 		}
 		for _, name := range names {
-			if !isInstalled(ctx, runner, name) {
+			if !dpkg.IsInstalled(ctx, runner, name) {
 				return false
 			}
 		}
 		return true
 	case pkg.TypeDeb:
-		return isInstalled(ctx, runner, p.PrimarySystemPackage())
+		return dpkg.IsInstalled(ctx, runner, p.PrimarySystemPackage())
 	case pkg.TypeConfig:
 		return configsInstalled(fs, p)
 	default: // source
 		return true
 	}
-}
-
-func isInstalled(ctx context.Context, runner ports.CommandRunner, name string) bool {
-	out, _, err := runner.Run(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}\n", name)
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) == "installed"
 }
 
 // configsInstalled checks that every system config file in p.Configs

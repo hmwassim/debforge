@@ -93,14 +93,9 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		}
 		absPath := installer.ExpandHome(path, homeDir)
 
-		if !p.ForceInstall {
-			if ok, _ := i.fs.Exists(absPath); ok {
-				existing, err := i.fs.ReadFile(absPath)
-				if err == nil && string(existing) != content {
-					spinner.SetDesc("skipping modified user config " + path)
-					continue
-				}
-			}
+		if installer.FileIsModified(i.fs, absPath, content, p.ForceInstall) {
+			spinner.SetDesc("skipping modified user config " + path)
+			continue
 		}
 
 		if err := i.fs.RemoveAll(absPath); err != nil {

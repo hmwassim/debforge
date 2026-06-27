@@ -4,6 +4,7 @@ package textutil
 
 import (
 	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -29,4 +30,9 @@ func UcFirst(s string) string {
 	r := []rune(s)
 	r[0] = unicode.ToUpper(r[0])
 	return string(r)
+}
+
+// ExpandVersion replaces "{version}" in template with version.
+func ExpandVersion(template, version string) string {
+	return strings.ReplaceAll(template, "{version}", version)
 }

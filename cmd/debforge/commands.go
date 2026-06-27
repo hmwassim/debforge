@@ -20,11 +20,48 @@ import (
 	"github.com/hmwassim/debforge/internal/service"
 )
 
-func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string, forceMode bool) int {
-	svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
+// commandHandler bundles the dependencies shared by install/remove/update
+// so they are wired once instead of repeated in every handler.
+type commandHandler struct {
+	reg      *pkg.Registry
+	instReg  *installer.Registry
+	stateSvc *service.StateManager
+	locker   ports.Locker
+	cfg      *self.Config
+	runner   ports.CommandRunner
+	fsys     ports.FileSystem
+}
+
+func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, ui ports.UI) (*commandHandler, error) {
+	reg := pkg.NewRegistry()
+	instReg := installer.NewRegistry()
+
+	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
+	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui))
+	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
+	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui))
+
+	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
+		return nil, fmt.Errorf("load definitions: %w", err)
+	}
+
+	st := store.NewStore[service.State](fsys, cfg.StatePath)
+	stateSvc := service.NewStateManager(st)
+	if _, err := stateSvc.Load(); err != nil {
+		return nil, fmt.Errorf("load state: %w", err)
+	}
+
+	return &commandHandler{
+		reg: reg, instReg: instReg, stateSvc: stateSvc,
+		locker: locker, cfg: cfg, runner: runner, fsys: fsys,
+	}, nil
+}
+
+func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string, forceMode bool) int {
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys)
 
 	for _, name := range names {
-		p, ok := reg.Lookup(name)
+		p, ok := h.reg.Lookup(name)
 		if !ok || p.Apt == nil {
 			continue
 		}
@@ -32,7 +69,7 @@ func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *ins
 			continue
 		}
 		spinner := u.Spinner(ctx, "checking gpu...")
-		if err := aptInst.CheckGPU(ctx, runner, p.Name); err != nil {
+		if err := aptInst.CheckGPU(ctx, h.runner, p.Name); err != nil {
 			spinner.DoneWarn()
 			u.Warn("%s", err)
 			return 1
@@ -42,12 +79,12 @@ func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *ins
 
 	var conflicts []string
 	for _, name := range names {
-		p, ok := reg.Lookup(name)
+		p, ok := h.reg.Lookup(name)
 		if !ok {
 			continue
 		}
 		if p.Apt != nil {
-			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, runner, p.Apt.Conflicts)...)
+			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, h.runner, p.Apt.Conflicts)...)
 		}
 	}
 	if len(conflicts) > 0 {
@@ -64,21 +101,21 @@ func runInstall(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *ins
 	})
 }
 
-func runRemove(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string) int {
-	svc := service.NewRemoveService(reg, instReg, stateSvc, locker, cfg.LockPath, runner, fsys)
+func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
+	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		return svc.Run(ctx, names, spinner)
 	})
 }
 
-func runUpdate(ctx context.Context, u ports.UI, reg *pkg.Registry, instReg *installer.Registry, stateSvc *service.StateManager, locker ports.Locker, cfg *self.Config, runner ports.CommandRunner, fsys ports.FileSystem, names []string, forceMode, allMode bool) int {
-	svc := service.NewInstallService(reg, instReg, service.NewResolver(reg), stateSvc, locker, cfg.LockPath, runner, fsys)
+func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
-		if err := aptpty.RunUpdate(ctx, runner, spinner); err != nil {
+		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
 			return err
 		}
 		if allMode {
-			if err := aptpty.RunUpgrade(ctx, runner, spinner); err != nil {
+			if err := aptpty.RunUpgrade(ctx, h.runner, spinner); err != nil {
 				return err
 			}
 		}
@@ -101,28 +138,6 @@ func extractFlags(ss []string, yes, force, all *bool) []string {
 		}
 	}
 	return out
-}
-
-func bootstrap(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, ui ports.UI) (*pkg.Registry, *installer.Registry, *service.StateManager, error) {
-	reg := pkg.NewRegistry()
-	instReg := installer.NewRegistry()
-
-	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui))
-
-	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
-		return nil, nil, nil, fmt.Errorf("load definitions: %w", err)
-	}
-
-	st := store.NewStore[service.State](fsys, cfg.StatePath)
-	stateSvc := service.NewStateManager(st)
-	if _, err := stateSvc.Load(); err != nil {
-		return nil, nil, nil, fmt.Errorf("load state: %w", err)
-	}
-
-	return reg, instReg, stateSvc, nil
 }
 
 func loadYAMLDefinitions(reg *pkg.Registry, names []string, fsys ports.FileSystem) error {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -74,24 +75,8 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			dep.ForceInstall = true
 		}
 
-		entry, exists := s.state.Entry(st, dep.Name)
-		oldVersion := ""
-		if exists {
-			dep.Version = entry.Version
-			oldVersion = entry.Version
-			if dep.Apt != nil && entry.Variant != "" {
-				dep.Apt.Variant = entry.Variant
-			}
-		}
+		exists, oldVersion := s.restoreDepState(dep, st)
 
-		// During update, skip extrepo setup on deps — main.go already ran
-		// apt-get update, and any extrepo needed by the root was configured
-		// during the original install. The version check added in the apt
-		// installer then short-circuits when the candidate hasn't changed,
-		// so this arm is typically a no-op for deps that are already current.
-		// One gap: a transitive dep freshly pulled in by an updated root
-		// definition that needs its own extrepo will fail during update;
-		// users should run install for that dep first.
 		if verb == "update" {
 			dep = dep.Clone()
 			dep.SkipRepoSetup = true
@@ -131,4 +116,19 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	return didWork, nil
+}
+
+// restoreDepState reads the persisted state entry for dep and restores its
+// Version and Apt.Variant fields. Returns whether an entry existed and the
+// old version string (for comparison after install).
+func (s *InstallService) restoreDepState(dep *pkg.Package, st *State) (exists bool, oldVersion string) {
+	entry, exists := s.state.Entry(st, dep.Name)
+	if exists {
+		dep.Version = entry.Version
+		oldVersion = entry.Version
+		if dep.Apt != nil && entry.Variant != "" {
+			dep.Apt.Variant = entry.Variant
+		}
+	}
+	return
 }

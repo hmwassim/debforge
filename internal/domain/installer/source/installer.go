@@ -15,6 +15,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer/version"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 // Installer installs and removes source-built packages.
@@ -165,7 +166,7 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 }
 
 func (i *Installer) interpolate(script, version string) string {
-	return strings.ReplaceAll(script, "{version}", version)
+	return textutil.ExpandVersion(script, version)
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {

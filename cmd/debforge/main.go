@@ -60,12 +60,12 @@ func run() int {
 		return 0
 
 	case "--self-remove":
-		reg, instReg, stateSvc, err := bootstrap(cfgu, fsys, runner, u)
+		h, err := newHandler(cfgu, fsys, runner, locker, u)
 		if err != nil {
 			u.Error("bootstrap: %s", err)
 			return 1
 		}
-		remover := self.NewRemover(cfgu, runner, fsys, u, locker, sys, reg, instReg, stateSvc)
+		remover := self.NewRemover(cfgu, runner, fsys, u, locker, sys, h.reg, h.instReg, h.stateSvc)
 		if err := remover.Remove(ctx); err != nil {
 			u.Error("%s", err)
 			return 1
@@ -104,7 +104,7 @@ func run() int {
 		return 0
 	}
 
-	reg, instReg, stateSvc, err := bootstrap(cfgu, fsys, runner, u)
+	h, err := newHandler(cfgu, fsys, runner, locker, u)
 	if err != nil {
 		u.Error("bootstrap: %s", err)
 		return 1
@@ -117,10 +117,10 @@ func run() int {
 			usage()
 			return 1
 		}
-		if !loadDefs(reg, names, fsys, u) {
+		if !loadDefs(h.reg, names, fsys, u) {
 			return 1
 		}
-		return runInstall(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names, forceMode)
+		return h.install(ctx, u, names, forceMode)
 
 	case "remove":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
@@ -128,10 +128,10 @@ func run() int {
 			usage()
 			return 1
 		}
-		if !loadDefs(reg, names, fsys, u) {
+		if !loadDefs(h.reg, names, fsys, u) {
 			return 1
 		}
-		return runRemove(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names)
+		return h.remove(ctx, u, names)
 
 	case "update":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
@@ -143,10 +143,10 @@ func run() int {
 			u.Warn("--all updates every managed package; ignoring explicit name(s): %s", strings.Join(names, ", "))
 			names = nil
 		}
-		if !loadDefs(reg, names, fsys, u) {
+		if !loadDefs(h.reg, names, fsys, u) {
 			return 1
 		}
-		return runUpdate(ctx, u, reg, instReg, stateSvc, locker, cfgu, runner, fsys, names, forceMode, allMode)
+		return h.update(ctx, u, names, forceMode, allMode)
 
 	default:
 		usage()
