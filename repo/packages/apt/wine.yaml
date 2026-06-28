@@ -13,3 +13,5 @@ install:
     - wine64-preloader
     - wine-binfmt
     - mingw-w64
+    - q4wine
+    - winbind
