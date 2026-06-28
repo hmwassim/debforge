@@ -93,6 +93,8 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return fmt.Errorf("remove %s: %w", p.Name, err)
 	}
 
+	s.disableOrphanedExtrepos(ctx, p, st, spinner)
+
 	s.state.Remove(st, name)
 	s.removeOrphaned(ctx, st, spinner)
 	if err := saveState(s.state, st, p.Name); err != nil {
@@ -144,4 +146,41 @@ func pkgIsOrphaned(p *pkg.Package, installed map[string]bool) bool {
 		return true
 	}
 	return !installed[p.PrimarySystemPackage()]
+}
+
+// disableOrphanedExtrepos disables any extrepo that was exclusively used by
+// the removed package and is not needed by any other installed package.
+func (s *RemoveService) disableOrphanedExtrepos(ctx context.Context, p *pkg.Package, st *State, spinner ports.Spinner) {
+	if p.Apt == nil {
+		return
+	}
+	for _, repo := range p.Apt.Extrepo {
+		if s.extrepoNeeded(ctx, repo, p.Name, st) {
+			continue
+		}
+		spinner.SetDesc("disabling extrepo " + repo)
+		s.runner.Run(ctx, "extrepo", "disable", repo)
+	}
+}
+
+// extrepoNeeded checks whether any installed package other than except needs
+// the given extrepo.
+func (s *RemoveService) extrepoNeeded(ctx context.Context, repo, except string, st *State) bool {
+	for name := range st.Packages {
+		if name == except {
+			continue
+		}
+		other, err := LookupPackage(s.reg, name)
+		if err != nil {
+			continue
+		}
+		if other.Apt != nil {
+			for _, r := range other.Apt.Extrepo {
+				if r == repo {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

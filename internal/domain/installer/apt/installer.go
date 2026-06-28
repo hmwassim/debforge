@@ -176,8 +176,6 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return err
 	}
 
-	i.disableExtrepos(ctx, p, spinner)
-
 	if err := installer.RunPostRemove(ctx, i.runner, spinner, p.Name, p.PostRemove); err != nil {
 		return err
 	}
