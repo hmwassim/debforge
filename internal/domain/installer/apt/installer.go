@@ -78,11 +78,15 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 
-	if p.Apt != nil && p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
-			if c, err := i.candidateVersion(ctx, v[0]); err == nil && c != "" {
-				p.Version = c
+	if p.Version == "" {
+		name := p.PrimarySystemPackage()
+		if p.Apt != nil && p.Apt.Variant != "" {
+			if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
+				name = v[0]
 			}
+		}
+		if c, err := i.candidateVersion(ctx, name); err == nil && c != "" {
+			p.Version = c
 		}
 	}
 

@@ -23,21 +23,13 @@ import (
 func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.FileSystem, p *pkg.Package) bool {
 	switch p.Type {
 	case pkg.TypeApt:
-		names := p.Packages
+		name := p.PrimarySystemPackage()
 		if p.Apt != nil && p.Apt.Variant != "" {
-			if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-				names = append(names, v...)
+			if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
+				name = v[0]
 			}
 		}
-		if len(names) == 0 {
-			names = []string{p.PrimarySystemPackage()}
-		}
-		for _, name := range names {
-			if !dpkg.IsInstalled(ctx, runner, name) {
-				return false
-			}
-		}
-		return true
+		return dpkg.IsInstalled(ctx, runner, name)
 	case pkg.TypeDeb:
 		return dpkg.IsInstalled(ctx, runner, p.PrimarySystemPackage())
 	case pkg.TypeConfig:
