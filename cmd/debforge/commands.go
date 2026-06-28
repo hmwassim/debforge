@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"golang.org/x/term"
@@ -142,15 +143,27 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
 	isTerm := term.IsTerminal(int(os.Stdout.Fd()))
 
+	pat := ""
+	if len(patterns) > 0 {
+		pat = strings.ToLower(strings.Join(patterns, " "))
+	}
+
+	var names []string
 	h.reg.Range(func(name string, p *pkg.Package) bool {
-		if len(patterns) > 0 {
-			pat := strings.ToLower(strings.Join(patterns, " "))
+		if pat != "" {
 			n := strings.ToLower(name)
 			d := strings.ToLower(p.Description)
 			if !strings.Contains(n, pat) && !strings.Contains(d, pat) {
 				return true
 			}
 		}
+		names = append(names, name)
+		return true
+	})
+	sort.Strings(names)
+
+	for _, name := range names {
+		p, _ := h.reg.Lookup(name)
 		_, installed := st.Packages[name]
 		if installed {
 			fmt.Fprintf(w, "%s[*]%s %s", green, reset, name)
@@ -165,8 +178,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 			}
 			fmt.Fprintln(w)
 		}
-		return true
-	})
+	}
 	w.Flush()
 
 	out := buf.String()
