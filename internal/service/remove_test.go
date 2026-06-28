@@ -109,6 +109,104 @@ func TestRemoveOne_staleEntryPersistsCleanup(t *testing.T) {
 	}
 }
 
+func TestRemoveOne_removesTransitiveDependents(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "scx-scheds",
+		Type: pkg.TypeDeb,
+		Deb:  &pkg.DebConfig{Package: "scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-tools",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-tools"},
+		Depends: []string{"scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-switcher",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-switcher"},
+		Depends: []string{"scx-scheds", "scx-tools"},
+	})
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeDeb, &variantRecorder{})
+
+	stateSvc, _, cleanup := newStateManagerForTest(t)
+	defer cleanup()
+
+	svc := &RemoveService{
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			runner: &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}},
+			fs:     fs.NewFileSystem(),
+		},
+	}
+
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	t.Run("leaf removal does not affect dependents", func(t *testing.T) {
+		st := &State{Packages: map[string]PkgEntry{
+			"scx-scheds":   {Type: "deb"},
+			"scx-tools":    {Type: "deb"},
+			"scx-switcher": {Type: "deb"},
+		}}
+		if err := svc.RemoveOne(ctx, "scx-switcher", st, spinner); err != nil {
+			t.Fatalf("RemoveOne(scx-switcher): %v", err)
+		}
+		if _, ok := st.Packages["scx-scheds"]; !ok {
+			t.Error("scx-scheds should remain installed")
+		}
+		if _, ok := st.Packages["scx-tools"]; !ok {
+			t.Error("scx-tools should remain installed")
+		}
+		if _, ok := st.Packages["scx-switcher"]; ok {
+			t.Error("scx-switcher should be removed")
+		}
+	})
+
+	t.Run("middle removal removes direct dependents", func(t *testing.T) {
+		st := &State{Packages: map[string]PkgEntry{
+			"scx-scheds":   {Type: "deb"},
+			"scx-tools":    {Type: "deb"},
+			"scx-switcher": {Type: "deb"},
+		}}
+		if err := svc.RemoveOne(ctx, "scx-tools", st, spinner); err != nil {
+			t.Fatalf("RemoveOne(scx-tools): %v", err)
+		}
+		if _, ok := st.Packages["scx-scheds"]; !ok {
+			t.Error("scx-scheds should remain installed")
+		}
+		if _, ok := st.Packages["scx-tools"]; ok {
+			t.Error("scx-tools should be removed")
+		}
+		if _, ok := st.Packages["scx-switcher"]; ok {
+			t.Error("scx-switcher should be removed (depends on scx-tools)")
+		}
+	})
+
+	t.Run("root removal removes all transitive dependents", func(t *testing.T) {
+		st := &State{Packages: map[string]PkgEntry{
+			"scx-scheds":   {Type: "deb"},
+			"scx-tools":    {Type: "deb"},
+			"scx-switcher": {Type: "deb"},
+		}}
+		if err := svc.RemoveOne(ctx, "scx-scheds", st, spinner); err != nil {
+			t.Fatalf("RemoveOne(scx-scheds): %v", err)
+		}
+		if _, ok := st.Packages["scx-scheds"]; ok {
+			t.Error("scx-scheds should be removed")
+		}
+		if _, ok := st.Packages["scx-tools"]; ok {
+			t.Error("scx-tools should be removed (depends on scx-scheds)")
+		}
+		if _, ok := st.Packages["scx-switcher"]; ok {
+			t.Error("scx-switcher should be removed (depends on scx-scheds)")
+		}
+	})
+}
+
 func TestRemoveOne_variantOnlyPackage(t *testing.T) {
 	svc, statePath, cleanup := setupRemoveTest(t, &successRunner{})
 	defer cleanup()

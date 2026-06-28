@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/adapters/fs"
@@ -54,6 +55,27 @@ func (r *successRunner) Run(_ context.Context, _ string, _ ...string) (stdout, s
 }
 func (r *successRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ string, _ ...string) (stdout, stderr []byte, err error) {
 	return []byte("installed\n"), nil, nil
+}
+
+// dpkgRunner simulates dpkg-query responses for a fixed set of installed
+// packages. It returns "installed" for Status-Status queries and a
+// newline-separated package list for ${Package} queries.
+type dpkgRunner struct {
+	installed []string
+}
+
+func (r *dpkgRunner) Run(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+	for _, a := range args {
+		if strings.Contains(a, "${db:Status-Status}") {
+			return []byte("installed\n"), nil, nil
+		}
+	}
+	// dpkg-query -W -f ${Package}\n
+	list := strings.Join(r.installed, "\n") + "\n"
+	return []byte(list), nil, nil
+}
+func (r *dpkgRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
+	return nil, nil, nil
 }
 
 func newStateManagerForTest(t *testing.T) (*StateManager, string, func()) {

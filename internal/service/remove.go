@@ -96,6 +96,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 	s.disableOrphanedExtrepos(ctx, p, st, spinner)
 
 	s.state.Remove(st, name)
+	s.removeDependents(ctx, st, spinner)
 	s.removeOrphaned(ctx, st, spinner)
 	if err := saveState(s.state, st, p.Name); err != nil {
 		return err
@@ -103,6 +104,38 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 
 	spinner.SetDesc(name + " removed")
 	return nil
+}
+
+// removeDependents removes any installed package whose Depends are no longer
+// satisfied by the current state, handling transitive dependencies.
+func (s *RemoveService) removeDependents(ctx context.Context, st *State, spinner ports.Spinner) {
+	for {
+		removed := false
+		for name := range st.Packages {
+			p, err := LookupPackage(s.reg, name)
+			if err != nil {
+				continue
+			}
+			if s.depUnsatisfied(p, st) {
+				s.state.Remove(st, name)
+				spinner.SetDesc(name + " removed (dependency)")
+				removed = true
+			}
+		}
+		if !removed {
+			break
+		}
+	}
+}
+
+// depUnsatisfied reports whether any of p's Depends are missing from st.
+func (s *RemoveService) depUnsatisfied(p *pkg.Package, st *State) bool {
+	for _, dep := range p.Depends {
+		if _, ok := st.Packages[dep]; !ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) {
