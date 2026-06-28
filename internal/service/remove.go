@@ -38,17 +38,22 @@ func NewRemoveService(
 // Run removes each named package in sequence, acquiring the lock first.
 func (s *RemoveService) Run(ctx context.Context, names []string, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
+		removedAny := false
 		for _, name := range names {
 			if err := s.RemoveOne(ctx, name, st, spinner); err != nil {
-				if errors.Is(err, ErrNotInstalled) {
-					spinner.DoneInfo()
-				} else {
+				if !errors.Is(err, ErrNotInstalled) {
 					spinner.Fail()
+					return err
 				}
-				return err
+			} else {
+				removedAny = true
 			}
 		}
-		spinner.Done()
+		if removedAny {
+			spinner.Done()
+		} else {
+			spinner.DoneInfo()
+		}
 		return nil
 	})
 }
@@ -124,6 +129,16 @@ func pkgIsOrphaned(p *pkg.Package, installed map[string]bool) bool {
 			}
 		}
 		return false
+	}
+	if p.Apt != nil && len(p.Apt.Variants) > 0 {
+		for _, pkgs := range p.Apt.Variants {
+			for _, pn := range pkgs {
+				if installed[pn] {
+					return false
+				}
+			}
+		}
+		return true
 	}
 	return !installed[p.PrimarySystemPackage()]
 }
