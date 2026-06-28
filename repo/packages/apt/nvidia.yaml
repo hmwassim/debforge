@@ -8,8 +8,8 @@ install:
   backports:
     - nvidia-vaapi-driver
   variants:
-    open: nvidia-open
-    proprietary: cuda-drivers
+    open: [nvidia-open]
+    proprietary: [cuda-drivers]
   configs:
     /etc/modprobe.d/99-nvidia.conf: |
       # NVIDIA kernel module tunables

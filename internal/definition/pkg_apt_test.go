@@ -29,8 +29,8 @@ name: custom-wine
 type: apt
 install:
   variants:
-    stable: wine-stable
-    staging: wine-staging
+    stable: [wine-stable]
+    staging: [wine-staging]
 `)
 	p, err := parseApt("custom-wine", data)
 	if err != nil {

@@ -17,7 +17,7 @@ const (
 type AptConfig struct {
 	Extrepo   []string
 	Backports []string
-	Variants  map[string]string
+	Variants  map[string][]string
 	Variant   string
 	Conflicts []string
 }
@@ -98,7 +98,7 @@ func (p *Package) Clone() *Package {
 		c := *p.Apt
 		c.Extrepo = copySlice(p.Apt.Extrepo)
 		c.Backports = copySlice(p.Apt.Backports)
-		c.Variants = copyMap(p.Apt.Variants)
+		c.Variants = copyMapSlice(p.Apt.Variants)
 		c.Conflicts = copySlice(p.Apt.Conflicts)
 		cp.Apt = &c
 	}
@@ -129,6 +129,17 @@ func copyMap(m map[string]string) map[string]string {
 	c := make(map[string]string, len(m))
 	for k, v := range m {
 		c[k] = v
+	}
+	return c
+}
+
+func copyMapSlice(m map[string][]string) map[string][]string {
+	if m == nil {
+		return nil
+	}
+	c := make(map[string][]string, len(m))
+	for k, v := range m {
+		c[k] = copySlice(v)
 	}
 	return c
 }

@@ -74,8 +74,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	}
 
 	if p.Apt != nil && p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			if c, err := i.candidateVersion(ctx, v); err == nil && c != "" {
+		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
+			if c, err := i.candidateVersion(ctx, v[0]); err == nil && c != "" {
 				p.Version = c
 			}
 		}
@@ -100,8 +100,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 func (i *Installer) isUpToDate(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
 	name := p.PrimarySystemPackage()
 	if p.Apt != nil && p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			name = v
+		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
+			name = v[0]
 		}
 	}
 	candidate, err := i.candidateVersion(ctx, name)
@@ -157,7 +157,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	}
 	if p.Apt.Variant != "" {
 		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			pkgs = append(pkgs, v)
+			pkgs = append(pkgs, v...)
 		}
 	}
 
@@ -261,7 +261,7 @@ func (i *Installer) SelectVariant(ctx context.Context, p *pkg.Package) error {
 
 	var opts []string
 	for _, name := range names {
-		opts = append(opts, fmt.Sprintf("  %s -> %s", name, p.Apt.Variants[name]))
+		opts = append(opts, fmt.Sprintf("  %s -> %s", name, strings.Join(p.Apt.Variants[name], ", ")))
 	}
 
 	msg := fmt.Sprintf("Select variant for %s:\n%s", p.Name, strings.Join(opts, "\n"))
@@ -296,7 +296,7 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 	pkgs := p.Packages
 	if p.Apt.Variant != "" {
 		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			pkgs = append(pkgs, v)
+			pkgs = append(pkgs, v...)
 		}
 	}
 	if len(pkgs) == 0 {

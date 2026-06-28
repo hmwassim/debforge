@@ -16,7 +16,7 @@ func TestCheckInstalled_aptVariantOnlyInstalled(t *testing.T) {
 		Type: pkg.TypeApt,
 		Apt: &pkg.AptConfig{
 			Variant:  "stable",
-			Variants: map[string]string{"stable": "real-system-pkg"},
+			Variants: map[string][]string{"stable": {"real-system-pkg"}},
 		},
 	}
 
@@ -39,7 +39,7 @@ func TestCheckInstalled_aptVariantOnlyNotInstalled(t *testing.T) {
 		Type: pkg.TypeApt,
 		Apt: &pkg.AptConfig{
 			Variant:  "stable",
-			Variants: map[string]string{"stable": "real-system-pkg"},
+			Variants: map[string][]string{"stable": {"real-system-pkg"}},
 		},
 	}
 
@@ -55,7 +55,7 @@ func TestCheckInstalled_aptVariantAndPackages(t *testing.T) {
 		Packages: []string{"base-pkg"},
 		Apt: &pkg.AptConfig{
 			Variant:  "stable",
-			Variants: map[string]string{"stable": "variant-pkg"},
+			Variants: map[string][]string{"stable": {"variant-pkg"}},
 		},
 	}
 

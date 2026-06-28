@@ -16,7 +16,7 @@ func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder, func()) 
 		Name: "test-pkg",
 		Type: pkg.TypeApt,
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "pkg-stable", "staging": "pkg-staging"},
+			Variants: map[string][]string{"stable": {"pkg-stable"}, "staging": {"pkg-staging"}},
 		},
 	})
 
@@ -110,14 +110,14 @@ func setupDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
 		Type:    pkg.TypeApt,
 		Depends: []string{"dep"},
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "pkg-stable", "staging": "pkg-staging"},
+			Variants: map[string][]string{"stable": {"pkg-stable"}, "staging": {"pkg-staging"}},
 		},
 	})
 	reg.Register(&pkg.Package{
 		Name: "dep",
 		Type: pkg.TypeApt,
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"default": "pkg-default"},
+			Variants: map[string][]string{"default": {"pkg-default"}},
 		},
 	})
 

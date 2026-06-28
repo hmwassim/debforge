@@ -18,7 +18,7 @@ type aptDefinition struct {
 		Extrepo   []string          `yaml:"extrepo,omitempty"`
 		Backports []string          `yaml:"backports,omitempty"`
 		Packages  []string          `yaml:"packages,omitempty"`
-		Variants  map[string]string `yaml:"variants,omitempty"`
+		Variants  map[string][]string `yaml:"variants,omitempty"`
 		Configs   map[string]string `yaml:"configs,omitempty"`
 	} `yaml:"install"`
 

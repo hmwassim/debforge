@@ -116,7 +116,7 @@ func TestSelectVariant_yesModePicksFirstAlphabeticallyWithoutPrompting(t *testin
 	p := &pkg.Package{
 		Name: "test-pkg",
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"zeta": "pkg-zeta", "alpha": "pkg-alpha"},
+			Variants: map[string][]string{"zeta": {"pkg-zeta"}, "alpha": {"pkg-alpha"}},
 		},
 	}
 
@@ -138,7 +138,7 @@ func TestSelectVariant_interactiveUsesPromptedValue(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-pkg",
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "pkg-stable", "staging": "pkg-staging"},
+			Variants: map[string][]string{"stable": {"pkg-stable"}, "staging": {"pkg-staging"}},
 		},
 	}
 
@@ -160,7 +160,7 @@ func TestSelectVariant_invalidInputErrors(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-pkg",
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "pkg-stable"},
+			Variants: map[string][]string{"stable": {"pkg-stable"}},
 		},
 	}
 
@@ -180,7 +180,7 @@ func TestSelectVariant_noopWhenAlreadySelected(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-pkg",
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "pkg-stable"},
+			Variants: map[string][]string{"stable": {"pkg-stable"}},
 			Variant:  "stable",
 		},
 	}

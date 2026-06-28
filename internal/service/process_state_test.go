@@ -39,7 +39,7 @@ func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
 		Name: "variant-pkg",
 		Type: pkg.TypeApt,
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "real-system-pkg"},
+			Variants: map[string][]string{"stable": {"real-system-pkg"}},
 		},
 	})
 

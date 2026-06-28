@@ -93,13 +93,13 @@ func TestClone_mutatingAptVariantDoesNotAffectOriginal(t *testing.T) {
 	orig := &Package{
 		Name: "wine",
 		Apt: &AptConfig{
-			Variants:  map[string]string{"stable": "wine-stable"},
+			Variants:  map[string][]string{"stable": {"wine-stable"}},
 			Conflicts: []string{"playonlinux"},
 		},
 	}
 	clone := orig.Clone()
 	clone.Apt.Variant = "stable"
-	clone.Apt.Variants["staging"] = "wine-staging"
+	clone.Apt.Variants["staging"] = []string{"wine-staging"}
 	clone.Apt.Conflicts[0] = "MUTATED"
 
 	if orig.Apt.Variant != "" {

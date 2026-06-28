@@ -24,7 +24,7 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 		Name: "variant-pkg",
 		Type: pkg.TypeApt,
 		Apt: &pkg.AptConfig{
-			Variants: map[string]string{"stable": "real-system-pkg"},
+			Variants: map[string][]string{"stable": {"real-system-pkg"}},
 		},
 	})
 
