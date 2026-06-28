@@ -1,0 +1,16 @@
+name: fonts-cascadiacode-nerd
+description: Cascadia Code Nerd Font
+type: source
+install:
+  repo: https://github.com/ryanoasis/nerd-fonts.git
+  skip_clone: true
+  tag_prefix: v
+  url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/CascadiaCode.zip
+  install: |
+    mkdir -p /usr/local/share/fonts/fonts-nerd/CascadiaCode
+    cp *.ttf /usr/local/share/fonts/fonts-nerd/CascadiaCode/
+    fc-cache -f
+remove:
+  script: |
+    rm -rf /usr/local/share/fonts/fonts-nerd/CascadiaCode
+    fc-cache -f

@@ -1,0 +1,16 @@
+name: fonts-hack-nerd
+description: Hack Nerd Font
+type: source
+install:
+  repo: https://github.com/ryanoasis/nerd-fonts.git
+  skip_clone: true
+  tag_prefix: v
+  url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/Hack.zip
+  install: |
+    mkdir -p /usr/local/share/fonts/fonts-nerd/Hack
+    cp *.ttf /usr/local/share/fonts/fonts-nerd/Hack/
+    fc-cache -f
+remove:
+  script: |
+    rm -rf /usr/local/share/fonts/fonts-nerd/Hack
+    fc-cache -f

@@ -1,0 +1,16 @@
+name: fonts-firacode-nerd
+description: Fira Code Nerd Font
+type: source
+install:
+  repo: https://github.com/ryanoasis/nerd-fonts.git
+  skip_clone: true
+  tag_prefix: v
+  url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/FiraCode.zip
+  install: |
+    mkdir -p /usr/local/share/fonts/fonts-nerd/FiraCode
+    cp *.ttf /usr/local/share/fonts/fonts-nerd/FiraCode/
+    fc-cache -f
+remove:
+  script: |
+    rm -rf /usr/local/share/fonts/fonts-nerd/FiraCode
+    fc-cache -f

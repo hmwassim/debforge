@@ -1,0 +1,16 @@
+name: fonts-cascadiamono-nerd
+description: Cascadia Mono Nerd Font
+type: source
+install:
+  repo: https://github.com/ryanoasis/nerd-fonts.git
+  skip_clone: true
+  tag_prefix: v
+  url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/CascadiaMono.zip
+  install: |
+    mkdir -p /usr/local/share/fonts/fonts-nerd/CascadiaMono
+    cp *.ttf /usr/local/share/fonts/fonts-nerd/CascadiaMono/
+    fc-cache -f
+remove:
+  script: |
+    rm -rf /usr/local/share/fonts/fonts-nerd/CascadiaMono
+    fc-cache -f
