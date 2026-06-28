@@ -90,6 +90,12 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			continue
 		}
 
+		if dep.Apt != nil && dep.Apt.Variant == "__skip__" {
+			spinner.SetDesc(dep.Name + " skipped")
+			sessionProcessed[dep.Name] = true
+			continue
+		}
+
 		inst, err := LookupInstaller(s.instReg, dep.Type)
 		if err != nil {
 			return false, err

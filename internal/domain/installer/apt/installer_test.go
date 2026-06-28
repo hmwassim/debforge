@@ -110,7 +110,7 @@ func TestIsUpToDate_newCandidateProceedsAndUpdatesVersion(t *testing.T) {
 
 // ---- SelectVariant ---------------------------------------------------------
 
-func TestSelectVariant_yesModePicksFirstAlphabeticallyWithoutPrompting(t *testing.T) {
+func TestSelectVariant_yesModeDefaultsToSkip(t *testing.T) {
 	ui := &testutil.MockUI{Yes: true}
 	inst := &Installer{ui: ui}
 	p := &pkg.Package{
@@ -123,8 +123,8 @@ func TestSelectVariant_yesModePicksFirstAlphabeticallyWithoutPrompting(t *testin
 	if err := inst.SelectVariant(context.Background(), p); err != nil {
 		t.Fatalf("selectVariant: %v", err)
 	}
-	if p.Apt.Variant != "alpha" {
-		t.Errorf("expected yes-mode to pick the alphabetically-first variant %q, got %q", "alpha", p.Apt.Variant)
+	if p.Apt.Variant != "__skip__" {
+		t.Errorf("expected yes-mode to default to skip, got %q", p.Apt.Variant)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
@@ -35,6 +36,10 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	}
 	if len(p.Packages) == 0 && len(p.Apt.Variants) == 0 {
 		return fmt.Errorf("no packages or variants defined for apt type")
+	}
+
+	if p.Apt.Variant == skipVariant {
+		return nil
 	}
 
 	if err := i.checkGPU(ctx, p); err != nil {
@@ -241,6 +246,10 @@ func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner
 
 // ---- variant selection ----------------------------------------------------
 
+// skipVariant is the sentinel value used when the user chooses to skip
+// installing a variant-only package.
+const skipVariant = "__skip__"
+
 // SelectVariant prompts the user to choose a variant when p has multiple
 // options (e.g. open vs proprietary GPU drivers). When a variant was
 // previously saved on p it is accepted without prompting.
@@ -250,7 +259,7 @@ func (i *Installer) SelectVariant(ctx context.Context, p *pkg.Package) error {
 		return nil
 	}
 	if p.Apt.Variant != "" {
-		if _, ok := p.Apt.Variants[p.Apt.Variant]; ok {
+		if _, ok := p.Apt.Variants[p.Apt.Variant]; ok || p.Apt.Variant == skipVariant {
 			return nil
 		}
 		p.Apt.Variant = ""
@@ -260,24 +269,31 @@ func (i *Installer) SelectVariant(ctx context.Context, p *pkg.Package) error {
 	slices.Sort(names)
 
 	var opts []string
-	for _, name := range names {
-		opts = append(opts, fmt.Sprintf("  %s -> %s", name, strings.Join(p.Apt.Variants[name], ", ")))
+	for i, name := range names {
+		opts = append(opts, fmt.Sprintf("  [%d] %s -> %s", i+1, name, strings.Join(p.Apt.Variants[name], ", ")))
 	}
 
-	msg := fmt.Sprintf("Select variant for %s:\n%s", p.Name, strings.Join(opts, "\n"))
+	msg := fmt.Sprintf("Select variant for %s:\n  [0] Skip\n%s", p.Name, strings.Join(opts, "\n"))
 
 	i.ui.Info(msg)
 
-	input := i.ui.PromptInput(names[0], "Variant [%s]", names[0])
+	input := i.ui.PromptInput("0", "Variant [%s]", "0")
 	if input == "" {
-		input = names[0]
+		input = "0"
 	}
-	if !slices.Contains(names, input) {
-		return fmt.Errorf("invalid variant %q for %s (choose from: %s)", input, p.Name, strings.Join(names, ", "))
+	if input == "0" {
+		p.Apt.Variant = skipVariant
+		return nil
 	}
-
-	p.Apt.Variant = input
-	return nil
+	if n, err := strconv.Atoi(input); err == nil && n >= 1 && n <= len(names) {
+		p.Apt.Variant = names[n-1]
+		return nil
+	}
+	if slices.Contains(names, input) {
+		p.Apt.Variant = input
+		return nil
+	}
+	return fmt.Errorf("invalid variant %q for %s (choose from: %s)", input, p.Name, strings.Join(names, ", "))
 }
 
 // ---- backports ------------------------------------------------------------
