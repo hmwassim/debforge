@@ -91,7 +91,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
-	if err := svc.SelectVariants(ctx, names); err != nil {
+	if err := svc.SelectVariants(ctx, names, forceMode); err != nil {
 		u.Error("%s", err)
 		return 1
 	}

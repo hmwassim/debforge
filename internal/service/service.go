@@ -62,13 +62,13 @@ func NewInstallService(
 }
 
 // SelectVariants runs interactive variant selection for every package in
-// the dependency tree of names. Variants already saved in state are
-// skipped so the user is not re-prompted on re-install or update.
+// the dependency tree of names. When force is true the saved state variant
+// is ignored so the user can choose a different variant on re-install.
 // Selected variants are written directly to the registry copy rather than
 // persisted to state — state persistence only happens inside processOne
 // after a successful install, so a failed download, GPU check, or Ctrl+C
 // does not leave a stale variant record.
-func (s *InstallService) SelectVariants(ctx context.Context, names []string) error {
+func (s *InstallService) SelectVariants(ctx context.Context, names []string, force bool) error {
 	st, err := s.state.Load()
 	if err != nil {
 		return fmt.Errorf("load state: %w", err)
@@ -86,8 +86,10 @@ func (s *InstallService) SelectVariants(ctx context.Context, names []string) err
 			if dep.Apt == nil || len(dep.Apt.Variants) == 0 {
 				continue
 			}
-			if entry, ok := st.Packages[dep.Name]; ok && entry.Variant != "" {
-				continue
+			if !force {
+				if entry, ok := st.Packages[dep.Name]; ok && entry.Variant != "" {
+					continue
+				}
 			}
 			inst, err := LookupInstaller(s.instReg, dep.Type)
 			if err != nil {
