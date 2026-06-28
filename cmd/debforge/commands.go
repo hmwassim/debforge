@@ -162,19 +162,27 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 	})
 	sort.Strings(names)
 
+	maxLen := 0
+	for _, name := range names {
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+	}
+	pad := maxLen + 2
+
 	for _, name := range names {
 		p, _ := h.reg.Lookup(name)
 		_, installed := st.Packages[name]
 		if installed {
-			fmt.Fprintf(w, "%s[*]%s %s", green, reset, name)
+			fmt.Fprintf(w, "%s[*]%s %-*s", green, reset, pad, name)
 			if p.Description != "" {
-				fmt.Fprintf(w, "  %s%s%s", grey, p.Description, reset)
+				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
 			}
 			fmt.Fprintln(w)
 		} else {
-			fmt.Fprintf(w, "%s[-]%s %s%s%s", grey, reset, grey, name, reset)
+			fmt.Fprintf(w, "%s[-]%s %s%-*s%s", grey, reset, grey, pad, name, reset)
 			if p.Description != "" {
-				fmt.Fprintf(w, "  %s%s%s", grey, p.Description, reset)
+				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
 			}
 			fmt.Fprintln(w)
 		}
