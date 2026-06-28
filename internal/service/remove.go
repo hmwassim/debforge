@@ -50,6 +50,9 @@ func (s *RemoveService) Run(ctx context.Context, names []string, spinner ports.S
 			}
 		}
 		if removedAny {
+			if len(names) > 1 {
+				spinner.SetDesc("Packages removed")
+			}
 			spinner.Done()
 		} else {
 			spinner.DoneInfo()
