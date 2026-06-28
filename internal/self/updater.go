@@ -20,11 +20,12 @@ type Updater struct {
 	logger ports.UI
 	locker ports.Locker
 	sys    ports.System
+	force  bool
 }
 
 // NewUpdater returns a new Updater with the given dependencies.
-func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, logger ports.UI, locker ports.Locker, sys ports.System) *Updater {
-	return &Updater{cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker, sys: sys}
+func NewUpdater(cfg *Config, runner ports.CommandRunner, fs ports.FileSystem, logger ports.UI, locker ports.Locker, sys ports.System, force bool) *Updater {
+	return &Updater{cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker, sys: sys, force: force}
 }
 
 // Update runs the self-update flow: clone or pull source, build, verify,
@@ -62,32 +63,36 @@ func (u *Updater) update(ctx context.Context) error {
 		}
 
 	} else {
-		spinner.SetDesc("Checking for updates")
+		spinner.SetDesc("Updating source")
 		if err := u.gitFetch(ctx); err != nil {
 			spinner.Fail()
 			return fmt.Errorf("fetch: %w", err)
 		}
 
-		local, remote, err := u.compareRevisions(ctx)
-		if err != nil {
-			spinner.Fail()
-			return fmt.Errorf("compare revisions: %w", err)
-		}
-		if local == remote {
-			spinner.SetDesc("Already up to date")
-			spinner.DoneInfo()
-			return nil
+		if !u.force {
+			local, remote, err := u.compareRevisions(ctx)
+			if err != nil {
+				spinner.Fail()
+				return fmt.Errorf("compare revisions: %w", err)
+			}
+			if local == remote {
+				spinner.SetDesc("Already up to date")
+				spinner.DoneInfo()
+				return nil
+			}
 		}
 
-		spinner.Pause()
-		u.logger.Info("Update available")
-		if !u.logger.Prompt("Update debforge?") {
+		if !u.force {
+			spinner.Pause()
+			u.logger.Info("Update available")
+			if !u.logger.Prompt("Update debforge?") {
+				spinner.Resume()
+				spinner.SetDesc("Cancelled")
+				spinner.DoneInfo()
+				return nil
+			}
 			spinner.Resume()
-			spinner.SetDesc("Cancelled")
-			spinner.DoneInfo()
-			return nil
 		}
-		spinner.Resume()
 		spinner.SetDesc("Pulling update")
 		if err := u.gitPull(ctx); err != nil {
 			spinner.Fail()

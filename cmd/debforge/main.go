@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/adapters/exec"
@@ -48,7 +49,8 @@ func run() int {
 		return 0
 
 	case "--self-update":
-		updater := self.NewUpdater(cfgu, runner, fsys, u, locker, sys)
+		forceUpdate := slices.Contains(rawArgs[1:], "-f") || slices.Contains(rawArgs[1:], "--force")
+		updater := self.NewUpdater(cfgu, runner, fsys, u, locker, sys, forceUpdate)
 		if err := updater.Update(ctx); err != nil {
 			u.Error("%s", err)
 			return 1

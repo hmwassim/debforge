@@ -43,7 +43,7 @@ func TestUpdaterUpdate_freshInstall(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err != nil {
 		t.Fatalf("update() = %v", err)
 	}
@@ -75,7 +75,7 @@ func TestUpdaterUpdate_alreadyUpToDate(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err != nil {
 		t.Fatalf("update() = %v", err)
 	}
@@ -120,7 +120,7 @@ func TestUpdaterUpdate_updateAvailable(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err != nil {
 		t.Fatalf("update() = %v", err)
 	}
@@ -141,7 +141,7 @@ func TestUpdaterUpdate_cancelInstallPrompt(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err != nil {
 		t.Fatalf("update() = %v, want nil", err)
 	}
@@ -173,7 +173,7 @@ func TestUpdaterUpdate_cancelUpdatePrompt(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err != nil {
 		t.Fatalf("update() = %v, want nil", err)
 	}
@@ -195,7 +195,7 @@ func TestUpdaterUpdate_cloneError(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from clone")
 	}
@@ -226,7 +226,7 @@ func TestUpdaterUpdate_buildError(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from build")
 	}
@@ -260,7 +260,7 @@ func TestUpdaterUpdate_verifyBinaryError(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from verify")
 	}
@@ -294,7 +294,7 @@ func TestUpdaterUpdate_verifyNoOutput(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from verify (no stdout)")
 	}
@@ -310,7 +310,7 @@ func TestUpdaterUpdate_mkdirAllError(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from MkdirAll")
 	}
@@ -345,7 +345,7 @@ func TestUpdaterUpdate_installBinaryError(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from installBinary (Rename)")
 	}
@@ -380,7 +380,7 @@ func TestUpdaterUpdate_ensureLinkError(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
 
-	u := NewUpdater(cfg, runner, fs, ui, locker, sys)
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from ensureLink (Symlink)")
 	}
