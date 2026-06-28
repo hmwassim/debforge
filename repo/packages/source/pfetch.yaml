@@ -1,0 +1,13 @@
+name: pfetch
+description: Pretty fetch system information tool
+type: source
+install:
+  repo: https://github.com/Gobidev/pfetch-rs.git
+  skip_clone: true
+  url: "https://github.com/Gobidev/pfetch-rs/releases/download/v{version}/pfetch-linux-gnu-x86_64.tar.gz"
+  install: |
+    cp pfetch /usr/local/bin/pfetch
+    chmod +x /usr/local/bin/pfetch
+remove:
+  script: |
+    rm -f /usr/local/bin/pfetch
