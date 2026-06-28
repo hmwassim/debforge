@@ -1,4 +1,5 @@
 name: yad
+description: YAD dialog toolkit
 type: source
 install:
   url: "https://github.com/v1cont/yad/releases/download/v{version}/yad-{version}.tar.xz"

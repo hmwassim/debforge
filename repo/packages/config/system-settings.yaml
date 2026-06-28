@@ -1,4 +1,5 @@
 name: system-settings
+description: System-wide performance and power tuning
 type: config
 install:
   configs:

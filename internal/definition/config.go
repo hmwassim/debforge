@@ -11,9 +11,10 @@ import (
 )
 
 type configDefinition struct {
-	Name    string   `yaml:"name"`
-	Type    string   `yaml:"type"`
-	Depends []string `yaml:"depends,omitempty"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description,omitempty"`
+	Type        string   `yaml:"type"`
+	Depends     []string `yaml:"depends,omitempty"`
 
 	Install struct {
 		Configs     map[string]string `yaml:"configs,omitempty"`
@@ -56,6 +57,7 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 
 	return &pkg.Package{
 		Name:          name,
+		Description:   def.Description,
 		Type:          pkg.TypeConfig,
 		Depends:       def.Depends,
 		Configs:       configs,

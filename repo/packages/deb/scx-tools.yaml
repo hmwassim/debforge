@@ -1,4 +1,5 @@
 name: scx-tools
+description: sched_ext scheduler tools
 type: deb
 package: scx-tools
 depends:

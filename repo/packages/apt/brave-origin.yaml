@@ -1,4 +1,5 @@
 name: brave-origin
+description: Brave Origin developer build
 type: apt
 install:
   extrepo:

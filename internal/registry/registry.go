@@ -33,3 +33,15 @@ func (r *Registry[K, V]) Lookup(key K) (V, bool) {
 	v, ok := r.items[key]
 	return v, ok
 }
+
+// Range calls fn for every key-value pair in the registry. Iteration stops
+// when fn returns false.
+func (r *Registry[K, V]) Range(fn func(K, V) bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for k, v := range r.items {
+		if !fn(k, v) {
+			break
+		}
+	}
+}

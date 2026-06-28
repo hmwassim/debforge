@@ -1,4 +1,5 @@
 name: steam
+description: Steam gaming platform
 type: apt
 install:
   packages:

@@ -1,10 +1,16 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
+
+	"golang.org/x/term"
 
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/aptpty"
@@ -121,6 +127,80 @@ func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string,
 		}
 		return svc.Update(ctx, names, forceMode, allMode, spinner)
 	})
+}
+
+func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []string) int {
+	st, err := h.stateSvc.Load()
+	if err != nil {
+		u.Error("load state: %s", err)
+		return 1
+	}
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
+	isTerm := term.IsTerminal(int(os.Stdout.Fd()))
+
+	h.reg.Range(func(name string, p *pkg.Package) bool {
+		if len(patterns) > 0 {
+			pat := strings.ToLower(strings.Join(patterns, " "))
+			n := strings.ToLower(name)
+			d := strings.ToLower(p.Description)
+			if !strings.Contains(n, pat) && !strings.Contains(d, pat) {
+				return true
+			}
+		}
+		_, installed := st.Packages[name]
+		if installed {
+			fmt.Fprintf(w, "%s[*]%s %s", green, reset, name)
+			if p.Description != "" {
+				fmt.Fprintf(w, "  %s%s%s", grey, p.Description, reset)
+			}
+			fmt.Fprintln(w)
+		} else {
+			fmt.Fprintf(w, "%s[-]%s %s%s%s", grey, reset, grey, name, reset)
+			if p.Description != "" {
+				fmt.Fprintf(w, "  %s%s%s", grey, p.Description, reset)
+			}
+			fmt.Fprintln(w)
+		}
+		return true
+	})
+	w.Flush()
+
+	out := buf.String()
+	if out == "" {
+		if len(patterns) > 0 {
+			u.Info("no packages found matching %q", strings.Join(patterns, " "))
+		}
+		return 0
+	}
+
+	if !isTerm {
+		fmt.Print(out)
+		return 0
+	}
+
+	pagerCmd := os.Getenv("PAGER")
+	if pagerCmd == "" {
+		if p, err := exec.LookPath("less"); err == nil {
+			pagerCmd = p + " -FRSX"
+		}
+	}
+	if pagerCmd == "" {
+		fmt.Print(out)
+		return 0
+	}
+
+	cmd := exec.Command("sh", "-c", pagerCmd)
+	cmd.Stdin = strings.NewReader(out)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Print(out)
+	}
+	return 0
 }
 
 func extractFlags(ss []string, yes, force, all *bool) []string {

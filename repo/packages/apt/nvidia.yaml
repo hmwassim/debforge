@@ -1,4 +1,5 @@
 name: nvidia
+description: NVIDIA GPU drivers with CUDA support
 type: apt
 install:
   extrepo:

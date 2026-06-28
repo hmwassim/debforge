@@ -1,4 +1,5 @@
 name: wine
+description: Wine Windows compatibility layer
 type: apt
 install:
   packages:

@@ -1,4 +1,5 @@
 name: scx-scheds
+description: sched_ext scheduler collection
 type: deb
 package: scx-scheds
 install:

@@ -1,4 +1,5 @@
 name: nvflux
+description: NVIDIA GPU clock manager
 type: source
 install:
   repo: https://github.com/hmwassim/NvFlux.git

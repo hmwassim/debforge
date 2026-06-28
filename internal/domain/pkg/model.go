@@ -39,9 +39,10 @@ type SourceConfig struct {
 
 // Package represents a single package definition loaded from a YAML file.
 type Package struct {
-	Name    string
-	Type    Type
-	Depends []string
+	Name        string
+	Description string
+	Type        Type
+	Depends     []string
 
 	// cross-type
 	Packages []string

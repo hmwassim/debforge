@@ -1,4 +1,5 @@
 name: helium-browser
+description: Helium web browser
 type: deb
 package: helium-bin
 install:

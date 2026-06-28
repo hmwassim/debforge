@@ -1,4 +1,5 @@
 name: vscodium
+description: VS Code without Microsoft branding
 type: deb
 package: codium
 install:

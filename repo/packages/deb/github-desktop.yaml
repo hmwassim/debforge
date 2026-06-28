@@ -1,4 +1,5 @@
 name: github-desktop
+description: GitHub Desktop Git client
 type: deb
 package: github-desktop
 tag_prefix: release-

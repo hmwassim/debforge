@@ -1,4 +1,5 @@
 name: faugus-launcher
+description: Faugus game launcher
 type: deb
 package: faugus-launcher
 install:

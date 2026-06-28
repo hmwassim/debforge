@@ -1,4 +1,5 @@
 name: audio-settings
+description: PipeWire audio system configuration
 type: config
 install:
   configs:

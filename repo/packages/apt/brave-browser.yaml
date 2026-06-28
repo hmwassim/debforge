@@ -1,4 +1,5 @@
 name: brave-browser
+description: Brave web browser
 type: apt
 install:
   extrepo:

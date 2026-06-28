@@ -1,4 +1,5 @@
 name: firefox
+description: Firefox web browser from Mozilla
 type: apt
 install:
   extrepo:

@@ -1,4 +1,5 @@
 name: steamtinkerlaunch
+description: SteamTinkerLaunch game tools
 type: source
 depends:
   - yad

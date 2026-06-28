@@ -1,4 +1,5 @@
 name: heroic-games-launcher
+description: Heroic Games Launcher for Epic/GOG
 type: deb
 package: heroic-games-launcher
 install:

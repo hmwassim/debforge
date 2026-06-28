@@ -1,4 +1,5 @@
 name: scx-switcher
+description: sched_ext scheduler switcher
 type: deb
 package: scx-switcher
 depends:

@@ -148,6 +148,10 @@ func run() int {
 		}
 		return h.update(ctx, u, names, forceMode, allMode)
 
+	case "search":
+		patterns := args[1:]
+		return h.search(ctx, u, patterns)
+
 	default:
 		usage()
 	}
@@ -169,6 +173,7 @@ func usage() {
 	fmt.Println("    remove <name>...    Remove packages from system")
 	fmt.Println("    update [<name>...]   Reinstall packages (runs apt-get update)")
 	fmt.Println("        --all           Update all packages and run apt-get upgrade")
+	fmt.Println("    search [<pattern>]   Search packages by name or description")
 	fmt.Println("    --self-update       Update debforge itself")
 	fmt.Println("    --self-remove       Remove debforge from system")
 	fmt.Println("    --help              Show this help")

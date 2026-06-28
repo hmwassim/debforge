@@ -1,4 +1,5 @@
 name: gaming-meta
+description: Gaming dependencies and tools bundle
 type: apt
 install:
   packages:
