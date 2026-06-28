@@ -41,16 +41,24 @@ func (u *ConsoleUI) Prompt(format string, args ...any) bool {
 }
 
 // Info prints an informational message.
-func (u *ConsoleUI) Info(format string, args ...any) { u.logger.Info(format, args...) }
+func (u *ConsoleUI) Info(format string, args ...any) {
+	u.withSpinnerPaused(func() { u.logger.Info(format, args...) })
+}
 
 // Success prints a success message.
-func (u *ConsoleUI) Success(format string, args ...any) { u.logger.Success(format, args...) }
+func (u *ConsoleUI) Success(format string, args ...any) {
+	u.withSpinnerPaused(func() { u.logger.Success(format, args...) })
+}
 
 // Warn prints a warning message.
-func (u *ConsoleUI) Warn(format string, args ...any) { u.logger.Warn(format, args...) }
+func (u *ConsoleUI) Warn(format string, args ...any) {
+	u.withSpinnerPaused(func() { u.logger.Warn(format, args...) })
+}
 
 // Error prints an error message.
-func (u *ConsoleUI) Error(format string, args ...any) { u.logger.Error(format, args...) }
+func (u *ConsoleUI) Error(format string, args ...any) {
+	u.withSpinnerPaused(func() { u.logger.Error(format, args...) })
+}
 
 // PromptInput asks for text input with a formatted prompt, returning the
 // user's response. When yes mode is set, it returns defaultVal without
