@@ -205,7 +205,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 	pagerCmd := os.Getenv("PAGER")
 	if pagerCmd == "" {
 		if p, err := exec.LookPath("less"); err == nil {
-			pagerCmd = p + " -FRSX"
+			pagerCmd = p + " -FRS"
 		}
 	}
 	if pagerCmd == "" {
