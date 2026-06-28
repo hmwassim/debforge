@@ -157,6 +157,13 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 			return "", fmt.Errorf("create src dir: %w", err)
 		}
 
+		if strings.HasSuffix(p.URL, ".zip") {
+			if _, _, err := i.runner.Run(ctx, "unzip", "-j", "-o", archive, "-d", srcDir); err != nil {
+				return "", fmt.Errorf("extract %s: %w", p.Name, err)
+			}
+			return srcDir, nil
+		}
+
 		hasTopDir := false
 		if listing, _, err := i.runner.Run(ctx, "tar", "tf", archive); err == nil {
 			for _, entry := range strings.Split(string(listing), "\n") {

@@ -1,0 +1,14 @@
+name: jetbrains-mono-nerdfont
+description: JetBrains Mono Nerd Font
+type: source
+skip_clone: true
+repo: https://github.com/ryanoasis/nerd-fonts.git
+tag_prefix: v
+url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/JetBrainsMono.zip
+install_script: |
+  mkdir -p /usr/local/share/fonts/nerdfont/JetBrainsMono
+  cp *.ttf /usr/local/share/fonts/nerdfont/JetBrainsMono/
+  fc-cache -f
+remove_script: |
+  rm -rf /usr/local/share/fonts/nerdfont/JetBrainsMono
+  fc-cache -f
