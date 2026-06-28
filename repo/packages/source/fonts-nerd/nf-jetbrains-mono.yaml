@@ -1,4 +1,4 @@
-name: jetbrains-mono-nerdfont
+name: nf-jetbrains-mono
 description: JetBrains Mono Nerd Font
 type: source
 skip_clone: true
