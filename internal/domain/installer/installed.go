@@ -31,7 +31,11 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 		}
 		return dpkg.IsInstalled(ctx, runner, name)
 	case pkg.TypeDeb:
-		return dpkg.IsInstalled(ctx, runner, p.PrimarySystemPackage())
+		name := p.PrimarySystemPackage()
+		if dpkg.IsInstalled(ctx, runner, name) {
+			return true
+		}
+		return dpkg.IsInstalled(ctx, runner, p.Name)
 	case pkg.TypeConfig:
 		return configsInstalled(fs, p)
 	default: // source
