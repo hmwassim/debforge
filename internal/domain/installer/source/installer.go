@@ -156,7 +156,26 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 		if err := i.fs.MkdirAll(srcDir, 0755); err != nil {
 			return "", fmt.Errorf("create src dir: %w", err)
 		}
-		if _, _, err := i.runner.Run(ctx, "tar", "-xf", archive, "--strip-components=1", "-C", srcDir); err != nil {
+
+		hasTopDir := false
+		if listing, _, err := i.runner.Run(ctx, "tar", "tf", archive); err == nil {
+			for _, entry := range strings.Split(string(listing), "\n") {
+				entry = strings.TrimSpace(entry)
+				if entry == "" {
+					continue
+				}
+				if strings.Contains(entry, "/") {
+					hasTopDir = true
+					break
+				}
+			}
+		}
+
+		args := []string{"-xf", archive, "-C", srcDir}
+		if hasTopDir {
+			args = append(args, "--strip-components=1")
+		}
+		if _, _, err := i.runner.Run(ctx, "tar", args...); err != nil {
 			return "", fmt.Errorf("extract %s: %w", p.Name, err)
 		}
 		return srcDir, nil
