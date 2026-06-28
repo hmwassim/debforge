@@ -221,6 +221,9 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	for _, repo := range p.Apt.Extrepo {
+		if i.extrepoEnabled(ctx, repo) {
+			continue
+		}
 		spinner.SetDesc("enabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
 			return fmt.Errorf("enable extrepo %s: %w", repo, err)
@@ -233,6 +236,22 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 		}
 	}
 	return nil
+}
+
+func (i *Installer) extrepoEnabled(ctx context.Context, repo string) bool {
+	path := "/etc/apt/sources.list.d/extrepo_" + repo + ".sources"
+	data, err := i.fs.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Enabled:") {
+			val := strings.TrimSpace(line[8:])
+			return val != "no"
+		}
+	}
+	return true
 }
 
 func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) {

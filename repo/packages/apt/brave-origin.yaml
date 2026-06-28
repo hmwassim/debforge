@@ -1,0 +1,7 @@
+name: brave-origin
+type: apt
+install:
+  extrepo:
+    - brave_release
+  packages:
+    - brave-origin
