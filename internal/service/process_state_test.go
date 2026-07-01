@@ -94,6 +94,76 @@ func TestProcessOne_successPersistsState(t *testing.T) {
 	}
 }
 
+func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name:    "root-pkg",
+		Type:    pkg.TypeApt,
+		Apt:     &pkg.AptConfig{},
+		Depends: []string{"dep-a", "dep-b"},
+	})
+	reg.Register(&pkg.Package{
+		Name: "dep-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	reg.Register(&pkg.Package{
+		Name: "dep-b",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+
+	// failAfter=3 means the 3rd Install call (root-pkg) fails; dep-a and
+	// dep-b (calls 1 and 2) succeed.
+	failInst := &failAfterRecorder{failAfter: 3}
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, failInst)
+
+	stateSvc, tmpPath, cleanup := newStateManagerForTest(t)
+	defer cleanup()
+
+	svc := &InstallService{
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		resolver:    NewResolver(reg),
+	}
+	svc.runner = &nopRunner{}
+	svc.fs = fs.NewFileSystem()
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	_, err := svc.processOne(ctx, "root-pkg", false, true, st, spinner, "install", "installed", nil)
+	if err == nil {
+		t.Fatal("expected error from processOne due to root-pkg failure")
+	}
+
+	if _, ok := st.Packages["dep-a"]; !ok {
+		t.Error("expected dep-a in in-memory state after partial failure")
+	}
+	if _, ok := st.Packages["dep-b"]; !ok {
+		t.Error("expected dep-b in in-memory state after partial failure")
+	}
+	if _, ok := st.Packages["root-pkg"]; ok {
+		t.Error("unexpected root-pkg in in-memory state after failure")
+	}
+
+	diskStore := store.NewStore[State](fs.NewFileSystem(), tmpPath)
+	loaded, err := diskStore.Load()
+	if err != nil {
+		t.Fatalf("load persisted state: %v", err)
+	}
+	if _, ok := loaded.Packages["dep-a"]; !ok {
+		t.Error("expected dep-a in persisted state on disk after partial failure")
+	}
+	if _, ok := loaded.Packages["dep-b"]; !ok {
+		t.Error("expected dep-b in persisted state on disk after partial failure")
+	}
+	if _, ok := loaded.Packages["root-pkg"]; ok {
+		t.Error("unexpected root-pkg in persisted state on disk after failure")
+	}
+}
+
 func TestProcessAll_partialFailurePersistsCompleted(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{

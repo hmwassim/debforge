@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -60,7 +59,10 @@ func computeConfigHash(p *pkg.Package) string {
 }
 
 func hashMap(h io.Writer, m map[string]string) {
-	paths := slices.Collect(maps.Keys(m))
+	paths := make([]string, 0, len(m))
+	for k := range m {
+		paths = append(paths, k)
+	}
 	slices.Sort(paths)
 	for _, path := range paths {
 		h.Write([]byte(path))

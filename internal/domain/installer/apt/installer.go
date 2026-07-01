@@ -5,7 +5,6 @@ package apt
 import (
 	"context"
 	"fmt"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -289,7 +288,10 @@ func (i *Installer) SelectVariant(ctx context.Context, p *pkg.Package) error {
 		p.Apt.Variant = ""
 	}
 
-	names := slices.Collect(maps.Keys(p.Apt.Variants))
+	names := make([]string, 0, len(p.Apt.Variants))
+	for k := range p.Apt.Variants {
+		names = append(names, k)
+	}
 	slices.Sort(names)
 
 	var opts []string

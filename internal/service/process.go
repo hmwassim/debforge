@@ -125,18 +125,15 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 				entry.Variant = dep.Apt.Variant
 			}
 			s.state.Add(st, dep.Name, entry)
+			if err := saveState(s.state, st, dep.Name); err != nil {
+				return false, err
+			}
 			spinner.SetDesc(dep.Name + " " + pastTense)
 			didWork = true
 		} else {
 			spinner.SetDesc(dep.Name + " already up to date")
 		}
 		sessionProcessed[dep.Name] = true
-	}
-
-	if didWork {
-		if err := saveState(s.state, st, pastTense); err != nil {
-			return false, err
-		}
 	}
 
 	return didWork, nil

@@ -46,3 +46,47 @@ func TestIsInstalled_cancelledContext(t *testing.T) {
 		t.Error("expected error for cancelled context")
 	}
 }
+
+func TestListInstalled_multiple(t *testing.T) {
+	runner := testutil.RunnerReturning([]byte("bash\ndpkg\napt\n"), nil)
+	installed, err := ListInstalled(context.Background(), runner)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(installed) != 3 {
+		t.Errorf("ListInstalled = %d entries, want 3", len(installed))
+	}
+	if !installed["bash"] || !installed["dpkg"] || !installed["apt"] {
+		t.Errorf("expected all three packages to be present in map")
+	}
+}
+
+func TestListInstalled_empty(t *testing.T) {
+	runner := testutil.RunnerReturning([]byte(""), nil)
+	installed, err := ListInstalled(context.Background(), runner)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(installed) != 0 {
+		t.Errorf("ListInstalled = %d entries, want 0", len(installed))
+	}
+}
+
+func TestListInstalled_trailingNewlineRemoved(t *testing.T) {
+	runner := testutil.RunnerReturning([]byte("bash\n"), nil)
+	installed, err := ListInstalled(context.Background(), runner)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(installed) != 1 {
+		t.Errorf("ListInstalled = %d entries, want 1", len(installed))
+	}
+}
+
+func TestListInstalled_error(t *testing.T) {
+	runner := testutil.RunnerReturning(nil, errors.New("dpkg-query failed"))
+	_, err := ListInstalled(context.Background(), runner)
+	if err == nil {
+		t.Error("expected error for failed dpkg-query")
+	}
+}

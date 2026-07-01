@@ -64,3 +64,23 @@ func TestWithLock_acquireFailurePreventsFnAndWrapsError(t *testing.T) {
 		t.Errorf("expected error to wrap the acquire error, got %v", err)
 	}
 }
+
+func TestWithLock_cancelledContext(t *testing.T) {
+	locker := &testutil.MockLocker{AcquireErr: context.Canceled}
+	called := false
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := WithLock(ctx, locker, "/tmp/whatever", func() error {
+		called = true
+		return nil
+	})
+
+	if called {
+		t.Error("expected fn not to run when context is cancelled")
+	}
+	if err == nil {
+		t.Error("expected error for cancelled context")
+	}
+}
