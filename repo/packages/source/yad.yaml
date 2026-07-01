@@ -1,6 +1,7 @@
 name: yad
 description: YAD dialog toolkit
 type: source
+version_cmd: echo "14.2"
 install:
   url: "https://github.com/v1cont/yad/releases/download/v{version}/yad-{version}.tar.xz"
   packages:
