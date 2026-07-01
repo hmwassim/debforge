@@ -1,0 +1,36 @@
+name: protonplus
+description: ProtonPlus - Wine/Proton management tool
+type: source
+install:
+  repo: https://github.com/Vysp3r/ProtonPlus.git
+  tag_prefix: v
+  packages:
+    - desktop-file-utils
+    - gettext
+    - libgtk-4-dev
+    - libglib2.0-dev
+    - libadwaita-1-dev
+    - libjson-glib-dev
+    - libsoup-3.0-dev
+    - libgee-0.8-dev
+    - libarchive-dev
+    - meson
+    - ninja-build
+  build: |
+    meson setup build-native . --prefix=/usr
+    ninja -C build-native
+  install: |
+    ninja -C build-native install
+  postinstall: |
+    gtk-update-icon-cache -ftq /usr/share/icons/hicolor 2>/dev/null || true
+    update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+remove:
+  script: |
+    rm -f /usr/bin/protonplus
+    rm -f /usr/share/applications/com.vysp3r.ProtonPlus.desktop
+    rm -f /usr/share/metainfo/com.vysp3r.ProtonPlus.metainfo.xml
+    rm -f /usr/share/glib-2.0/schemas/com.vysp3r.ProtonPlus.gschema.xml
+    find /usr/share/icons/hicolor -name 'com.vysp3r.ProtonPlus.*' -delete
+    find /usr/share/locale -name 'com.vysp3r.ProtonPlus.mo' -delete
+    find /usr/share/locale -type d -empty -delete 2>/dev/null || true
