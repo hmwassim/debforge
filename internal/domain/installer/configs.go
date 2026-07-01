@@ -59,13 +59,17 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 			return fmt.Errorf("create user config dir %s: %w", dir, err)
 		}
 		if ownerChown {
-			fs.Chown(dir, ownerUID, ownerGID)
+			if err := fs.Chown(dir, ownerUID, ownerGID); err != nil {
+				return fmt.Errorf("chown config dir %s: %w", dir, err)
+			}
 		}
 		if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
 			return fmt.Errorf("write user config %s: %w", path, err)
 		}
 		if ownerChown {
-			fs.Chown(path, ownerUID, ownerGID)
+			if err := fs.Chown(path, ownerUID, ownerGID); err != nil {
+				return fmt.Errorf("chown config %s: %w", path, err)
+			}
 		}
 	}
 	return nil
@@ -102,11 +106,15 @@ func ExpandHome(path, homeDir string) string {
 func resolveSudoOwner() (uid, gid int, ok bool) {
 	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
 		u, err := user.Lookup(sudoUser)
-		if err == nil {
-			uid, _ = strconv.Atoi(u.Uid)
-			gid, _ = strconv.Atoi(u.Gid)
-			return uid, gid, true
+		if err != nil {
+			return 0, 0, false
 		}
+		uid, errAtoi1 := strconv.Atoi(u.Uid)
+		gid, errAtoi2 := strconv.Atoi(u.Gid)
+		if errAtoi1 != nil || errAtoi2 != nil {
+			return 0, 0, false
+		}
+		return uid, gid, true
 	}
 	return 0, 0, false
 }

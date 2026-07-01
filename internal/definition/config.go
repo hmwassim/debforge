@@ -3,6 +3,7 @@ package definition
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -100,6 +101,10 @@ func resolveConfigFiles(raw map[string]string, fs ports.FileSystem, configsDir s
 			continue
 		}
 		srcPath := filepath.Join(configsDir, src)
+		cleanDir := filepath.Clean(configsDir)
+		if !strings.HasPrefix(filepath.Clean(srcPath), cleanDir+string(filepath.Separator)) && filepath.Clean(srcPath) != cleanDir {
+			return nil, fmt.Errorf("config source %s: path traversal outside configs directory", src)
+		}
 		data, err := fs.ReadFile(srcPath)
 		if err != nil {
 			return nil, fmt.Errorf("read config source %s for %s: %w", srcPath, dest, err)

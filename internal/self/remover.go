@@ -95,6 +95,7 @@ func (r *Remover) remove(ctx context.Context) error {
 func (r *Remover) removeManagedPackages(ctx context.Context, spinner ports.Spinner) {
 	st, err := r.stateSvc.Load()
 	if err != nil {
+		r.logger.Warn("could not load state, skipping managed package removal: %s", err)
 		return
 	}
 	names := r.stateSvc.ListPackages(st)

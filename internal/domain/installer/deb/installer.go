@@ -43,7 +43,11 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 			return err
 		}
 		if !updated && !p.ForceInstall {
-			if installer.CheckInstalled(ctx, i.runner, i.fs, p) {
+			ok, err := installer.CheckInstalled(ctx, i.runner, i.fs, p)
+			if err != nil {
+				return err
+			}
+			if ok {
 				return nil
 			}
 		}

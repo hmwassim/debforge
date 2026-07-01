@@ -44,7 +44,10 @@ func (u *Updater) update(ctx context.Context) error {
 	spinner := u.logger.Spinner(ctx, "Working")
 	defer spinner.Done()
 
-	sourceExists := sourceRepoExists(u.fs, u.cfg.SourceDir)
+	sourceExists, err := sourceRepoExists(u.fs, u.cfg.SourceDir)
+	if err != nil {
+		return fmt.Errorf("check source dir: %w", err)
+	}
 
 	if !sourceExists {
 		spinner.Pause()
@@ -133,9 +136,8 @@ func (u *Updater) update(ctx context.Context) error {
 	return nil
 }
 
-func sourceRepoExists(fs ports.FileSystem, dir string) bool {
-	ok, _ := fs.Exists(filepath.Join(dir, ".git"))
-	return ok
+func sourceRepoExists(fs ports.FileSystem, dir string) (bool, error) {
+	return fs.Exists(filepath.Join(dir, ".git"))
 }
 
 func (u *Updater) cloneRepo(ctx context.Context) error {

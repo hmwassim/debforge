@@ -57,7 +57,9 @@ func WithTempDir(fs ports.FileSystem, name string, fn func(tmpDir string) error)
 		return err
 	}
 	if err := fn(tmpDir); err != nil {
-		fs.RemoveAll(tmpDir)
+		if rmerr := fs.RemoveAll(tmpDir); rmerr != nil {
+			return fmt.Errorf("%w (also failed to clean up temp dir: %v)", err, rmerr)
+		}
 		return err
 	}
 	if rmerr := fs.RemoveAll(tmpDir); rmerr != nil {

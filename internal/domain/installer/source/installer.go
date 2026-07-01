@@ -165,16 +165,18 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 		}
 
 		hasTopDir := false
-		if listing, _, err := i.runner.Run(ctx, "tar", "tf", archive); err == nil {
-			for _, entry := range strings.Split(string(listing), "\n") {
-				entry = strings.TrimSpace(entry)
-				if entry == "" {
-					continue
-				}
-				if strings.Contains(entry, "/") {
-					hasTopDir = true
-					break
-				}
+		listing, _, err := i.runner.Run(ctx, "tar", "tf", archive)
+		if err != nil {
+			return "", fmt.Errorf("list archive %s: %w", p.Name, err)
+		}
+		for _, entry := range strings.Split(string(listing), "\n") {
+			entry = strings.TrimSpace(entry)
+			if entry == "" {
+				continue
+			}
+			if strings.Contains(entry, "/") {
+				hasTopDir = true
+				break
 			}
 		}
 

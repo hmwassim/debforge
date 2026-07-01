@@ -20,7 +20,7 @@ import (
 //     system check exists, so returns true unconditionally.
 //
 // The caller is responsible for reconciling this result with state.json.
-func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.FileSystem, p *pkg.Package) bool {
+func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.FileSystem, p *pkg.Package) (bool, error) {
 	switch p.Type {
 	case pkg.TypeApt:
 		name := p.PrimarySystemPackage()
@@ -32,14 +32,18 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 		return dpkg.IsInstalled(ctx, runner, name)
 	case pkg.TypeDeb:
 		name := p.PrimarySystemPackage()
-		if dpkg.IsInstalled(ctx, runner, name) {
-			return true
+		ok, err := dpkg.IsInstalled(ctx, runner, name)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
 		}
 		return dpkg.IsInstalled(ctx, runner, p.Name)
 	case pkg.TypeConfig:
-		return configsInstalled(fs, p)
+		return configsInstalled(fs, p), nil
 	default: // source
-		return true
+		return true, nil
 	}
 }
 

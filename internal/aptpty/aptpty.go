@@ -92,7 +92,11 @@ func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.S
 func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) []string {
 	var found []string
 	for _, name := range names {
-		if dpkg.IsInstalled(ctx, runner, name) {
+		ok, err := dpkg.IsInstalled(ctx, runner, name)
+		if err != nil {
+			continue
+		}
+		if ok {
 			found = append(found, name)
 		}
 	}

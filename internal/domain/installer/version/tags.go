@@ -94,16 +94,19 @@ func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix,
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
+	var lastErr error
 	for i := len(tags) - 1; i >= 0; i-- {
 		v := strings.TrimPrefix(tags[i], prefix)
 		u := strings.ReplaceAll(verifyURL, "{version}", v)
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		resp, err := client.Do(req)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		resp.Body.Close()
@@ -113,6 +116,9 @@ func LatestTag(ctx context.Context, runner ports.CommandRunner, repoURL, prefix,
 		}
 	}
 
+	if lastErr != nil {
+		return "", fmt.Errorf("no version tag with a valid download URL found in %s (last attempt: %w)", repoURL, lastErr)
+	}
 	return "", fmt.Errorf("no version tag with a valid download URL found in %s", repoURL)
 }
 

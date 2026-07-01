@@ -62,7 +62,11 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	if s.state.IsInstalled(st, name) && !rerun {
-		if installer.CheckInstalled(ctx, s.runner, s.fs, p) {
+		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, p)
+		if err != nil {
+			return false, err
+		}
+		if ok {
 			spinner.SetDesc(name + " already installed")
 			return false, nil
 		}
@@ -89,9 +93,16 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			dep.SkipRepoSetup = true
 		}
 
-		if !rerun && exists && installer.CheckInstalled(ctx, s.runner, s.fs, dep) {
-			spinner.SetDesc(dep.Name + " already installed")
-			continue
+		if !rerun && exists {
+			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, dep)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				spinner.SetDesc(dep.Name + " already installed")
+				sessionProcessed[dep.Name] = true
+				continue
+			}
 		}
 
 		if dep.Apt != nil && dep.Apt.Variant == "__skip__" {

@@ -48,7 +48,11 @@ func TestSourceRepoExists_true(t *testing.T) {
 	dir := "/opt/debforge/src"
 	fs.Files[filepath.Join(dir, ".git")] = []byte{}
 
-	if !sourceRepoExists(fs, dir) {
+	ok, err := sourceRepoExists(fs, dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
 		t.Error("expected sourceRepoExists to return true")
 	}
 }
@@ -56,7 +60,11 @@ func TestSourceRepoExists_true(t *testing.T) {
 func TestSourceRepoExists_false(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 
-	if sourceRepoExists(fs, "/opt/debforge/src") {
+	ok, err := sourceRepoExists(fs, "/opt/debforge/src")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
 		t.Error("expected sourceRepoExists to return false")
 	}
 }

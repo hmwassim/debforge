@@ -263,7 +263,7 @@ func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner
 	for _, repo := range p.Apt.Extrepo {
 		spinner.SetDesc("disabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
-			// best-effort
+			spinner.SetDesc(fmt.Sprintf("failed to disable extrepo %s: %v", repo, err))
 		}
 	}
 }

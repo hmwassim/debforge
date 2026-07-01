@@ -141,6 +141,7 @@ func (s *RemoveService) depUnsatisfied(p *pkg.Package, st *State) bool {
 func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) {
 	installed, err := dpkg.ListInstalled(ctx, s.runner)
 	if err != nil {
+		spinner.SetDesc(fmt.Sprintf("failed to list dpkg packages: %v", err))
 		return
 	}
 	for name := range st.Packages {
@@ -184,7 +185,9 @@ func (s *RemoveService) disableOrphanedExtrepos(ctx context.Context, p *pkg.Pack
 			continue
 		}
 		spinner.SetDesc("disabling extrepo " + repo)
-		s.runner.Run(ctx, "extrepo", "disable", repo)
+		if _, _, err := s.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
+			spinner.SetDesc(fmt.Sprintf("failed to disable extrepo %s: %v", repo, err))
+		}
 	}
 }
 

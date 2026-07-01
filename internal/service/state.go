@@ -101,7 +101,11 @@ func checkInstalled(ctx context.Context, state *StateManager, st *State, name st
 		spinner.SetDesc(name + " not installed")
 		return false, fmt.Errorf("%w: %s", ErrNotInstalled, name)
 	}
-	if !installer.CheckInstalled(ctx, runner, fs, p) {
+	ok, err := installer.CheckInstalled(ctx, runner, fs, p)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
 		state.Remove(st, name)
 		spinner.SetDesc(name + " not installed")
 		return true, fmt.Errorf("%w: %s", ErrNotInstalled, name)

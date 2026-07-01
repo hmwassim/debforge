@@ -20,7 +20,11 @@ func TestCheckInstalled_aptVariantOnlyInstalled(t *testing.T) {
 		},
 	}
 
-	if !CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p) {
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
 		t.Error("expected CheckInstalled=true for variant-resolved package that is installed")
 	}
 }
@@ -43,7 +47,11 @@ func TestCheckInstalled_aptVariantOnlyNotInstalled(t *testing.T) {
 		},
 	}
 
-	if CheckInstalled(context.Background(), runner, nil, p) {
+	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
 		t.Error("expected CheckInstalled=false for variant-resolved package that is not installed")
 	}
 }
@@ -59,7 +67,11 @@ func TestCheckInstalled_aptVariantAndPackages(t *testing.T) {
 		},
 	}
 
-	if !CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p) {
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
 		t.Error("expected CheckInstalled=true when both Packages and variant-resolved package are installed")
 	}
 }
@@ -71,7 +83,11 @@ func TestCheckInstalled_aptNoVariantFallsBackToPrimary(t *testing.T) {
 		Packages: []string{"real-system-pkg"},
 	}
 
-	if !CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p) {
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
 		t.Error("expected CheckInstalled=true via PrimarySystemPackage when no variant is set")
 	}
 }
@@ -91,7 +107,11 @@ func TestCheckInstalled_aptNoVariantNoPackagesFallsBackToName(t *testing.T) {
 		Apt:  &pkg.AptConfig{},
 	}
 
-	if CheckInstalled(context.Background(), runner, nil, p) {
+	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
 		t.Error("expected CheckInstalled=false when no variant and no packages are set")
 	}
 }

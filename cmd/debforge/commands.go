@@ -202,10 +202,19 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 0
 	}
 
-	pagerCmd := os.Getenv("PAGER")
-	if pagerCmd == "" {
+	var pagerCmd string
+	var pagerArgs []string
+	envPager := os.Getenv("PAGER")
+	if envPager != "" {
+		parts := strings.Fields(envPager)
+		pagerCmd = parts[0]
+		if len(parts) > 1 {
+			pagerArgs = parts[1:]
+		}
+	} else {
 		if p, err := exec.LookPath("less"); err == nil {
-			pagerCmd = p + " -FRS"
+			pagerCmd = p
+			pagerArgs = []string{"-FRS"}
 		}
 	}
 	if pagerCmd == "" {
@@ -213,7 +222,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 0
 	}
 
-	cmd := exec.Command("sh", "-c", pagerCmd)
+	cmd := exec.Command(pagerCmd, pagerArgs...)
 	cmd.Stdin = strings.NewReader(out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
