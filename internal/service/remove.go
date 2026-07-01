@@ -160,14 +160,6 @@ func pkgIsOrphaned(p *pkg.Package, installed map[string]bool) bool {
 	if p.Type != pkg.TypeDeb && p.Type != pkg.TypeApt {
 		return false
 	}
-	if len(p.Packages) > 0 {
-		for _, pn := range p.Packages {
-			if !installed[pn] {
-				return true
-			}
-		}
-		return false
-	}
 	if p.Apt != nil && len(p.Apt.Variants) > 0 {
 		for _, pkgs := range p.Apt.Variants {
 			for _, pn := range pkgs {
