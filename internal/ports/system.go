@@ -60,6 +60,7 @@ type FileSystem interface {
 	Symlink(target, link string) error
 	Readlink(path string) (string, error)
 	Exists(path string) (bool, error)
+	Chown(path string, uid, gid int) error
 }
 
 // Locker is the port for distributed mutual exclusion via file locking.

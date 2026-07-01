@@ -362,14 +362,11 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 		aptErrs []string
 	)
 
-	timer := time.NewTimer(0)
-	if !timer.Stop() {
-		<-timer.C
-	}
+	ticker := time.NewTicker(150 * time.Millisecond)
+	defer ticker.Stop()
 
 mainLoop:
 	for {
-		timer.Reset(150 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			break mainLoop
@@ -408,7 +405,7 @@ mainLoop:
 				break mainLoop
 			}
 
-		case <-timer.C:
+		case <-ticker.C:
 		}
 
 		if state.phase == phaseDownload && total > 0 && state.cumulativeDone+cur > 0 {

@@ -13,10 +13,10 @@ type debDefinition struct {
 	Description string   `yaml:"description,omitempty"`
 	Type        string   `yaml:"type"`
 	Package     string   `yaml:"package"`
-	Depends    []string `yaml:"depends,omitempty"`
-	Repo       string   `yaml:"repo,omitempty"`
-	VersionCmd string   `yaml:"version_cmd,omitempty"`
-	TagPrefix  string   `yaml:"tag_prefix,omitempty"`
+	Depends     []string `yaml:"depends,omitempty"`
+	Repo        string   `yaml:"repo,omitempty"`
+	VersionCmd  string   `yaml:"version_cmd,omitempty"`
+	TagPrefix   string   `yaml:"tag_prefix,omitempty"`
 
 	Install struct {
 		URL      string   `yaml:"url,omitempty"`

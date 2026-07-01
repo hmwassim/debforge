@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // TestAcquire_createsMissingParentDir is the regression test for the bug
@@ -45,15 +46,51 @@ func TestAcquire_releaseAllowsReacquire(t *testing.T) {
 	release2()
 }
 
-// Note: a third case - a second Acquire whose context is cancelled while
-// genuinely blocked behind a held lock - is intentionally not covered
-// here. Acquire's ctx.Done() branch closes its own fd but then blocks on
-// <-done waiting for the background syscall.Flock(LOCK_EX) goroutine to
-// return, which itself only returns once the lock is released - so a
-// "cancelled while contended" Acquire call does not actually return until
-// the contended lock becomes free, defeating the point of the context
-// deadline, and can leak the lock to whichever goroutine's blocked
-// syscall.Flock happens to be granted it after the fd was already closed.
-// This is a real, pre-existing gap in FLock.Acquire that's out of scope
-// for this pass (no current debforge call site constructs a Locker
-// context with a deadline, so it's not hit in production today).
+func TestAcquire_cancelledBeforeCallReturnsImmediately(t *testing.T) {
+	lockPath := filepath.Join(t.TempDir(), "lock")
+	l := NewFLock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	_, err := l.Acquire(ctx, lockPath)
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected error from already-cancelled context, got nil")
+	}
+	if elapsed > 100*time.Millisecond {
+		t.Errorf("Acquire took %v on already-cancelled context, should be instant", elapsed)
+	}
+}
+
+func TestAcquire_returnsOnContextCancelWhileContended(t *testing.T) {
+	lockPath := filepath.Join(t.TempDir(), "lock")
+	l := NewFLock()
+
+	// Speed up tests by shortening the poll interval.
+	orig := pollInterval
+	pollInterval = 5 * time.Millisecond
+	defer func() { pollInterval = orig }()
+
+	// Acquire and hold the lock so the second Acquire contends.
+	release1, err := l.Acquire(context.Background(), lockPath)
+	if err != nil {
+		t.Fatalf("first Acquire: %v", err)
+	}
+	defer release1()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err = l.Acquire(ctx, lockPath)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Error("expected error from timed-out context, got nil")
+	}
+	if elapsed > 300*time.Millisecond {
+		t.Errorf("Acquire took %v on contended lock with short deadline, should return promptly", elapsed)
+	}
+}

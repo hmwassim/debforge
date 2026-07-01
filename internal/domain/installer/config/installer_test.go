@@ -45,6 +45,7 @@ func (m *mockFileSystem) Exists(path string) (bool, error) {
 	_, ok := m.files[path]
 	return ok, nil
 }
+func (m *mockFileSystem) Chown(path string, uid, gid int) error { return nil }
 
 var _ ports.Spinner = (*testutil.MockSpinner)(nil)
 

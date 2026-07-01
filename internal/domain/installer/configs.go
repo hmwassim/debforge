@@ -59,13 +59,13 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 			return fmt.Errorf("create user config dir %s: %w", dir, err)
 		}
 		if ownerChown {
-			os.Chown(dir, ownerUID, ownerGID)
+			fs.Chown(dir, ownerUID, ownerGID)
 		}
 		if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
 			return fmt.Errorf("write user config %s: %w", path, err)
 		}
 		if ownerChown {
-			os.Chown(path, ownerUID, ownerGID)
+			fs.Chown(path, ownerUID, ownerGID)
 		}
 	}
 	return nil

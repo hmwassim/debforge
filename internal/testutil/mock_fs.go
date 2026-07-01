@@ -31,6 +31,7 @@ type MockFileSystem struct {
 	ReadlinkFunc  func(path string) (string, error)
 	ExistsFunc    func(path string) (bool, error)
 	StatFunc      func(path string) (ports.FileInfo, error)
+	ChownFunc     func(path string, uid, gid int) error
 }
 
 // NewMockFileSystem returns an empty MockFileSystem ready to use.
@@ -115,6 +116,13 @@ func (m *MockFileSystem) Exists(path string) (bool, error) {
 	}
 	_, ok := m.Files[path]
 	return ok, nil
+}
+
+func (m *MockFileSystem) Chown(path string, uid, gid int) error {
+	if m.ChownFunc != nil {
+		return m.ChownFunc(path, uid, gid)
+	}
+	return nil
 }
 
 var _ ports.FileSystem = (*MockFileSystem)(nil)

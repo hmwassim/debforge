@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -20,9 +21,19 @@ func NewFLock() *FLock {
 	return &FLock{}
 }
 
+// pollInterval is how long Acquire waits between non-blocking flock
+// attempts when the lock is contended. Kept as a var so tests can
+// shorten it.
+var pollInterval = 50 * time.Millisecond
+
 // Acquire acquires an exclusive lock on the file at path, blocking until
 // the lock is acquired or the context is cancelled. It returns a release
 // function that must be called to unlock.
+//
+// Unlike the previous implementation, this uses LOCK_NB in a poll loop
+// so that context cancellation is prompt: there is no background
+// goroutine that can block past cancellation on a contended flock(), and
+// no risk of leaking a lock grant to a caller who already gave up.
 func (l *FLock) Acquire(ctx context.Context, path string) (func(), error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return nil, err
@@ -32,29 +43,27 @@ func (l *FLock) Acquire(ctx context.Context, path string) (func(), error) {
 		return nil, err
 	}
 
-	type result struct {
-		err error
-	}
-	done := make(chan result, 1)
-
-	go func() {
-		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
-		done <- result{err}
-	}()
-
-	select {
-	case <-ctx.Done():
-		f.Close()
-		<-done
-		return nil, ctx.Err()
-	case r := <-done:
-		if r.err != nil {
+	for {
+		select {
+		case <-ctx.Done():
 			f.Close()
-			return nil, r.err
+			return nil, ctx.Err()
+		default:
 		}
-		return func() {
-			syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
 			f.Close()
-		}, nil
+			return nil, ctx.Err()
+		case <-time.After(pollInterval):
+		}
 	}
+
+	return func() {
+		syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		f.Close()
+	}, nil
 }

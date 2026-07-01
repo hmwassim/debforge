@@ -60,6 +60,7 @@ func (m *memFS) Readlink(path string) (string, error) {
 func (m *memFS) Walk(root string, fn func(path string, info ports.FileInfo, err error) error) error {
 	return nil
 }
+func (m *memFS) Chown(path string, uid, gid int) error { return nil }
 
 func TestContainsNewline(t *testing.T) {
 	tests := []struct {

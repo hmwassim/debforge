@@ -102,6 +102,11 @@ func (f *FileSystem) Readlink(path string) (string, error) {
 	return os.Readlink(path)
 }
 
+// Chown changes the owner and group of the file at path.
+func (f *FileSystem) Chown(path string, uid, gid int) error {
+	return os.Chown(path, uid, gid)
+}
+
 type osFileInfo struct {
 	fi os.FileInfo
 }

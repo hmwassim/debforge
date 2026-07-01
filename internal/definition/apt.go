@@ -15,12 +15,13 @@ type aptDefinition struct {
 	Depends     []string `yaml:"depends,omitempty"`
 
 	Install struct {
-		Conflicts []string          `yaml:"conflicts,omitempty"`
-		Extrepo   []string          `yaml:"extrepo,omitempty"`
-		Backports []string          `yaml:"backports,omitempty"`
-		Packages  []string          `yaml:"packages,omitempty"`
-		Variants  map[string][]string `yaml:"variants,omitempty"`
-		Configs   map[string]string `yaml:"configs,omitempty"`
+		Conflicts     []string            `yaml:"conflicts,omitempty"`
+		Extrepo       []string            `yaml:"extrepo,omitempty"`
+		Backports     []string            `yaml:"backports,omitempty"`
+		BackportSuite string              `yaml:"backport_suite,omitempty"`
+		Packages      []string            `yaml:"packages,omitempty"`
+		Variants      map[string][]string `yaml:"variants,omitempty"`
+		Configs       map[string]string   `yaml:"configs,omitempty"`
 	} `yaml:"install"`
 
 	Remove struct {
@@ -53,10 +54,11 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 		PostInstall:   def.PostInstall,
 		PostRemove:    def.PostRemove,
 		Apt: &pkg.AptConfig{
-			Extrepo:   def.Install.Extrepo,
-			Backports: def.Install.Backports,
-			Variants:  def.Install.Variants,
-			Conflicts: def.Install.Conflicts,
+			Extrepo:       def.Install.Extrepo,
+			Backports:     def.Install.Backports,
+			BackportSuite: def.Install.BackportSuite,
+			Variants:      def.Install.Variants,
+			Conflicts:     def.Install.Conflicts,
 		},
 	}, nil
 }

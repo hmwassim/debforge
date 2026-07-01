@@ -241,6 +241,9 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 }
 
 func (i *Installer) extrepoEnabled(ctx context.Context, repo string) bool {
+	if strings.Contains(repo, "/") || strings.Contains(repo, "..") {
+		return false
+	}
 	path := "/etc/apt/sources.list.d/extrepo_" + repo + ".sources"
 	data, err := i.fs.ReadFile(path)
 	if err != nil {
@@ -324,7 +327,7 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 		return nil
 	}
 	spinner.SetDesc("installing backports for " + p.Name)
-	return aptpty.RunInstallBackports(ctx, i.runner, p.Apt.Backports, "", spinner)
+	return aptpty.RunInstallBackports(ctx, i.runner, p.Apt.Backports, p.Apt.BackportSuite, spinner)
 }
 
 // ---- main packages --------------------------------------------------------

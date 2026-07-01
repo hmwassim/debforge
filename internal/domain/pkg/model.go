@@ -15,11 +15,12 @@ const (
 
 // AptConfig holds configuration specific to apt-type packages.
 type AptConfig struct {
-	Extrepo   []string
-	Backports []string
-	Variants  map[string][]string
-	Variant   string
-	Conflicts []string
+	Extrepo       []string
+	Backports     []string
+	BackportSuite string
+	Variants      map[string][]string
+	Variant       string
+	Conflicts     []string
 }
 
 // DebConfig holds configuration specific to deb-type packages.
