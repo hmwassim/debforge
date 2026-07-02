@@ -21,6 +21,7 @@ func (m *mockSpinner) DoneWarn()        {}
 func (m *mockSpinner) DoneInfo()        {}
 func (m *mockSpinner) Pause()           {}
 func (m *mockSpinner) Resume()          {}
+func (m *mockSpinner) Stop()            {}
 func (m *mockSpinner) SetDesc(d string) { m.desc = d }
 
 type variantRecorder struct {

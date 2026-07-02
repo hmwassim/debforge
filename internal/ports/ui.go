@@ -11,6 +11,7 @@ type Spinner interface {
 	Pause()
 	Resume()
 	SetDesc(string)
+	Stop()
 }
 
 type UI interface {

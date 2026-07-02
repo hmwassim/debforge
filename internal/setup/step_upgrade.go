@@ -17,15 +17,11 @@ func (s *UpgradeStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *UpgradeStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
-	spinnerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	spinner := cx.UI.Spinner(spinnerCtx, "Refreshing repositories")
+	spinner := cx.UI.Spinner(ctx, "Refreshing repositories")
+	defer spinner.Stop()
 	if err := aptpty.RunUpdate(ctx, cx.Runner, spinner); err != nil {
 		return err
 	}
 	spinner.SetDesc("Upgrading packages")
-	if err := aptpty.RunUpgrade(ctx, cx.Runner, spinner); err != nil {
-		return err
-	}
-	return nil
+	return aptpty.RunUpgrade(ctx, cx.Runner, spinner)
 }

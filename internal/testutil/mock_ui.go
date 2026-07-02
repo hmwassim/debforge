@@ -15,6 +15,7 @@ func (m *MockSpinner) DoneWarn()        {}
 func (m *MockSpinner) DoneInfo()        {}
 func (m *MockSpinner) Pause()           {}
 func (m *MockSpinner) Resume()          {}
+func (m *MockSpinner) Stop()            {}
 func (m *MockSpinner) SetDesc(d string) { m.Desc = d }
 
 // MockUI is a minimal ports.UI for tests. Each method's corresponding Func

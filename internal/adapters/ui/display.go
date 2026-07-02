@@ -186,4 +186,25 @@ func (d *Display) DoneWarn() { d.doneWith("!", yellow) }
 // DoneInfo marks the spinner as completed with an informational marker.
 func (d *Display) DoneInfo() { d.doneWith("i", blue) }
 
+// Stop stops the spinner animation without printing a completion message.
+func (d *Display) Stop() {
+	d.mu.Lock()
+	if d.done {
+		d.mu.Unlock()
+		return
+	}
+	d.done = true
+	paused := d.paused
+	d.mu.Unlock()
+
+	d.dOnce.Do(func() {
+		if d.stop != nil {
+			close(d.stop)
+			<-d.sdone
+			d.stop = nil
+		}
+	})
+	_ = paused // Discarded — Stop is silent.
+}
+
 var _ ports.Spinner = (*Display)(nil)
