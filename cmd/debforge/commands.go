@@ -27,6 +27,10 @@ import (
 	"github.com/hmwassim/debforge/internal/service"
 )
 
+// Package-level test hooks (overridable in tests).
+var isTerminal = term.IsTerminal
+var lookPath = exec.LookPath
+
 // commandHandler bundles the dependencies shared by install/remove/update
 // so they are wired once instead of repeated in every handler.
 type commandHandler struct {
@@ -145,27 +149,12 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 0
 	}
 
-	isTerm := term.IsTerminal(int(os.Stdout.Fd()))
-	if !isTerm {
+	if !isTerminal(int(os.Stdout.Fd())) {
 		fmt.Print(out)
 		return 0
 	}
 
-	var pagerCmd string
-	var pagerArgs []string
-	envPager := os.Getenv("PAGER")
-	if envPager != "" {
-		parts := strings.Fields(envPager)
-		pagerCmd = parts[0]
-		if len(parts) > 1 {
-			pagerArgs = parts[1:]
-		}
-	} else {
-		if p, err := exec.LookPath("less"); err == nil {
-			pagerCmd = p
-			pagerArgs = []string{"-FRS"}
-		}
-	}
+	pagerCmd, pagerArgs := selectPager()
 	if pagerCmd == "" {
 		fmt.Print(out)
 		return 0
@@ -179,6 +168,25 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		fmt.Print(out)
 	}
 	return 0
+}
+
+// selectPager returns the pager command and arguments to use for displaying
+// output. It checks the PAGER environment variable first, then falls back to
+// less. Returns ("", nil) when no suitable pager is found.
+func selectPager() (cmd string, args []string) {
+	envPager := os.Getenv("PAGER")
+	if envPager != "" {
+		parts := strings.Fields(envPager)
+		cmd = parts[0]
+		if len(parts) > 1 {
+			args = parts[1:]
+		}
+		return
+	}
+	if p, err := lookPath("less"); err == nil {
+		return p, []string{"-FRS"}
+	}
+	return "", nil
 }
 
 // formatSearchOutput formats the package listing. When isTerm is true the
