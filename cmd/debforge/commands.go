@@ -115,6 +115,14 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
 	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
+
+	st, err := h.stateSvc.Load()
+	if err == nil {
+		if deps := svc.AffectedDependents(st, names); len(deps) > 0 {
+			u.Info("Also removing: %s", strings.Join(deps, ", "))
+		}
+	}
+
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		return svc.Run(ctx, names, spinner)
 	})

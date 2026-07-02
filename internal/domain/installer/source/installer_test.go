@@ -561,11 +561,11 @@ func TestInstall_checkVersionCmdError(t *testing.T) {
 	}
 	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
 	p := &pkg.Package{
-		Name:        "test-src",
-		Type:        pkg.TypeSource,
-		VersionCmd:  "bad-command --version",
-		Repo:        "https://example.com/repo.git",
-		Source:      &pkg.SourceConfig{},
+		Name:         "test-src",
+		Type:         pkg.TypeSource,
+		VersionCmd:   "bad-command --version",
+		Repo:         "https://example.com/repo.git",
+		Source:       &pkg.SourceConfig{},
 		ForceInstall: true,
 	}
 

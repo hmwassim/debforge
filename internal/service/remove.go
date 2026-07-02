@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -127,6 +128,60 @@ func (s *RemoveService) removeDependents(ctx context.Context, st *State, spinner
 			break
 		}
 	}
+}
+
+// AffectedDependents returns all installed packages whose Depends would
+// no longer be satisfied if the given names were removed, including
+// transitive dependents. It does not mutate state.
+func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
+	orig := make(map[string]bool)
+	gone := make(map[string]bool)
+	for _, n := range names {
+		if _, ok := st.Packages[n]; ok {
+			orig[n] = true
+			gone[n] = true
+		}
+	}
+
+	for {
+		added := false
+		for name := range st.Packages {
+			if gone[name] {
+				continue
+			}
+			p, err := LookupPackage(s.reg, name)
+			if err != nil {
+				continue
+			}
+			for _, dep := range p.Depends {
+				if _, ok := st.Packages[dep]; !ok {
+					gone[name] = true
+					added = true
+					break
+				}
+				if gone[dep] {
+					gone[name] = true
+					added = true
+					break
+				}
+			}
+		}
+		if !added {
+			break
+		}
+	}
+
+	result := make([]string, 0, len(gone))
+	for n := range gone {
+		if !orig[n] {
+			result = append(result, n)
+		}
+	}
+	sort.Strings(result)
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 // depUnsatisfied reports whether any of p's Depends are missing from st.

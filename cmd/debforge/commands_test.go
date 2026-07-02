@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -20,9 +21,9 @@ import (
 
 type mockSys struct{}
 
-func (m *mockSys) IsPrivileged() bool                     { return false }
-func (m *mockSys) Getenv(_ string) string                  { return "" }
-func (m *mockSys) UserHomeDir() (string, error)            { return "/home/test", nil }
+func (m *mockSys) IsPrivileged() bool           { return false }
+func (m *mockSys) Getenv(_ string) string       { return "" }
+func (m *mockSys) UserHomeDir() (string, error) { return "/home/test", nil }
 func (m *mockSys) LookupUser(_ string) (*ports.UserInfo, error) {
 	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
 }
@@ -511,6 +512,121 @@ func TestRemove_notInstalled(t *testing.T) {
 	}
 }
 
+func TestRemove_warnsOnCascade(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "scx-scheds",
+		Type: pkg.TypeDeb,
+		Deb:  &pkg.DebConfig{Package: "scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-tools",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-tools"},
+		Depends: []string{"scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-switcher",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-switcher"},
+		Depends: []string{"scx-scheds", "scx-tools"},
+	})
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeDeb, &mockInstaller{})
+
+	fsys := testutil.NewMockFileSystem()
+	fsys.Files["/state.json"] = []byte(`{"packages":{"scx-scheds":{"type":"deb"},"scx-tools":{"type":"deb"},"scx-switcher":{"type":"deb"}}}`)
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	runner := &mockCmdRunner{
+		handlers: map[string]func(ctx context.Context, args ...string) ([]byte, []byte, error){
+			"dpkg-query": func(_ context.Context, args ...string) ([]byte, []byte, error) {
+				if len(args) >= 3 && args[0] == "-W" && args[1] == "-f" && args[2] == "${Package}\n" {
+					return []byte("scx-scheds\nscx-tools\nscx-switcher\n"), nil, nil
+				}
+				return []byte("installed\n"), nil, nil
+			},
+		},
+	}
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+
+	var infoMsg string
+	u := &testutil.MockUI{
+		PromptFunc: func(_ string, _ ...any) bool { return true },
+		InfoFunc:   func(format string, args ...any) { infoMsg = fmt.Sprintf(format, args...) },
+	}
+
+	code := h.remove(context.Background(), u, []string{"scx-scheds"})
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if infoMsg == "" {
+		t.Fatal("expected Info call with dependent names")
+	}
+	if !strings.Contains(infoMsg, "scx-tools") || !strings.Contains(infoMsg, "scx-switcher") {
+		t.Errorf("expected Info to mention dependents, got %q", infoMsg)
+	}
+}
+
+func TestRemove_noWarnWithoutCascade(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "scx-scheds",
+		Type: pkg.TypeDeb,
+		Deb:  &pkg.DebConfig{Package: "scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-tools",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-tools"},
+		Depends: []string{"scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-switcher",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-switcher"},
+		Depends: []string{"scx-scheds", "scx-tools"},
+	})
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeDeb, &mockInstaller{})
+
+	fsys := testutil.NewMockFileSystem()
+	fsys.Files["/state.json"] = []byte(`{"packages":{"scx-scheds":{"type":"deb"},"scx-tools":{"type":"deb"},"scx-switcher":{"type":"deb"}}}`)
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	runner := &mockCmdRunner{
+		handlers: map[string]func(ctx context.Context, args ...string) ([]byte, []byte, error){
+			"dpkg-query": func(_ context.Context, args ...string) ([]byte, []byte, error) {
+				if len(args) >= 3 && args[0] == "-W" && args[1] == "-f" && args[2] == "${Package}\n" {
+					return []byte("scx-scheds\nscx-tools\nscx-switcher\n"), nil, nil
+				}
+				return []byte("installed\n"), nil, nil
+			},
+		},
+	}
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+
+	var infoCalled bool
+	u := &testutil.MockUI{
+		PromptFunc: func(_ string, _ ...any) bool { return true },
+		InfoFunc:   func(_ string, _ ...any) { infoCalled = true },
+	}
+
+	code := h.remove(context.Background(), u, []string{"scx-switcher"})
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if infoCalled {
+		t.Error("expected no Info call when no cascading dependents")
+	}
+}
+
 func TestUpdate_success(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "test-pkg", Type: pkg.TypeApt})
@@ -680,7 +796,7 @@ func TestInstall_gpuCheckFail(t *testing.T) {
 
 	var warnCalled bool
 	u := &testutil.MockUI{
-		WarnFunc:   func(_ string, _ ...any) { warnCalled = true },
+		WarnFunc: func(_ string, _ ...any) { warnCalled = true },
 	}
 
 	code := h.install(context.Background(), u, []string{"nvidia"}, false)
@@ -910,12 +1026,8 @@ func TestSearch_noPagerAvailableTerminal(t *testing.T) {
 	isTerminal = func(_ int) bool { return true }
 	t.Cleanup(func() { isTerminal = oldTerm })
 	oldLook := lookPath
-		lookPath = func(_ string) (string, error) { return "", errors.New("not found") }
+	lookPath = func(_ string) (string, error) { return "", errors.New("not found") }
 	t.Cleanup(func() { lookPath = oldLook })
-
-
-
-
 
 	old := os.Stdout
 	r, w, err := os.Pipe()

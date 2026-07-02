@@ -844,12 +844,12 @@ func TestInstall_forceInstallSkipsUpToDateCheck(t *testing.T) {
 		},
 	}
 	p := &pkg.Package{
-		Name:        "test-pkg",
-		Type:        pkg.TypeApt,
-		Packages:    []string{"pkg-a"},
-		Version:     "1.0.0",
+		Name:         "test-pkg",
+		Type:         pkg.TypeApt,
+		Packages:     []string{"pkg-a"},
+		Version:      "1.0.0",
 		ForceInstall: true,
-		Apt:         &pkg.AptConfig{},
+		Apt:          &pkg.AptConfig{},
 	}
 
 	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {

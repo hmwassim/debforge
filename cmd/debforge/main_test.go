@@ -15,9 +15,9 @@ import (
 
 type mockSystem struct{ privileged bool }
 
-func (m *mockSystem) IsPrivileged() bool              { return m.privileged }
-func (m *mockSystem) Getenv(_ string) string           { return "" }
-func (m *mockSystem) UserHomeDir() (string, error)     { return "/home/test", nil }
+func (m *mockSystem) IsPrivileged() bool           { return m.privileged }
+func (m *mockSystem) Getenv(_ string) string       { return "" }
+func (m *mockSystem) UserHomeDir() (string, error) { return "/home/test", nil }
 func (m *mockSystem) LookupUser(_ string) (*ports.UserInfo, error) {
 	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
 }

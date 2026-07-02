@@ -743,3 +743,76 @@ func TestRemoveOne_variantOnlyPackage(t *testing.T) {
 		t.Error("expected variant-pkg removed from persisted state on disk")
 	}
 }
+
+func TestAffectedDependents(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "scx-scheds",
+		Type: pkg.TypeDeb,
+		Deb:  &pkg.DebConfig{Package: "scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-tools",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-tools"},
+		Depends: []string{"scx-scheds"},
+	})
+	reg.Register(&pkg.Package{
+		Name:    "scx-switcher",
+		Type:    pkg.TypeDeb,
+		Deb:     &pkg.DebConfig{Package: "scx-switcher"},
+		Depends: []string{"scx-scheds", "scx-tools"},
+	})
+
+	svc := &RemoveService{baseService: baseService{reg: reg}}
+
+	t.Run("root removal returns transitive dependents", func(t *testing.T) {
+		st := &State{Packages: map[string]PkgEntry{
+			"scx-scheds":   {Type: "deb"},
+			"scx-tools":    {Type: "deb"},
+			"scx-switcher": {Type: "deb"},
+		}}
+		deps := svc.AffectedDependents(st, []string{"scx-scheds"})
+		if len(deps) != 2 {
+			t.Fatalf("expected 2 dependents, got %v", deps)
+		}
+		if !((deps[0] == "scx-tools" && deps[1] == "scx-switcher") ||
+			(deps[0] == "scx-switcher" && deps[1] == "scx-tools")) {
+			t.Errorf("expected [scx-tools scx-switcher] (any order), got %v", deps)
+		}
+	})
+
+	t.Run("leaf removal returns no dependents", func(t *testing.T) {
+		st := &State{Packages: map[string]PkgEntry{
+			"scx-scheds":   {Type: "deb"},
+			"scx-tools":    {Type: "deb"},
+			"scx-switcher": {Type: "deb"},
+		}}
+		deps := svc.AffectedDependents(st, []string{"scx-switcher"})
+		if deps != nil {
+			t.Errorf("expected nil, got %v", deps)
+		}
+	})
+
+	t.Run("name not in state returns nil", func(t *testing.T) {
+		st := &State{Packages: map[string]PkgEntry{
+			"scx-scheds": {Type: "deb"},
+		}}
+		deps := svc.AffectedDependents(st, []string{"nonexistent"})
+		if deps != nil {
+			t.Errorf("expected nil, got %v", deps)
+		}
+	})
+
+	t.Run("unknown package in state is skipped", func(t *testing.T) {
+		emptyReg := pkg.NewRegistry()
+		svc := &RemoveService{baseService: baseService{reg: emptyReg}}
+		st := &State{Packages: map[string]PkgEntry{
+			"unknown": {Type: "deb"},
+		}}
+		deps := svc.AffectedDependents(st, []string{"unknown"})
+		if deps != nil {
+			t.Errorf("expected nil, got %v", deps)
+		}
+	})
+}
