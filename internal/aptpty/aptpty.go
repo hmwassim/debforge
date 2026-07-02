@@ -94,7 +94,7 @@ func RunUpdate(ctx context.Context, runner ports.CommandRunner, spinner ports.Sp
 // versioned dependencies are replaced entirely on each release. upgrade
 // alone would silently skip those packages.
 func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
-	return run(ctx, runner, []string{"full-upgrade", "-y"}, spinner)
+	return AptExec(ctx, runner, []string{"full-upgrade", "-y"}, spinner)
 }
 
 // FindInstalledConflicts returns the subset of names that are currently
