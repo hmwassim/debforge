@@ -18,17 +18,21 @@ import (
 	"github.com/hmwassim/debforge/internal/textutil"
 )
 
+// DownloadFunc downloads a file from a URL.
+type DownloadFunc func(ctx context.Context, fs ports.FileSystem, url, dest string, spinner ports.Spinner, sha256 string) error
+
 // Installer installs and removes source-built packages.
 type Installer struct {
-	runner  ports.CommandRunner
-	fs      ports.FileSystem
-	ui      ports.UI
-	execApt aptpty.AptExecFunc
+	runner       ports.CommandRunner
+	fs           ports.FileSystem
+	ui           ports.UI
+	execApt      aptpty.AptExecFunc
+	downloadFunc DownloadFunc
 }
 
 // NewInstaller returns a new source Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec}
+	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec, downloadFunc: download.Download}
 }
 
 // Install fetches the source code (git clone or download+extract), runs
@@ -149,7 +153,7 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 		spinner.SetDesc("downloading " + p.Name)
 		archive := filepath.Join(tmpDir, "archive")
 		url := download.ExpandURL(p.URL, p.Version)
-		if err := download.Download(ctx, i.fs, url, archive, spinner, p.SHA256); err != nil {
+		if err := i.downloadFunc(ctx, i.fs, url, archive, spinner, p.SHA256); err != nil {
 			return "", fmt.Errorf("download %s: %w", p.Name, err)
 		}
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hmwassim/debforge/internal/testutil"
 )
@@ -456,6 +457,76 @@ func TestRunRemove_empty(t *testing.T) {
 	}
 }
 
+func TestRunInstall_withPackages(t *testing.T) {
+	original := startPty
+	t.Cleanup(func() { startPty = original })
+
+	var ptyCalled bool
+	startPty = func(_ context.Context, name string, args ...string) (ptySession, error) {
+		ptyCalled = true
+		return &mockPtySession{
+			data:    []byte("Setting up pkg (1.0-1)\n"),
+			readErr: io.EOF,
+		}, nil
+	}
+
+	spinner := &testutil.MockSpinner{}
+	err := RunInstall(context.Background(), testutil.RunnerReturning(nil, nil), []string{"pkg"}, spinner)
+	if err != nil {
+		t.Errorf("RunInstall = %v, want nil", err)
+	}
+	if !ptyCalled {
+		t.Error("startPty was not called")
+	}
+}
+
+func TestRunInstallBackports_withSuite(t *testing.T) {
+	original := startPty
+	t.Cleanup(func() { startPty = original })
+
+	var recordedArgs []string
+	startPty = func(_ context.Context, name string, args ...string) (ptySession, error) {
+		recordedArgs = append(recordedArgs, name)
+		recordedArgs = append(recordedArgs, args...)
+		return &mockPtySession{
+			data:    []byte("Setting up pkg (1.0-1)\n"),
+			readErr: io.EOF,
+		}, nil
+	}
+
+	spinner := &testutil.MockSpinner{}
+	err := RunInstallBackports(context.Background(), testutil.RunnerReturning(nil, nil), []string{"pkg"}, "bookworm-backports", spinner)
+	if err != nil {
+		t.Errorf("RunInstallBackports = %v, want nil", err)
+	}
+	if len(recordedArgs) < 6 || recordedArgs[4] != "bookworm-backports" {
+		t.Errorf("expected -t bookworm-backports in args, got %v", recordedArgs)
+	}
+}
+
+func TestRunRemove_withPackages(t *testing.T) {
+	original := startPty
+	t.Cleanup(func() { startPty = original })
+
+	var ptyCalled bool
+	startPty = func(_ context.Context, name string, args ...string) (ptySession, error) {
+		ptyCalled = true
+		return &mockPtySession{
+			data:    []byte("Removing pkg (1.0-1)\n"),
+			readErr: io.EOF,
+		}, nil
+	}
+
+	spinner := &testutil.MockSpinner{}
+	err := RunRemove(context.Background(), testutil.RunnerReturning(nil, nil), []string{"pkg"}, spinner)
+	if err != nil {
+		t.Errorf("RunRemove = %v, want nil", err)
+	}
+	if !ptyCalled {
+		t.Error("startPty was not called")
+	}
+}
+
 func TestRunUpdate(t *testing.T) {
 	var called bool
 	runner := &testutil.MockRunner{
@@ -698,5 +769,38 @@ func TestRunWithSession_binaryExistsVerification(t *testing.T) {
 	}
 	if spinner.Desc == "" {
 		t.Error("expected spinner SetDesc to be called")
+	}
+}
+
+// delayedReader wraps a mockPtySession and adds a per-Read delay so the
+// main loop's ticker branch (case <-ticker.C) gets exercised.
+type delayedReader struct {
+	mockPtySession
+	delay time.Duration
+}
+
+func (m *delayedReader) Read(b []byte) (int, error) {
+	time.Sleep(m.delay)
+	return m.mockPtySession.Read(b)
+}
+
+func TestRunWithSession_tickerFires(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &delayedReader{
+		mockPtySession: mockPtySession{
+			data: []byte("Need to get 1,024 kB of archives.\n" +
+				"Fetched 1,024 kB in 1s (1,024 kB/s)\n" +
+				"Setting up hello (1.0-1)\n"),
+			readErr: io.EOF,
+		},
+		delay: 200 * time.Millisecond,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("runWithSession: %v", err)
+	}
+	if spinner.Desc == "" {
+		t.Error("expected spinner.SetDesc to be called")
 	}
 }
