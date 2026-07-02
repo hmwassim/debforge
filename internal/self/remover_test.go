@@ -304,3 +304,27 @@ func TestRemoveManagedPackages_partial(t *testing.T) {
 		t.Error("expected pkg-b to remain in state")
 	}
 }
+
+func TestRemoveManagedPackages_skipAlreadyRemoved(t *testing.T) {
+	ctx := context.Background()
+	rm, deps := newRemoverForTest(t)
+
+	stateJSON := `{"packages": {"pkg-a": {"type": "apt"}}}`
+	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
+
+	st, err := deps.stateSvc.Load()
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+
+	// Simulate cascade: remove pkg-a from state.
+	delete(st.Packages, "pkg-a")
+
+	var warnCalled bool
+	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
+
+	rm.removeManagedPackages(ctx, []string{"pkg-a"}, st, &testutil.MockSpinner{})
+	if warnCalled {
+		t.Error("expected no Warn for already-removed package")
+	}
+}

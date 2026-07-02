@@ -74,6 +74,12 @@ func (r *Remover) remove(ctx context.Context) error {
 		if len(names) > 0 {
 			names = r.selectPackages(names)
 		}
+		if len(names) > 0 {
+			if aff := r.removeSvc.AffectedDependents(st, names); len(aff) > 0 {
+				r.logger.Info("Also removing: %s", strings.Join(aff, ", "))
+				names = append(names, aff...)
+			}
+		}
 	}
 
 	spinner := r.logger.Spinner(ctx, "Removing debforge")
@@ -168,6 +174,9 @@ func (r *Remover) selectPackages(names []string) []string {
 // abort partway.
 func (r *Remover) removeManagedPackages(ctx context.Context, names []string, st *service.State, spinner ports.Spinner) {
 	for _, name := range names {
+		if !r.stateSvc.IsInstalled(st, name) {
+			continue
+		}
 		spinner.SetDesc("Removing " + name)
 		if err := r.removeSvc.RemoveOne(ctx, name, st, spinner); err != nil {
 			r.logger.Warn("could not remove %s: %s", name, err)
