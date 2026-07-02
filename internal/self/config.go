@@ -42,6 +42,8 @@ type Config struct {
 	LockPath string
 	// StatePath is the JSON file recording installed packages.
 	StatePath string
+	// SetupStatePath is the JSON file recording setup state.
+	SetupStatePath string
 }
 
 // DefaultConfig returns a Config populated with the default paths.
@@ -61,8 +63,9 @@ func DefaultConfig() *Config {
 		Branch:    DefaultBranch,
 		GoBinary:  DefaultGoBinary,
 
-		PkgsDir:   filepath.Join(sourceDir, "repo", "packages"),
-		LockPath:  filepath.Join(varDir, "lock"),
-		StatePath: filepath.Join(varDir, "states", "state.json"),
+		PkgsDir:        filepath.Join(sourceDir, "repo", "packages"),
+		LockPath:       filepath.Join(varDir, "lock"),
+		StatePath:      filepath.Join(varDir, "states", "state.json"),
+		SetupStatePath: filepath.Join(varDir, "setup_state.json"),
 	}
 }

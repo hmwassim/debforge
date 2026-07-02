@@ -149,6 +149,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		}
 		return h.update(ctx, ui, names, forceMode, allMode)
 
+	case "setup":
+		return h.setup(ctx, ui, forceMode)
+
 	case "search":
 		patterns := args[1:]
 		return h.search(ctx, ui, patterns)
@@ -172,6 +175,7 @@ func usage() {
 	fmt.Println("Commands:")
 	fmt.Println("    install <name>...    Install packages")
 	fmt.Println("    remove <name>...    Remove packages from system")
+	fmt.Println("    setup                Provision system with DebForge defaults")
 	fmt.Println("    update [<name>...]   Reinstall packages (runs apt-get update)")
 	fmt.Println("        --all           Update all packages and run apt-get upgrade")
 	fmt.Println("    search [<pattern>]   Search packages by name or description")

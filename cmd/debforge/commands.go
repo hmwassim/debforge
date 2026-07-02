@@ -25,6 +25,7 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
 	"github.com/hmwassim/debforge/internal/service"
+	"github.com/hmwassim/debforge/internal/setup"
 )
 
 // Package-level test hooks (overridable in tests).
@@ -141,6 +142,44 @@ func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string,
 		}
 		return svc.Update(ctx, names, forceMode, allMode, spinner)
 	})
+}
+
+func (h *commandHandler) setup(ctx context.Context, u ports.UI, force bool) int {
+	if !h.sys.IsPrivileged() {
+		u.Error("setup must be run as root")
+		return 1
+	}
+
+	st, err := setup.LoadState(h.fsys, h.cfg.SetupStatePath)
+	if err != nil {
+		u.Error("load setup state: %s", err)
+		return 1
+	}
+
+	cx := &setup.Context{
+		Runner:       h.runner,
+		Fsys:         h.fsys,
+		Sys:          h.sys,
+		UI:           u,
+		Force:        force,
+		ConfigHashes: st.ConfigHashes,
+	}
+
+	runner := setup.NewRunner(setup.DefaultSteps()...)
+
+	if err := runner.Run(ctx, cx); err != nil {
+		u.Error("%s", err)
+		return 1
+	}
+
+	st.ConfigHashes = cx.ConfigHashes
+	if err := setup.SaveState(h.fsys, h.cfg.SetupStatePath, st); err != nil {
+		u.Error("save setup state: %s", err)
+		return 1
+	}
+
+	u.Success("System provisioning complete")
+	return 0
 }
 
 func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []string) int {

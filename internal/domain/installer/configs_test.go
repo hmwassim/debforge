@@ -148,7 +148,7 @@ func TestDecideConfigAction_readError(t *testing.T) {
 }
 
 func hashContent(content string) string {
-	return sha256Hex([]byte(content))
+	return Sha256Hex([]byte(content))
 }
 
 func TestWriteConfigs(t *testing.T) {

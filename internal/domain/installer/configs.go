@@ -20,7 +20,7 @@ const (
 	ConfigConflict
 )
 
-func sha256Hex(data []byte) string {
+func Sha256Hex(data []byte) string {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
 }
@@ -45,8 +45,8 @@ func DecideConfigAction(fs ports.FileSystem, path, newContent, baselineHash stri
 	if err != nil {
 		return ConfigWrite
 	}
-	diskHash := sha256Hex(diskData)
-	newHash := sha256Hex([]byte(newContent))
+	diskHash := Sha256Hex(diskData)
+	newHash := Sha256Hex([]byte(newContent))
 
 	switch {
 	case diskHash == baselineHash && newHash == baselineHash:
@@ -90,13 +90,13 @@ func WriteConfigsWithHashes(fs ports.FileSystem, spinner ports.Spinner, p *pkg.P
 			if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
 				return nil, fmt.Errorf("write config %s: %w", path, err)
 			}
-			configHashes[path] = sha256Hex([]byte(content))
+			configHashes[path] = Sha256Hex([]byte(content))
 
 		case ConfigSkip:
 			if configHashes[path] == "" {
 				diskData, err := fs.ReadFile(path)
 				if err == nil && diskData != nil {
-					configHashes[path] = sha256Hex(diskData)
+					configHashes[path] = Sha256Hex(diskData)
 				}
 			}
 
@@ -161,13 +161,13 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 					return nil, fmt.Errorf("chown config %s: %w", path, err)
 				}
 			}
-			configHashes[absPath] = sha256Hex([]byte(content))
+			configHashes[absPath] = Sha256Hex([]byte(content))
 
 		case ConfigSkip:
 			if configHashes[absPath] == "" {
 				diskData, err := fs.ReadFile(absPath)
 				if err == nil && diskData != nil {
-					configHashes[absPath] = sha256Hex(diskData)
+					configHashes[absPath] = Sha256Hex(diskData)
 				}
 			}
 
