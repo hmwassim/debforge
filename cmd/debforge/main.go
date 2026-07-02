@@ -15,6 +15,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/system"
 	"github.com/hmwassim/debforge/internal/adapters/ui"
 	"github.com/hmwassim/debforge/internal/buildmeta"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
 )
 
@@ -26,22 +27,20 @@ func main() {
 
 func run() int {
 	ctx := context.Background()
-
-	rawArgs := os.Args[1:]
-	if len(rawArgs) == 0 {
-		usage()
-		return 0
-	}
-
 	cfgu := self.DefaultConfig()
 	if v := os.Getenv("DEBFORGE_PKGS_DIR"); v != "" {
 		cfgu.PkgsDir = v
 	}
-	fsys := fs.NewFileSystem()
-	runner := exec.NewRunner()
-	locker := lock.NewFLock()
-	sys := system.NewSystem()
-	u := ui.NewConsoleUI()
+	return runWith(ctx, os.Args[1:], version, cfgu,
+		fs.NewFileSystem(), exec.NewRunner(),
+		lock.NewFLock(), system.NewSystem(), ui.NewConsoleUI())
+}
+
+func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, sys ports.System, ui ports.UI) int {
+	if len(rawArgs) == 0 {
+		usage()
+		return 0
+	}
 
 	switch rawArgs[0] {
 	case "--version":
@@ -50,9 +49,9 @@ func run() int {
 
 	case "--self-update":
 		forceUpdate := slices.Contains(rawArgs[1:], "-f") || slices.Contains(rawArgs[1:], "--force")
-		updater := self.NewUpdater(cfgu, runner, fsys, u, locker, sys, forceUpdate)
+		updater := self.NewUpdater(cfg, runner, fsys, ui, locker, sys, forceUpdate)
 		if err := updater.Update(ctx); err != nil {
-			u.Error("%s", err)
+			ui.Error("%s", err)
 			return 1
 		}
 		return 0
@@ -62,14 +61,14 @@ func run() int {
 		return 0
 
 	case "--self-remove":
-		h, err := newHandler(cfgu, fsys, runner, locker, u)
+		h, err := newHandler(cfg, fsys, runner, locker, ui)
 		if err != nil {
-			u.Error("bootstrap: %s", err)
+			ui.Error("bootstrap: %s", err)
 			return 1
 		}
-		remover := self.NewRemover(cfgu, runner, fsys, u, locker, sys, h.reg, h.instReg, h.stateSvc)
+		remover := self.NewRemover(cfg, runner, fsys, ui, locker, sys, h.reg, h.instReg, h.stateSvc)
 		if err := remover.Remove(ctx); err != nil {
-			u.Error("%s", err)
+			ui.Error("%s", err)
 			return 1
 		}
 		return 0
@@ -88,7 +87,7 @@ func run() int {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		u.Error("%s", err)
+		ui.Error("%s", err)
 		return 1
 	}
 
@@ -98,7 +97,7 @@ func run() int {
 	args := fs.Args()
 
 	if yesMode {
-		u.SetYes(true)
+		ui.SetYes(true)
 	}
 
 	if len(args) == 0 {
@@ -106,9 +105,9 @@ func run() int {
 		return 0
 	}
 
-	h, err := newHandler(cfgu, fsys, runner, locker, u)
+	h, err := newHandler(cfg, fsys, runner, locker, ui)
 	if err != nil {
-		u.Error("bootstrap: %s", err)
+		ui.Error("bootstrap: %s", err)
 		return 1
 	}
 
@@ -119,10 +118,10 @@ func run() int {
 			usage()
 			return 1
 		}
-		if !loadDefs(h.reg, names, fsys, u) {
+		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
 		}
-		return h.install(ctx, u, names, forceMode)
+		return h.install(ctx, ui, names, forceMode)
 
 	case "remove":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
@@ -130,10 +129,10 @@ func run() int {
 			usage()
 			return 1
 		}
-		if !loadDefs(h.reg, names, fsys, u) {
+		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
 		}
-		return h.remove(ctx, u, names)
+		return h.remove(ctx, ui, names)
 
 	case "update":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
@@ -142,17 +141,17 @@ func run() int {
 			return 1
 		}
 		if allMode && len(names) > 0 {
-			u.Warn("--all updates every managed package; ignoring explicit name(s): %s", strings.Join(names, ", "))
+			ui.Warn("--all updates every managed package; ignoring explicit name(s): %s", strings.Join(names, ", "))
 			names = nil
 		}
-		if !loadDefs(h.reg, names, fsys, u) {
+		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
 		}
-		return h.update(ctx, u, names, forceMode, allMode)
+		return h.update(ctx, ui, names, forceMode, allMode)
 
 	case "search":
 		patterns := args[1:]
-		return h.search(ctx, u, patterns)
+		return h.search(ctx, ui, patterns)
 
 	default:
 		usage()
