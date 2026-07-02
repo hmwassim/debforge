@@ -24,16 +24,28 @@ func (r *Runner) Run(ctx context.Context, cx *Context) error {
 
 		switch result.Status {
 		case StatusSatisfied:
-			cx.UI.Info("✓ %s", step.Name())
+			cx.UI.Warn("%s (exists already)", step.Name())
 
-		case StatusMissing, StatusDrifted, StatusConflict:
-			cx.UI.Info("→ %s (%s)", step.Name(), result.Summary)
+		case StatusDrifted:
+			cx.UI.Warn("%s (modified by user)", step.Name())
 			if err := step.Apply(ctx, cx, result); err != nil {
 				return fmt.Errorf("%s: %w", step.Name(), err)
 			}
 
+		case StatusConflict:
+			cx.UI.Warn("%s (modified by user)", step.Name())
+			if err := step.Apply(ctx, cx, result); err != nil {
+				return fmt.Errorf("%s: %w", step.Name(), err)
+			}
+
+		case StatusMissing:
+			if err := step.Apply(ctx, cx, result); err != nil {
+				return fmt.Errorf("%s: %w", step.Name(), err)
+			}
+			cx.UI.Info("%s", step.Name())
+
 		case StatusError:
-			return fmt.Errorf("%s: check failed: %s", step.Name(), result.Summary)
+			return fmt.Errorf("%s: %s", step.Name(), result.Summary)
 		}
 	}
 	return nil

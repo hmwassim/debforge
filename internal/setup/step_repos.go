@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 )
 
@@ -42,8 +41,6 @@ func (s *ReposStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *ReposStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
-	needsUpdate := false
-
 	for _, src := range s.Sources {
 		force := cx.Force
 		if result.Status == StatusDrifted {
@@ -62,7 +59,6 @@ func (s *ReposStep) Apply(ctx context.Context, cx *Context, result CheckResult) 
 				return fmt.Errorf("write %s: %w", src.Path, err)
 			}
 			cx.ConfigHashes[src.Path] = installer.Sha256Hex([]byte(src.Content))
-			needsUpdate = true
 
 		case installer.ConfigSkip:
 			diskData, err := cx.Fsys.ReadFile(src.Path)
@@ -76,13 +72,6 @@ func (s *ReposStep) Apply(ctx context.Context, cx *Context, result CheckResult) 
 				return fmt.Errorf("write sidecar %s: %w", sidecar, err)
 			}
 			cx.UI.Warn("%s has local changes; new version saved as %s", src.Path, sidecar)
-		}
-	}
-
-	if needsUpdate {
-		cx.UI.Info("  refreshing apt cache...")
-		if err := aptpty.RunUpdate(ctx, cx.Runner, cx.UI.Spinner(ctx, "apt update")); err != nil {
-			return fmt.Errorf("apt-get update: %w", err)
 		}
 	}
 

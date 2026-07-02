@@ -11,6 +11,7 @@ func DefaultSteps() []Step {
 			},
 		},
 		&I386Step{},
+		&UpgradeStep{},
 	}
 }
 

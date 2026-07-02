@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/hmwassim/debforge/internal/aptpty"
 )
 
 type I386Step struct{}
 
 func (s *I386Step) Name() string {
-	return "Enable i386 architecture"
+	return "Enabled i386 architecture"
 }
 
 func (s *I386Step) Check(ctx context.Context, cx *Context) CheckResult {
@@ -32,11 +30,5 @@ func (s *I386Step) Apply(ctx context.Context, cx *Context, result CheckResult) e
 	if _, _, err := cx.Runner.Run(ctx, "dpkg", "--add-architecture", "i386"); err != nil {
 		return fmt.Errorf("dpkg --add-architecture i386: %w", err)
 	}
-
-	cx.UI.Info("  refreshing apt cache...")
-	if err := aptpty.RunUpdate(ctx, cx.Runner, cx.UI.Spinner(ctx, "apt update")); err != nil {
-		return fmt.Errorf("apt-get update: %w", err)
-	}
-
 	return nil
 }
