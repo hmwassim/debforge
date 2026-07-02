@@ -137,59 +137,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 1
 	}
 
-	var buf bytes.Buffer
-	w := bufio.NewWriter(&buf)
-
-	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
-	isTerm := term.IsTerminal(int(os.Stdout.Fd()))
-
-	pat := ""
-	if len(patterns) > 0 {
-		pat = strings.ToLower(strings.Join(patterns, " "))
-	}
-
-	var names []string
-	h.reg.Range(func(name string, p *pkg.Package) bool {
-		if pat != "" {
-			n := strings.ToLower(name)
-			d := strings.ToLower(p.Description)
-			if !strings.Contains(n, pat) && !strings.Contains(d, pat) {
-				return true
-			}
-		}
-		names = append(names, name)
-		return true
-	})
-	sort.Strings(names)
-
-	maxLen := 0
-	for _, name := range names {
-		if len(name) > maxLen {
-			maxLen = len(name)
-		}
-	}
-	pad := maxLen + 2
-
-	for _, name := range names {
-		p, _ := h.reg.Lookup(name)
-		_, installed := st.Packages[name]
-		if installed {
-			fmt.Fprintf(w, "%s[*]%s %-*s", green, reset, pad, name)
-			if p.Description != "" {
-				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
-			}
-			fmt.Fprintln(w)
-		} else {
-			fmt.Fprintf(w, "%s[-]%s %s%-*s%s", grey, reset, grey, pad, name, reset)
-			if p.Description != "" {
-				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
-			}
-			fmt.Fprintln(w)
-		}
-	}
-	w.Flush()
-
-	out := buf.String()
+	out := formatSearchOutput(h.reg, st, patterns)
 	if out == "" {
 		if len(patterns) > 0 {
 			u.Info("no packages found matching %q", strings.Join(patterns, " "))
@@ -197,6 +145,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 0
 	}
 
+	isTerm := term.IsTerminal(int(os.Stdout.Fd()))
 	if !isTerm {
 		fmt.Print(out)
 		return 0
@@ -230,6 +179,62 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		fmt.Print(out)
 	}
 	return 0
+}
+
+// formatSearchOutput formats the package listing. When isTerm is true the
+// output includes ANSI colour codes suitable for a terminal.
+func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
+	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
+
+	pat := ""
+	if len(patterns) > 0 {
+		pat = strings.ToLower(strings.Join(patterns, " "))
+	}
+
+	var names []string
+	reg.Range(func(name string, p *pkg.Package) bool {
+		if pat != "" {
+			n := strings.ToLower(name)
+			d := strings.ToLower(p.Description)
+			if !strings.Contains(n, pat) && !strings.Contains(d, pat) {
+				return true
+			}
+		}
+		names = append(names, name)
+		return true
+	})
+	sort.Strings(names)
+
+	maxLen := 0
+	for _, name := range names {
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+	}
+	pad := maxLen + 2
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	for _, name := range names {
+		p, _ := reg.Lookup(name)
+		_, installed := st.Packages[name]
+		if installed {
+			fmt.Fprintf(w, "%s[*]%s %-*s", green, reset, pad, name)
+			if p.Description != "" {
+				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
+			}
+			fmt.Fprintln(w)
+		} else {
+			fmt.Fprintf(w, "%s[-]%s %s%-*s%s", grey, reset, grey, pad, name, reset)
+			if p.Description != "" {
+				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
+			}
+			fmt.Fprintln(w)
+		}
+	}
+	w.Flush()
+	return buf.String()
 }
 
 func extractFlags(ss []string, yes, force, all *bool) []string {

@@ -1,11 +1,81 @@
 package self
 
 import (
+	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/testutil"
 )
+
+func TestRequireRoot_success(t *testing.T) {
+	sys := &mockSystem{privileged: true}
+	if err := requireRoot("test", sys); err != nil {
+		t.Errorf("expected nil, got %v", err)
+	}
+}
+
+func TestRequireRoot_error(t *testing.T) {
+	sys := &mockSystem{privileged: false}
+	if err := requireRoot("test", sys); err == nil {
+		t.Fatal("expected error when not privileged")
+	}
+}
+
+func TestWithRootAndLock_notRoot(t *testing.T) {
+	sys := &mockSystem{privileged: false}
+	err := withRootAndLock(context.Background(), "test", sys, nil, "/tmp/lock", func(_ context.Context) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected error when not root")
+	}
+}
+
+func TestWithRootAndLock_lockError(t *testing.T) {
+	sys := &mockSystem{privileged: true}
+	locker := &testutil.MockLocker{AcquireErr: errors.New("lock failed")}
+	err := withRootAndLock(context.Background(), "test", sys, locker, "/tmp/lock", func(_ context.Context) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected error from lock acquire")
+	}
+}
+
+func TestWithRootAndLock_fnError(t *testing.T) {
+	sys := &mockSystem{privileged: true}
+	locker := &testutil.MockLocker{}
+	err := withRootAndLock(context.Background(), "test", sys, locker, "/tmp/lock", func(_ context.Context) error {
+		return errMock
+	})
+	if err != errMock {
+		t.Errorf("expected errMock, got %v", err)
+	}
+}
+
+func TestWithRootAndLock_success(t *testing.T) {
+	sys := &mockSystem{privileged: true}
+	locker := &testutil.MockLocker{}
+	var fnCalled bool
+	err := withRootAndLock(context.Background(), "test", sys, locker, "/tmp/lock", func(_ context.Context) error {
+		fnCalled = true
+		return nil
+	})
+	if err != nil {
+		t.Errorf("expected nil, got %v", err)
+	}
+	if !fnCalled {
+		t.Error("expected fn to be called")
+	}
+	if locker.AcquireCount != 1 {
+		t.Errorf("AcquireCount = %d, want 1", locker.AcquireCount)
+	}
+	if locker.ReleaseCount != 1 {
+		t.Errorf("ReleaseCount = %d, want 1", locker.ReleaseCount)
+	}
+}
 
 func TestVerifyRemovablePath_empty(t *testing.T) {
 	err := verifyRemovablePath("")

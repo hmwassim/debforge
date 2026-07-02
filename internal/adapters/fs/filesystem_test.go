@@ -293,6 +293,38 @@ func TestReadFile_notFound(t *testing.T) {
 	}
 }
 
+func TestChown_nonExistent(t *testing.T) {
+	fsys := NewFileSystem()
+	err := fsys.Chown(filepath.Join(t.TempDir(), "no-such-file"), 1000, 1000)
+	if err == nil {
+		t.Fatal("expected error for non-existent file")
+	}
+}
+
+func TestWalk_callackError(t *testing.T) {
+	fsys := NewFileSystem()
+	dir := t.TempDir()
+	if err := fsys.WriteFile(filepath.Join(dir, "x.txt"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := fsys.Walk(dir, func(path string, info ports.FileInfo, err error) error {
+		return os.ErrPermission
+	})
+	if err == nil {
+		t.Fatal("expected error from callback")
+	}
+}
+
+func TestExists_statErrorNonNotExist(t *testing.T) {
+	fsys := NewFileSystem()
+	// Use an overly long path to trigger an error other than NotExist
+	longPath := filepath.Join(t.TempDir(), string(make([]byte, 500)))
+	_, err := fsys.Exists(longPath)
+	if err == nil {
+		t.Fatal("expected error for path that is too long")
+	}
+}
+
 func TestSymlink_Readlink_notSymlink(t *testing.T) {
 	fsys := NewFileSystem()
 	dir := t.TempDir()

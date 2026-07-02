@@ -17,14 +17,15 @@ import (
 
 // Installer installs and removes apt packages.
 type Installer struct {
-	runner ports.CommandRunner
-	fs     ports.FileSystem
-	ui     ports.UI
+	runner  ports.CommandRunner
+	fs      ports.FileSystem
+	ui      ports.UI
+	execApt aptpty.AptExecFunc
 }
 
 // NewInstaller returns a new apt Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui}
+	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec}
 }
 
 // Install installs the apt packages described by p, including extrepo
@@ -175,7 +176,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	spinner.SetDesc("removing " + p.Name + "...")
 
-	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
+	if err := i.execApt(ctx, i.runner, append([]string{"remove", "-y"}, pkgs...), spinner); err != nil {
 		return err
 	}
 
@@ -215,7 +216,7 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 	if len(found) == 0 {
 		return nil
 	}
-	return aptpty.RunRemove(ctx, i.runner, found, spinner)
+	return i.execApt(ctx, i.runner, append([]string{"remove", "-y"}, found...), spinner)
 }
 
 // ---- extrepo --------------------------------------------------------------
@@ -329,7 +330,12 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 		return nil
 	}
 	spinner.SetDesc("installing backports for " + p.Name)
-	return aptpty.RunInstallBackports(ctx, i.runner, p.Apt.Backports, p.Apt.BackportSuite, spinner)
+	suite := p.Apt.BackportSuite
+	if suite == "" {
+		suite = "trixie-backports"
+	}
+	args := append([]string{"install", "-y", "-t", suite}, p.Apt.Backports...)
+	return i.execApt(ctx, i.runner, args, spinner)
 }
 
 // ---- main packages --------------------------------------------------------
@@ -345,7 +351,7 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 		return nil
 	}
 	spinner.SetDesc("installing " + p.Name)
-	return aptpty.RunInstall(ctx, i.runner, pkgs, spinner)
+	return i.execApt(ctx, i.runner, append([]string{"install", "-y"}, pkgs...), spinner)
 }
 
 // ---- config files ---------------------------------------------------------

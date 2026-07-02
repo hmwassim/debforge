@@ -2,16 +2,20 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"path/filepath"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 type mockFileSystem struct {
-	files map[string][]byte
+	files         map[string][]byte
+	RemoveAllFunc func(path string) error
 }
 
 func newMockFS() *mockFileSystem {
@@ -30,11 +34,16 @@ func (m *mockFileSystem) WriteFile(path string, data []byte, perm int) error {
 	return nil
 }
 func (m *mockFileSystem) Create(path string) (io.WriteCloser, error) { return nil, nil }
-func (m *mockFileSystem) RemoveAll(path string) error                { return nil }
-func (m *mockFileSystem) MkdirAll(path string, perm int) error       { return nil }
-func (m *mockFileSystem) MkdirTemp(pattern string) (string, error)   { return "", nil }
-func (m *mockFileSystem) Stat(path string) (ports.FileInfo, error)   { return nil, nil }
-func (m *mockFileSystem) Glob(pattern string) ([]string, error)      { return nil, nil }
+func (m *mockFileSystem) RemoveAll(path string) error {
+	if m.RemoveAllFunc != nil {
+		return m.RemoveAllFunc(path)
+	}
+	return nil
+}
+func (m *mockFileSystem) MkdirAll(path string, perm int) error     { return nil }
+func (m *mockFileSystem) MkdirTemp(pattern string) (string, error) { return "", nil }
+func (m *mockFileSystem) Stat(path string) (ports.FileInfo, error) { return nil, nil }
+func (m *mockFileSystem) Glob(pattern string) ([]string, error)    { return nil, nil }
 func (m *mockFileSystem) Walk(root string, fn func(path string, info ports.FileInfo, err error) error) error {
 	return nil
 }
@@ -249,5 +258,144 @@ func TestComputeConfigHash_differsFromRegularConfig(t *testing.T) {
 	h2 := computeConfigHash(p2)
 	if h1 == h2 {
 		t.Error("expected different hash for user configs vs regular configs")
+	}
+}
+
+func TestInstall_wrongType(t *testing.T) {
+	inst := &Installer{fs: newMockFS()}
+	p := &pkg.Package{Name: "test", Type: pkg.TypeApt}
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil {
+		t.Fatal("expected error for non-config type")
+	}
+}
+
+func TestInstall_withUserConfigs(t *testing.T) {
+	fs := newMockFS()
+	inst := &Installer{fs: fs}
+	p := &pkg.Package{
+		Name:    "test-config",
+		Type:    pkg.TypeConfig,
+		Configs: map[string]string{"/etc/foo.conf": "system content"},
+		UserConfigs: map[string]string{
+			"~/.config/bar.conf": "user content",
+		},
+	}
+
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	if string(fs.files["/etc/foo.conf"]) != "system content" {
+		t.Errorf("system config not written correctly, got %q", string(fs.files["/etc/foo.conf"]))
+	}
+
+	homeDir, err := installer.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expandedPath := filepath.Join(homeDir, ".config/bar.conf")
+	if string(fs.files[expandedPath]) != "user content" {
+		t.Errorf("user config not written at %s, got %q", expandedPath, string(fs.files[expandedPath]))
+	}
+}
+
+func TestRemove_configs(t *testing.T) {
+	var removed []string
+	fs := newMockFS()
+	fs.RemoveAllFunc = func(path string) error {
+		removed = append(removed, path)
+		return nil
+	}
+
+	homeDir, err := installer.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Put file at expanded path with matching content so removal proceeds
+	fs.files[filepath.Join(homeDir, ".config/bar.conf")] = []byte("user content")
+
+	p := &pkg.Package{
+		Name: "test-config",
+		Type: pkg.TypeConfig,
+		UserConfigs: map[string]string{
+			"~/.config/bar.conf": "user content",
+		},
+		RemoveConfigs: map[string]string{
+			"/etc/removed.conf": "",
+		},
+		Configs: map[string]string{
+			"/etc/foo.conf": "content",
+		},
+	}
+	inst := &Installer{fs: fs}
+	err = inst.Remove(context.Background(), p, &testutil.MockSpinner{})
+	if err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+
+	expandedPath := filepath.Join(homeDir, ".config/bar.conf")
+	expected := []string{expandedPath, "/etc/removed.conf", "/etc/foo.conf"}
+	for _, e := range expected {
+		found := false
+		for _, r := range removed {
+			if r == e {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected %s to be removed, got %v", e, removed)
+		}
+	}
+}
+
+func TestRemove_skipModifiedUserConfig(t *testing.T) {
+	var removed []string
+	fs := newMockFS()
+	fs.RemoveAllFunc = func(path string) error {
+		removed = append(removed, path)
+		return nil
+	}
+
+	homeDir, err := installer.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// File exists with different content => FileIsModified returns true => skip
+	fs.files[filepath.Join(homeDir, ".config/bar.conf")] = []byte("modified content")
+
+	p := &pkg.Package{
+		Name: "test-config",
+		Type: pkg.TypeConfig,
+		UserConfigs: map[string]string{
+			"~/.config/bar.conf": "original content",
+		},
+	}
+	inst := &Installer{fs: fs}
+	err = inst.Remove(context.Background(), p, &testutil.MockSpinner{})
+	if err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+	if len(removed) != 0 {
+		t.Errorf("expected no removals for modified user config, got %v", removed)
+	}
+}
+
+func TestRemove_removeAllError(t *testing.T) {
+	fs := newMockFS()
+	fs.RemoveAllFunc = func(path string) error {
+		return fmt.Errorf("remove failed")
+	}
+	p := &pkg.Package{
+		Name:    "test-config",
+		Type:    pkg.TypeConfig,
+		Configs: map[string]string{"/etc/foo.conf": "content"},
+	}
+	inst := &Installer{fs: fs}
+	err := inst.Remove(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil {
+		t.Fatal("expected error from RemoveAll")
 	}
 }

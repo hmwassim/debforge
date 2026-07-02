@@ -1,12 +1,49 @@
 package aptpty
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/testutil"
 )
+
+// mockPtySession implements ptySession with controlled input/output.
+type mockPtySession struct {
+	data     []byte
+	readErr  error
+	readIdx  int
+	writeBuf bytes.Buffer
+	waitErr  error
+	signaled os.Signal
+}
+
+func (m *mockPtySession) Read(b []byte) (int, error) {
+	if m.readIdx >= len(m.data) && m.readErr != nil {
+		return 0, m.readErr
+	}
+	if m.readIdx >= len(m.data) {
+		return 0, io.EOF
+	}
+	n := copy(b, m.data[m.readIdx:])
+	m.readIdx += n
+	return n, nil
+}
+func (m *mockPtySession) Write(b []byte) (int, error) { return m.writeBuf.Write(b) }
+func (m *mockPtySession) Close() error                { return nil }
+func (m *mockPtySession) Wait() error                 { return m.waitErr }
+func (m *mockPtySession) Signal(sig os.Signal) error  { m.signaled = sig; return nil }
+func (m *mockPtySession) SetSize(_, _ uint16) error   { return nil }
+
+// mockPtyFactory returns the given session for any command.
+func mockPtyFactory(sess ptySession) ptyFactory {
+	return func(_ context.Context, _ string, _ ...string) (ptySession, error) {
+		return sess, nil
+	}
+}
 
 func TestParseSize(t *testing.T) {
 	tests := []struct {
@@ -416,5 +453,250 @@ func TestRunRemove_empty(t *testing.T) {
 	err := RunRemove(context.Background(), nil, nil, &testutil.MockSpinner{})
 	if err != nil {
 		t.Errorf("RunRemove(nil) = %v, want nil", err)
+	}
+}
+
+func TestRunUpdate(t *testing.T) {
+	var called bool
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			called = true
+			if name != "apt-get" || len(args) != 1 || args[0] != "update" {
+				t.Errorf("unexpected call: %s %v", name, args)
+			}
+			return nil, nil, nil
+		},
+	}
+	spinner := &testutil.MockSpinner{}
+	err := RunUpdate(context.Background(), runner, spinner)
+	if err != nil {
+		t.Errorf("RunUpdate() = %v, want nil", err)
+	}
+	if !called {
+		t.Error("runner.Run was not called")
+	}
+}
+
+func TestRunUpdate_runnerError(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			return nil, nil, errors.New("update failed")
+		},
+	}
+	err := RunUpdate(context.Background(), runner, &testutil.MockSpinner{})
+	if err == nil {
+		t.Fatal("expected error from RunUpdate")
+	}
+}
+
+func TestRunUpgrade(t *testing.T) {
+	original := startPty
+	t.Cleanup(func() { startPty = original })
+
+	var ptyCalled bool
+	startPty = func(_ context.Context, name string, args ...string) (ptySession, error) {
+		ptyCalled = true
+		if name != "apt-get" || len(args) != 2 || args[0] != "full-upgrade" || args[1] != "-y" {
+			t.Errorf("unexpected startPty call: %s %v", name, args)
+		}
+		return &mockPtySession{
+			data:    []byte("Setting up everything (1.0-1)\n"),
+			readErr: io.EOF,
+		}, nil
+	}
+
+	spinner := &testutil.MockSpinner{}
+	err := RunUpgrade(context.Background(), testutil.RunnerReturning(nil, nil), spinner)
+	if err != nil {
+		t.Errorf("RunUpgrade() = %v, want nil", err)
+	}
+	if !ptyCalled {
+		t.Error("startPty was not called")
+	}
+}
+
+func TestRunUpgrade_nilSpinner(t *testing.T) {
+	err := RunUpgrade(context.Background(), nil, nil)
+	if err == nil {
+		t.Fatal("expected error for nil spinner")
+	}
+}
+
+// runWithSession tests -------------------------------------------------------
+
+func TestRunWithSession_normal(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data: []byte("Need to get 123 kB of archives.\n" +
+			" 42% [1 hello 52.0 kB/123 kB 42%]\n" +
+			"Fetched 123 kB in 0s (456 kB/s)\n" +
+			"Setting up hello (2.36-9)\n"),
+		readErr: io.EOF,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("runWithSession: %v", err)
+	}
+	if spinner.Desc == "" {
+		t.Error("expected spinner.SetDesc to be called")
+	}
+}
+
+func TestRunWithSession_spinnerNil(t *testing.T) {
+	err := runWithSession(context.Background(), nil, []string{"install", "-y", "hello"}, nil, nil)
+	if err == nil {
+		t.Fatal("expected error for nil spinner")
+	}
+}
+
+func TestRunWithSession_waitError(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data:    []byte("E: Sub-process /usr/bin/dpkg returned an error\n"),
+		readErr: io.EOF,
+		waitErr: errors.New("exit status 1"),
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err == nil {
+		t.Fatal("expected error from Wait")
+	}
+}
+
+func TestRunWithSession_waitErrWithMessages(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data:    []byte("E: Sub-process /usr/bin/dpkg returned an error (1)\n"),
+		readErr: io.EOF,
+		waitErr: errors.New("exit status 100"),
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestRunWithSession_aptErrsCollected(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data: []byte("W: Some issues\n" +
+			"dpkg: error processing foo\n" +
+			"E: Sub-process returned error\n"),
+		readErr: io.EOF,
+		waitErr: errors.New("exit status 100"),
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestRunWithSession_contextCancel(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	mock := &mockPtySession{
+		data:    []byte("some output\n"),
+		readErr: io.EOF,
+	}
+	err := runWithSession(ctx, testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("expected nil after cancel, got %v", err)
+	}
+}
+
+func TestRunWithSession_contextCancelMidRun(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	ctx, cancel := context.WithCancel(context.Background())
+	mock := &mockPtySession{
+		data:    []byte("Need to get 1,024 kB of archives.\n 10% [1 pkg 100 kB/1,024 kB 10%]\n"),
+		readErr: io.EOF,
+	}
+	// start but cancel while processing
+	cancel()
+	err := runWithSession(ctx, testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "pkg"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("expected nil after mid-run cancel, got %v", err)
+	}
+}
+
+func TestRunWithSession_downloadPhase(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data: []byte("Need to get 1,024 kB of archives.\n" +
+			" 20% [1 pkg 200 kB/1,024 kB 20%]\n" +
+			" 80% [1 pkg 800 kB/1,024 kB 80%]\n" +
+			"Fetched 1,024 kB in 1s (1,024 kB/s)\n" +
+			"Setting up pkg (1.0-1)\n"),
+		readErr: io.EOF,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "pkg"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("runWithSession: %v", err)
+	}
+}
+
+func TestRunWithSession_emptyArgs(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data:    []byte("\n"),
+		readErr: io.EOF,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("runWithSession with empty args: %v", err)
+	}
+}
+
+func TestRunWithSession_readError(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		readErr: io.ErrUnexpectedEOF,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "pkg"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("expected nil on read error (non-EOF breaks but doesn't error), got %v", err)
+	}
+}
+
+func TestRunWithSession_multilineProgress(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	data := []byte("Need to get 2,000 kB of archives.\n" +
+		" 10% [1 pkg-a 200 kB/1,000 kB 20%]\r" +
+		" 50% [1 pkg-a 500 kB/1,000 kB 50%]\n" +
+		"Fetched 1,000 kB in 0s (2,000 kB/s)\n" +
+		"Setting up pkg-a (2.0-1)\n")
+	mock := &mockPtySession{
+		data:    data,
+		readErr: io.EOF,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "pkg-a"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("runWithSession: %v", err)
+	}
+}
+
+func TestRunWithSession_binaryExistsVerification(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data:    []byte("Fetched 100 kB in 0s (1,000 kB/s)\n"),
+		readErr: io.EOF,
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "pkg"}, spinner, mockPtyFactory(mock))
+	if err != nil {
+		t.Fatalf("runWithSession: %v", err)
+	}
+	if spinner.Desc == "" {
+		t.Error("expected spinner SetDesc to be called")
 	}
 }

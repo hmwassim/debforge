@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -37,6 +38,17 @@ func (r *variantRecorder) Install(_ context.Context, p *pkg.Package, _ ports.Spi
 
 func (r *variantRecorder) Remove(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
 	return nil
+}
+
+// errorRecorder returns removeErr on Remove; Install delegates to
+// variantRecorder.
+type errorRecorder struct {
+	variantRecorder
+	removeErr error
+}
+
+func (r *errorRecorder) Remove(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
+	return r.removeErr
 }
 
 type nopRunner struct{}
@@ -78,11 +90,35 @@ func (r *dpkgRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ str
 	return nil, nil, nil
 }
 
+// failOnDpkgRunner fails on dpkg-query but passes all other commands.
+type failOnDpkgRunner struct {
+	called    bool
+	callCount int
+}
+
+func (r *failOnDpkgRunner) Run(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+	if name == "dpkg-query" {
+		r.called = true
+		r.callCount++
+		return nil, nil, errors.New("dpkg error")
+	}
+	return []byte("installed\n"), nil, nil
+}
+
+func (r *failOnDpkgRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
+
 func newStateManagerForTest(t *testing.T) (*StateManager, string, func()) {
 	t.Helper()
 	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
 	if err != nil {
 		t.Fatalf("create temp state: %v", err)
+	}
+	if _, err := tmpFile.Write([]byte("{}\n")); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		t.Fatalf("write initial state: %v", err)
 	}
 	tmpFile.Close()
 	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())

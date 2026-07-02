@@ -20,14 +20,15 @@ import (
 
 // Installer installs and removes source-built packages.
 type Installer struct {
-	runner ports.CommandRunner
-	fs     ports.FileSystem
-	ui     ports.UI
+	runner  ports.CommandRunner
+	fs      ports.FileSystem
+	ui      ports.UI
+	execApt aptpty.AptExecFunc
 }
 
 // NewInstaller returns a new source Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui}
+	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec}
 }
 
 // Install fetches the source code (git clone or download+extract), runs
@@ -64,7 +65,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 	if len(p.Packages) > 0 {
 		spinner.SetDesc("installing build dependencies for " + p.Name)
-		if err := aptpty.RunInstall(ctx, i.runner, p.Packages, spinner); err != nil {
+		if err := i.execApt(ctx, i.runner, append([]string{"install", "-y"}, p.Packages...), spinner); err != nil {
 			return err
 		}
 	}
@@ -112,7 +113,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	if len(p.Remove) > 0 {
 		spinner.SetDesc("removing " + p.Name + "...")
-		if err := aptpty.RunRemove(ctx, i.runner, p.Remove, spinner); err != nil {
+		if err := i.execApt(ctx, i.runner, append([]string{"remove", "-y"}, p.Remove...), spinner); err != nil {
 			return err
 		}
 	}

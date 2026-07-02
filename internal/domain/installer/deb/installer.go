@@ -17,14 +17,15 @@ import (
 
 // Installer installs and removes .deb packages.
 type Installer struct {
-	runner ports.CommandRunner
-	fs     ports.FileSystem
-	ui     ports.UI
+	runner  ports.CommandRunner
+	fs      ports.FileSystem
+	ui      ports.UI
+	execApt aptpty.AptExecFunc
 }
 
 // NewInstaller returns a new deb Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui}
+	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec}
 }
 
 // Install downloads the .deb file from p.URL, installs it via apt-get,
@@ -55,7 +56,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 	if len(p.Packages) > 0 {
 		spinner.SetDesc("installing prerequisites for " + p.Name)
-		if err := aptpty.RunInstall(ctx, i.runner, p.Packages, spinner); err != nil {
+		if err := i.execApt(ctx, i.runner, append([]string{"install", "-y"}, p.Packages...), spinner); err != nil {
 			return fmt.Errorf("install prerequisites %s: %w", p.Name, err)
 		}
 	}
@@ -78,7 +79,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return fmt.Errorf("download %s: %w", p.Name, err)
 	}
 
-	if err := aptpty.RunInstall(ctx, i.runner, []string{tmpPath}, spinner); err != nil {
+	if err := i.execApt(ctx, i.runner, []string{"install", "-y", tmpPath}, spinner); err != nil {
 		return err
 	}
 
@@ -107,7 +108,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	}
 
 	spinner.SetDesc("removing " + p.Name + "...")
-	if err := aptpty.RunRemove(ctx, i.runner, pkgs, spinner); err != nil {
+	if err := i.execApt(ctx, i.runner, append([]string{"remove", "-y"}, pkgs...), spinner); err != nil {
 		return err
 	}
 

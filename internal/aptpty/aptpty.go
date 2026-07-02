@@ -24,6 +24,16 @@ import (
 	"golang.org/x/term"
 )
 
+// AptExecFunc is the function signature for running apt-get through the PTY.
+// Installers hold a field of this type to allow test injection instead of
+// calling RunInstall / RunRemove / RunInstallBackports directly.
+type AptExecFunc func(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spinner ports.Spinner) error
+
+// AptExec is the default AptExecFunc that runs apt-get through a real PTY.
+// It is exported so each installer's NewInstaller can assign it as the
+// default; tests can override per-installer.
+var AptExec AptExecFunc = run
+
 const (
 	phaseDownload = 0
 	phaseInstall  = 1
@@ -267,6 +277,46 @@ func progressDesc(state *runState, pkg string, cur int64) string {
 	}
 }
 
+// ---- PTY session abstraction ----------------------------------------------
+
+// ptySession provides read/write access to a command's PTY plus lifecycle
+// operations. This separates the PTY loop logic from the os/exec + creack/pty
+// creation, making the loop testable with a mock.
+type ptySession interface {
+	io.ReadWriteCloser
+	Wait() error
+	Signal(os.Signal) error
+	SetSize(rows, cols uint16) error
+}
+
+type realPtySession struct {
+	ptmx *os.File
+	cmd  *exec.Cmd
+}
+
+func (s *realPtySession) Read(b []byte) (int, error)  { return s.ptmx.Read(b) }
+func (s *realPtySession) Write(b []byte) (int, error) { return s.ptmx.Write(b) }
+func (s *realPtySession) Close() error                { return s.ptmx.Close() }
+func (s *realPtySession) Wait() error                 { return s.cmd.Wait() }
+func (s *realPtySession) Signal(sig os.Signal) error  { return s.cmd.Process.Signal(sig) }
+func (s *realPtySession) SetSize(rows, cols uint16) error {
+	return pty.Setsize(s.ptmx, &pty.Winsize{Rows: rows, Cols: cols})
+}
+
+// ptyFactory creates a ptySession for the given command. Package-level
+// variable so tests can inject a mock.
+var startPty ptyFactory = func(ctx context.Context, name string, args ...string) (ptySession, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "LANGUAGE=C")
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &realPtySession{ptmx: ptmx, cmd: cmd}, nil
+}
+
+type ptyFactory func(ctx context.Context, name string, args ...string) (ptySession, error)
+
 // ---- PTY loop -------------------------------------------------------------
 
 // run drives apt-get interactively through a PTY so its native progress
@@ -279,6 +329,10 @@ func progressDesc(state *runState, pkg string, cur int64) string {
 // a fundamentally different, lower-level operation that the simple
 // run/capture abstraction was never meant to cover.
 func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spinner ports.Spinner) error {
+	return runWithSession(ctx, runner, aptArgs, spinner, startPty)
+}
+
+func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spinner ports.Spinner, factory ptyFactory) error {
 	if spinner == nil {
 		return fmt.Errorf("aptpty: spinner must not be nil")
 	}
@@ -305,14 +359,11 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, cmdLine[0], cmdLine[1:]...)
-	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "LANGUAGE=C")
-
-	ptmx, err := pty.Start(cmd)
+	sess, err := factory(ctx, cmdLine[0], cmdLine[1:]...)
 	if err != nil {
 		return fmt.Errorf("starting apt-get: %w", err)
 	}
-	defer ptmx.Close()
+	defer sess.Close()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGWINCH, syscall.SIGINT)
@@ -321,21 +372,19 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 			switch sig {
 			case syscall.SIGWINCH:
 				if w, h, err := term.GetSize(int(os.Stdin.Fd())); err == nil {
-					_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(h), Cols: uint16(w)})
+					_ = sess.SetSize(uint16(h), uint16(w))
 				}
 			case syscall.SIGINT:
 				cancel()
-				if cmd.Process != nil {
-					cmd.Process.Signal(syscall.SIGTERM)
-				}
+				_ = sess.Signal(syscall.SIGTERM)
 			}
 		}
 	}()
 	if w, h, err := term.GetSize(int(os.Stdin.Fd())); err == nil {
-		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(h), Cols: uint16(w)})
+		_ = sess.SetSize(uint16(h), uint16(w))
 	}
 
-	go func() { io.Copy(ptmx, os.Stdin) }()
+	go func() { io.Copy(sess, os.Stdin) }()
 
 	type readResult struct {
 		data []byte
@@ -345,7 +394,7 @@ func run(ctx context.Context, runner ports.CommandRunner, aptArgs []string, spin
 	go func() {
 		rbuf := make([]byte, 65536)
 		for {
-			n, err := ptmx.Read(rbuf)
+			n, err := sess.Read(rbuf)
 			if n > 0 {
 				chunk := make([]byte, n)
 				copy(chunk, rbuf[:n])
@@ -422,7 +471,7 @@ mainLoop:
 	signal.Stop(sigCh)
 	close(sigCh)
 
-	if err := cmd.Wait(); err != nil {
+	if err := sess.Wait(); err != nil {
 		var exitErr *exec.ExitError
 		code := 0
 		if errors.As(err, &exitErr) {

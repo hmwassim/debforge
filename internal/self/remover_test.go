@@ -126,8 +126,89 @@ func TestRemoverRemove_linkRemoveNoError(t *testing.T) {
 	}
 
 	if _, err := deps.fs.ReadFile(filepath.Join(deps.cfg.RootDir, "var", "lock")); err == nil {
-		// root dir shouldn't be fully removed since RemoveAll only deletes
-		// the exact key, not recursively. We check that at least the RootDir
-		// entry is gone.
+	}
+}
+
+// Remove (public) — wraps remove() with withRootAndLock.
+func TestRemoverRemove_publicMethod(t *testing.T) {
+	ctx := context.Background()
+	rm, deps := newRemoverForTest(t)
+	deps.fs.Files[deps.cfg.RootDir] = []byte{}
+
+	if err := rm.Remove(ctx); err != nil {
+		t.Fatalf("Remove() = %v", err)
+	}
+	if _, err := deps.fs.ReadFile(deps.cfg.RootDir); err == nil {
+		t.Error("expected root dir to be removed")
+	}
+}
+
+func TestRemoverRemove_publicMethod_notRoot(t *testing.T) {
+	ctx := context.Background()
+	_, deps := newRemoverForTest(t)
+	deps.fs.Files[deps.cfg.RootDir] = []byte{}
+	// Replace the sys on the remoter with a non-root one.
+	// We need to recreate since sys is set in NewRemover.
+	cfg := deps.cfg
+	rm2 := NewRemover(cfg, testutil.RunnerReturning(nil, nil), deps.fs, deps.ui, &testutil.MockLocker{}, &mockSystem{privileged: false}, pkg.NewRegistry(), installer.NewRegistry(), deps.stateSvc)
+	if err := rm2.Remove(ctx); err == nil {
+		t.Fatal("expected error when not root")
+	}
+}
+
+// removeManagedPackages tests.
+
+func TestRemoveManagedPackages_stateWithPackage(t *testing.T) {
+	ctx := context.Background()
+	rm, deps := newRemoverForTest(t)
+
+	// Write a state file with one package.
+	stateJSON := `{"packages": {"test-pkg": {"type": "apt", "variant": "", "version": "1.0"}}}`
+	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
+
+	var warnCalled bool
+	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
+
+	rm.removeManagedPackages(ctx, &testutil.MockSpinner{})
+
+	// RemoveOne should fail (no package in registry) but the function
+	// handles it gracefully by logging a warning.
+	if !warnCalled {
+		t.Error("expected Warn to be called from RemoveOne failure")
+	}
+}
+
+func TestRemoveManagedPackages_emptyState(t *testing.T) {
+	ctx := context.Background()
+	rm, deps := newRemoverForTest(t)
+
+	// Write an empty state.
+	stateJSON := `{"packages": {}}`
+	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
+
+	var warnCalled bool
+	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
+
+	rm.removeManagedPackages(ctx, &testutil.MockSpinner{})
+	if warnCalled {
+		t.Error("expected no Warn for empty state")
+	}
+}
+
+func TestRemoveManagedPackages_stateLoadError(t *testing.T) {
+	ctx := context.Background()
+	rm, deps := newRemoverForTest(t)
+
+	// No state file in mock fs → store returns ErrNotFound → Load returns
+	// empty state, not an error.
+	// To trigger a real load error, write invalid JSON.
+	deps.fs.Files[deps.cfg.StatePath] = []byte(`{{{invalid`)
+
+	var warnCalled bool
+	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
+
+	rm.removeManagedPackages(ctx, &testutil.MockSpinner{})
+	if !warnCalled {
+		t.Error("expected Warn for state load error")
 	}
 }

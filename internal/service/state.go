@@ -48,6 +48,9 @@ func (m *StateManager) Load() (*State, error) {
 		}
 		return nil, err
 	}
+	if st.Packages == nil {
+		st.Packages = make(map[string]PkgEntry)
+	}
 	return st, nil
 }
 

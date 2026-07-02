@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
@@ -383,6 +384,149 @@ func TestUpdaterUpdate_ensureLinkError(t *testing.T) {
 	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
 	if err := u.update(ctx); err == nil {
 		t.Fatal("expected error from ensureLink (Symlink)")
+	}
+}
+
+func TestUpdaterUpdate_publicMethod(t *testing.T) {
+	ctx := context.Background()
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files[filepath.Join(cfg.SourceDir, ".git")] = []byte{}
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			switch {
+			case name == "git" && len(args) >= 2 && args[0] == "-C":
+				return []byte("abc123\n"), nil, nil
+			case name == "git" && len(args) >= 3 && args[0] == "describe":
+				return []byte("v1.0.0\n"), nil, nil
+			case name == "go" && len(args) >= 3 && args[0] == "build" && args[1] == "-o":
+				fs.Files[args[2]] = []byte("binary")
+				return nil, nil, nil
+			case strings.HasSuffix(name, "debforge.new") && len(args) == 1 && args[0] == "--version":
+				return []byte("v1.0.0\n"), nil, nil
+			}
+			return nil, nil, fmt.Errorf("unexpected: %s %v", name, args)
+		},
+	}
+
+	ui := &testutil.MockUI{Yes: true}
+	locker := &testutil.MockLocker{}
+	sys := &mockSystem{privileged: true}
+
+	u := NewUpdater(cfg, runner, fs, ui, locker, sys, false)
+	if err := u.Update(ctx); err != nil {
+		t.Fatalf("Update() = %v", err)
+	}
+}
+
+// ensureLink tests.
+
+// mockFileInfo implements ports.FileInfo for testing ensureLink.
+type mockFileInfo struct {
+	isDir bool
+}
+
+func (m mockFileInfo) Name() string { return "" }
+func (m mockFileInfo) Size() int64  { return 0 }
+func (m mockFileInfo) IsDir() bool  { return m.isDir }
+
+func TestEnsureLink_existsError(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.ExistsFunc = func(_ string) (bool, error) { return false, errMock }
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err == nil {
+		t.Fatal("expected error from Exists")
+	}
+}
+
+func TestEnsureLink_statError(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/link"] = []byte{}
+	fs.StatFunc = func(_ string) (ports.FileInfo, error) { return nil, errMock }
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err == nil {
+		t.Fatal("expected error from Stat")
+	}
+}
+
+func TestEnsureLink_isDir(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/link"] = []byte{}
+	fs.StatFunc = func(_ string) (ports.FileInfo, error) {
+		return mockFileInfo{isDir: true}, nil
+	}
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err == nil {
+		t.Fatal("expected error when link is a directory")
+	}
+}
+
+func TestEnsureLink_readlinkMatch(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/link"] = []byte{}
+	fs.StatFunc = func(_ string) (ports.FileInfo, error) {
+		return mockFileInfo{isDir: false}, nil
+	}
+	fs.ReadlinkFunc = func(_ string) (string, error) {
+		return "/target", nil
+	}
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err != nil {
+		t.Errorf("expected nil, got %v", err)
+	}
+}
+
+func TestEnsureLink_readlinkMismatch(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/link"] = []byte{}
+	fs.StatFunc = func(_ string) (ports.FileInfo, error) {
+		return mockFileInfo{isDir: false}, nil
+	}
+	fs.ReadlinkFunc = func(_ string) (string, error) {
+		return "/old-target", nil
+	}
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err != nil {
+		t.Errorf("expected nil, got %v", err)
+	}
+}
+
+func TestEnsureLink_readlinkError(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/link"] = []byte{}
+	fs.StatFunc = func(_ string) (ports.FileInfo, error) {
+		return mockFileInfo{isDir: false}, nil
+	}
+	fs.ReadlinkFunc = func(_ string) (string, error) {
+		return "", errMock
+	}
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err != nil {
+		t.Errorf("expected nil on readlink error (removes and recreates), got %v", err)
+	}
+}
+
+func TestEnsureLink_readlinkMismatchRemoveAllError(t *testing.T) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/link"] = []byte{}
+	fs.StatFunc = func(_ string) (ports.FileInfo, error) {
+		return mockFileInfo{isDir: false}, nil
+	}
+	fs.ReadlinkFunc = func(_ string) (string, error) {
+		return "/old-target", nil
+	}
+	fs.RemoveAllFunc = func(_ string) error { return errMock }
+	u := NewUpdater(cfg, nil, fs, nil, nil, nil, false)
+	if err := u.ensureLink("/target", "/link"); err == nil {
+		t.Fatal("expected error from RemoveAll")
 	}
 }
 

@@ -1,6 +1,7 @@
 package download
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/adapters/fs"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 func withTLSClient(ts *httptest.Server, fn func()) {
@@ -159,6 +161,50 @@ func TestDownload_statusNotOK(t *testing.T) {
 			t.Fatal("expected non-200 error")
 		}
 	})
+}
+
+func TestProgressReader_reports(t *testing.T) {
+	data := []byte("hello world download test")
+	pr := &progressReader{
+		reader:   bytes.NewReader(data),
+		total:    int64(len(data)),
+		filename: "test.bin",
+		spinner:  &testutil.MockSpinner{},
+	}
+
+	buf := make([]byte, 5)
+	n, err := pr.Read(buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if n != 5 {
+		t.Errorf("Read = %d, want 5", n)
+	}
+	if pr.done != 5 {
+		t.Errorf("done = %d, want 5", pr.done)
+	}
+}
+
+func TestProgressReader_fullRead(t *testing.T) {
+	data := []byte("small")
+	pr := &progressReader{
+		reader:   bytes.NewReader(data),
+		total:    int64(len(data)),
+		filename: "small.bin",
+		spinner:  &testutil.MockSpinner{},
+	}
+
+	buf := make([]byte, 64)
+	n, err := pr.Read(buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if n != len(data) {
+		t.Errorf("Read = %d, want %d", n, len(data))
+	}
+	if pr.done != int64(len(data)) {
+		t.Errorf("done = %d, want %d", pr.done, len(data))
+	}
 }
 
 func TestDownload_rejectsHTTP(t *testing.T) {
