@@ -61,14 +61,16 @@ func (d *Display) SetDesc(content string) {
 }
 
 // Pause temporarily stops the spinner animation and clears the current line.
+// The clear is unconditional — a ticker frame can land right after Stop()
+// returns (race between writef and the stop channel), and the clear removes
+// that residual frame before the caller writes its own line.
 func (d *Display) Pause() {
 	d.mu.Lock()
-	done := d.done
-	if !done {
+	if !d.done {
 		d.paused = true
 	}
 	d.mu.Unlock()
-	if !done && d.tty {
+	if d.tty {
 		defaultConsole.writef(d.w, "\r\033[K")
 	}
 }
