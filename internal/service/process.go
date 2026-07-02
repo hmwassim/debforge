@@ -120,7 +120,11 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		}
 
 		if dep.ForceInstall || !exists || dep.Version != oldVersion {
-			entry := PkgEntry{Type: string(dep.Type), Version: dep.Version}
+			entry := PkgEntry{
+				Type:         string(dep.Type),
+				Version:      dep.Version,
+				ConfigHashes: dep.ConfigHashes,
+			}
 			if dep.Apt != nil {
 				entry.Variant = dep.Apt.Variant
 			}
@@ -146,6 +150,7 @@ func (s *InstallService) restoreDepState(dep *pkg.Package, st *State) (exists bo
 	entry, exists := s.state.Entry(st, dep.Name)
 	if exists {
 		dep.Version = entry.Version
+		dep.ConfigHashes = entry.ConfigHashes
 		oldVersion = entry.Version
 		if dep.Apt != nil && entry.Variant != "" && dep.Apt.Variant == "" {
 			dep.Apt.Variant = entry.Variant

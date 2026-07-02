@@ -96,7 +96,8 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		}
 		absPath := installer.ExpandHome(path, homeDir)
 
-		if installer.FileIsModified(i.fs, absPath, content, p.ForceInstall) {
+		action := installer.DecideConfigAction(i.fs, absPath, content, p.ConfigHashes[absPath], p.ForceInstall)
+		if action == installer.ConfigSkip || action == installer.ConfigConflict {
 			spinner.SetDesc("skipping modified user config " + path)
 			continue
 		}
@@ -123,6 +124,12 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	for path := range p.Configs {
 		spinner.SetDesc("removing config " + path)
+		content := p.Configs[path]
+		action := installer.DecideConfigAction(i.fs, path, content, p.ConfigHashes[path], p.ForceInstall)
+		if action == installer.ConfigSkip || action == installer.ConfigConflict {
+			spinner.SetDesc("skipping modified config " + path)
+			continue
+		}
 		if err := i.fs.RemoveAll(path); err != nil {
 			return fmt.Errorf("remove config %s: %w", path, err)
 		}
@@ -132,8 +139,21 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 }
 
 func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
-	if err := installer.WriteConfigs(i.fs, spinner, p); err != nil {
+	hashes := p.ConfigHashes
+	if hashes == nil {
+		hashes = make(map[string]string)
+	}
+
+	updated, err := installer.WriteConfigsWithHashes(i.fs, spinner, p, hashes)
+	if err != nil {
 		return err
 	}
-	return installer.WriteUserConfigs(i.fs, i.sys, spinner, p)
+	hashes = updated
+
+	updated, err = installer.WriteUserConfigsWithHashes(i.fs, i.sys, spinner, p, hashes)
+	if err != nil {
+		return err
+	}
+	p.ConfigHashes = updated
+	return nil
 }

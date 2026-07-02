@@ -69,6 +69,9 @@ type Package struct {
 	SkipRepoSetup bool
 	Version       string
 
+	// per-file config hashes (persisted via PkgEntry.ConfigHashes)
+	ConfigHashes map[string]string
+
 	// type-specific configuration
 	Apt    *AptConfig
 	Deb    *DebConfig
@@ -96,6 +99,7 @@ func (p *Package) Clone() *Package {
 	cp.Configs = copyMap(p.Configs)
 	cp.RemoveConfigs = copyMap(p.RemoveConfigs)
 	cp.UserConfigs = copyMap(p.UserConfigs)
+	cp.ConfigHashes = copyMap(p.ConfigHashes)
 	if p.Apt != nil {
 		c := *p.Apt
 		c.Extrepo = copySlice(p.Apt.Extrepo)

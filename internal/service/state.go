@@ -14,9 +14,10 @@ import (
 
 // PkgEntry is the persisted metadata for a single installed package.
 type PkgEntry struct {
-	Type    string `json:"type"`
-	Variant string `json:"variant,omitempty"`
-	Version string `json:"version,omitempty"`
+	Type         string            `json:"type"`
+	Variant      string            `json:"variant,omitempty"`
+	Version      string            `json:"version,omitempty"`
+	ConfigHashes map[string]string `json:"config_hashes,omitempty"`
 }
 
 // State is the persisted state of all installed packages.
