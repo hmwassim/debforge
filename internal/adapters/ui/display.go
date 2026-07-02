@@ -63,9 +63,12 @@ func (d *Display) SetDesc(content string) {
 // Pause temporarily stops the spinner animation and clears the current line.
 func (d *Display) Pause() {
 	d.mu.Lock()
-	d.paused = true
+	done := d.done
+	if !done {
+		d.paused = true
+	}
 	d.mu.Unlock()
-	if d.tty {
+	if !done && d.tty {
 		defaultConsole.writef(d.w, "\r\033[K")
 	}
 }
@@ -73,6 +76,10 @@ func (d *Display) Pause() {
 // Resume restarts the spinner animation after a Pause.
 func (d *Display) Resume() {
 	d.mu.Lock()
+	if d.done {
+		d.mu.Unlock()
+		return
+	}
 	d.paused = false
 	content := d.content
 	d.mu.Unlock()
@@ -82,6 +89,11 @@ func (d *Display) Resume() {
 }
 
 func (d *Display) run() {
+	defer func() {
+		d.mu.Lock()
+		d.done = true
+		d.mu.Unlock()
+	}()
 	defer close(d.sdone)
 
 	if !d.tty {
