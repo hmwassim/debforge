@@ -18,7 +18,7 @@ type ReposStep struct {
 }
 
 func (s *ReposStep) Name() string {
-	return "Configure Debian repositories"
+	return "Configured Debian repositories"
 }
 
 func (s *ReposStep) Check(ctx context.Context, cx *Context) CheckResult {

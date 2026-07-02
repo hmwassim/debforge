@@ -9,7 +9,7 @@ import (
 type UpgradeStep struct{}
 
 func (s *UpgradeStep) Name() string {
-	return "Upgrading system packages"
+	return "Upgraded system packages"
 }
 
 func (s *UpgradeStep) Check(ctx context.Context, cx *Context) CheckResult {
@@ -22,5 +22,9 @@ func (s *UpgradeStep) Apply(ctx context.Context, cx *Context, result CheckResult
 		return err
 	}
 	spinner.SetDesc("Upgrading packages")
-	return aptpty.RunUpgrade(ctx, cx.Runner, spinner)
+	if err := aptpty.RunUpgrade(ctx, cx.Runner, spinner); err != nil {
+		return err
+	}
+	spinner.DoneInfo()
+	return nil
 }
