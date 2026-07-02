@@ -68,7 +68,19 @@ type Locker interface {
 	Acquire(ctx context.Context, path string) (release func(), err error)
 }
 
-// System is the port for OS-level checks such as privilege detection.
+// UserInfo holds the home directory and uid/gid for a system user,
+// returned by System.LookupUser.
+type UserInfo struct {
+	HomeDir string
+	Uid     int
+	Gid     int
+}
+
+// System is the port for OS-level operations such as privilege detection,
+// environment access, and user information lookup.
 type System interface {
 	IsPrivileged() bool
+	Getenv(key string) string
+	UserHomeDir() (string, error)
+	LookupUser(name string) (*UserInfo, error)
 }

@@ -99,12 +99,12 @@ func saveState(state *StateManager, st *State, label string) error {
 	return nil
 }
 
-func checkInstalled(ctx context.Context, state *StateManager, st *State, name string, runner ports.CommandRunner, fs ports.FileSystem, p *pkg.Package, spinner ports.Spinner) (cleanedUp bool, err error) {
+func checkInstalled(ctx context.Context, state *StateManager, st *State, name string, runner ports.CommandRunner, fs ports.FileSystem, sys ports.System, p *pkg.Package, spinner ports.Spinner) (cleanedUp bool, err error) {
 	if !state.IsInstalled(st, name) {
 		spinner.SetDesc(name + " not installed")
 		return false, fmt.Errorf("%w: %s", ErrNotInstalled, name)
 	}
-	ok, err := installer.CheckInstalled(ctx, runner, fs, p)
+	ok, err := installer.CheckInstalled(ctx, runner, fs, sys, p)
 	if err != nil {
 		return false, err
 	}

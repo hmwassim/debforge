@@ -13,6 +13,17 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
+type mockSys struct{}
+
+func (m *mockSys) IsPrivileged() bool                     { return false }
+func (m *mockSys) Getenv(_ string) string                  { return "" }
+func (m *mockSys) UserHomeDir() (string, error)            { return "/home/test", nil }
+func (m *mockSys) LookupUser(_ string) (*ports.UserInfo, error) {
+	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
+}
+
+var testSys = &mockSys{}
+
 type mockFileSystem struct {
 	files         map[string][]byte
 	RemoveAllFunc func(path string) error
@@ -60,7 +71,7 @@ var _ ports.Spinner = (*testutil.MockSpinner)(nil)
 
 func TestInstall_skipsWhenHashMatches(t *testing.T) {
 	fs := newMockFS()
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 
 	p := &pkg.Package{
 		Name:    "test-config",
@@ -86,7 +97,7 @@ func TestInstall_skipsWhenHashMatches(t *testing.T) {
 
 func TestInstall_writesConfigsOnFirstInstall(t *testing.T) {
 	fs := newMockFS()
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 
 	p := &pkg.Package{
 		Name:    "test-config",
@@ -112,7 +123,7 @@ func TestInstall_writesConfigsOnFirstInstall(t *testing.T) {
 
 func TestInstall_updatesVersionOnConfigChange(t *testing.T) {
 	fs := newMockFS()
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 
 	oldHash := computeConfigHash(&pkg.Package{
 		Configs: map[string]string{"/etc/foo.conf": "old"},
@@ -155,7 +166,7 @@ func TestInstall_updatesVersionOnConfigChange(t *testing.T) {
 
 func TestInstall_forceBypassesHashCheck(t *testing.T) {
 	fs := newMockFS()
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 
 	p := &pkg.Package{
 		Name:         "test-config",
@@ -182,7 +193,7 @@ func TestInstall_forceBypassesHashCheck(t *testing.T) {
 
 func TestInstall_includesUserConfigsInHash(t *testing.T) {
 	fs := newMockFS()
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 
 	p := &pkg.Package{
 		Name:    "test-config",
@@ -262,7 +273,7 @@ func TestComputeConfigHash_differsFromRegularConfig(t *testing.T) {
 }
 
 func TestInstall_wrongType(t *testing.T) {
-	inst := &Installer{fs: newMockFS()}
+	inst := &Installer{fs: newMockFS(), sys: testSys}
 	p := &pkg.Package{Name: "test", Type: pkg.TypeApt}
 	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
 	if err == nil {
@@ -272,7 +283,7 @@ func TestInstall_wrongType(t *testing.T) {
 
 func TestInstall_withUserConfigs(t *testing.T) {
 	fs := newMockFS()
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 	p := &pkg.Package{
 		Name:    "test-config",
 		Type:    pkg.TypeConfig,
@@ -291,7 +302,7 @@ func TestInstall_withUserConfigs(t *testing.T) {
 		t.Errorf("system config not written correctly, got %q", string(fs.files["/etc/foo.conf"]))
 	}
 
-	homeDir, err := installer.UserHomeDir()
+	homeDir, err := installer.UserHomeDir(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +320,7 @@ func TestRemove_configs(t *testing.T) {
 		return nil
 	}
 
-	homeDir, err := installer.UserHomeDir()
+	homeDir, err := installer.UserHomeDir(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +340,7 @@ func TestRemove_configs(t *testing.T) {
 			"/etc/foo.conf": "content",
 		},
 	}
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 	err = inst.Remove(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Remove: %v", err)
@@ -359,7 +370,7 @@ func TestRemove_skipModifiedUserConfig(t *testing.T) {
 		return nil
 	}
 
-	homeDir, err := installer.UserHomeDir()
+	homeDir, err := installer.UserHomeDir(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +384,7 @@ func TestRemove_skipModifiedUserConfig(t *testing.T) {
 			"~/.config/bar.conf": "original content",
 		},
 	}
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 	err = inst.Remove(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Remove: %v", err)
@@ -393,7 +404,7 @@ func TestRemove_removeAllError(t *testing.T) {
 		Type:    pkg.TypeConfig,
 		Configs: map[string]string{"/etc/foo.conf": "content"},
 	}
-	inst := &Installer{fs: fs}
+	inst := &Installer{fs: fs, sys: testSys}
 	err := inst.Remove(context.Background(), p, &testutil.MockSpinner{})
 	if err == nil {
 		t.Fatal("expected error from RemoveAll")

@@ -18,6 +18,15 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
+type mockSys struct{}
+
+func (m *mockSys) IsPrivileged() bool                     { return false }
+func (m *mockSys) Getenv(_ string) string                  { return "" }
+func (m *mockSys) UserHomeDir() (string, error)            { return "/home/test", nil }
+func (m *mockSys) LookupUser(_ string) (*ports.UserInfo, error) {
+	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
+}
+
 // loadYAMLDefinitions tests
 
 func TestLoadYAMLDefinitions(t *testing.T) {
@@ -1151,7 +1160,7 @@ install:
 
 	cfg := &self.Config{PkgsDir: pkgsDir, StatePath: statePath, LockPath: "/lock"}
 	runner := &mockCmdRunner{}
-	h, err := newHandler(cfg, fsys, runner, &testutil.MockLocker{}, &testutil.MockUI{})
+	h, err := newHandler(cfg, fsys, runner, &testutil.MockLocker{}, &testutil.MockUI{}, &mockSys{})
 	if err != nil {
 		t.Fatalf("newHandler: %v", err)
 	}
@@ -1190,7 +1199,7 @@ func TestNewHandler_badYAML(t *testing.T) {
 	}
 
 	cfg := &self.Config{PkgsDir: pkgsDir, StatePath: statePath, LockPath: "/lock"}
-	_, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{})
+	_, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{}, &mockSys{})
 	if err == nil {
 		t.Fatal("expected error for bad YAML")
 	}
@@ -1227,7 +1236,7 @@ install:
 	}
 
 	cfg := &self.Config{PkgsDir: pkgsDir, StatePath: statePath, LockPath: "/lock"}
-	_, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{})
+	_, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{}, &mockSys{})
 	if err == nil {
 		t.Fatal("expected error for bad state")
 	}
@@ -1243,7 +1252,7 @@ func TestNewHandler_missingPkgsDir(t *testing.T) {
 	fsys.Files[statePath] = []byte(`{"packages":{}}`)
 
 	cfg := &self.Config{PkgsDir: "/nonexistent", StatePath: statePath, LockPath: "/lock"}
-	h, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{})
+	h, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{}, &mockSys{})
 	if err != nil {
 		t.Fatalf("newHandler: %v", err)
 	}
@@ -1286,7 +1295,7 @@ install:
 	}
 
 	cfg := &self.Config{PkgsDir: pkgsDir, StatePath: statePath, LockPath: "/lock"}
-	_, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{})
+	_, err := newHandler(cfg, fsys, &mockCmdRunner{}, &testutil.MockLocker{}, &testutil.MockUI{}, &mockSys{})
 	if err == nil {
 		t.Fatal("expected error for state stat failure")
 	}

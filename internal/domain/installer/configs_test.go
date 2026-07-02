@@ -6,8 +6,20 @@ import (
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
+
+type mockSys struct{}
+
+func (m *mockSys) IsPrivileged() bool                     { return false }
+func (m *mockSys) Getenv(_ string) string                  { return "" }
+func (m *mockSys) UserHomeDir() (string, error)            { return "/home/test", nil }
+func (m *mockSys) LookupUser(_ string) (*ports.UserInfo, error) {
+	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
+}
+
+var testSys = &mockSys{}
 
 func TestHasHomePrefix(t *testing.T) {
 	tests := []struct {
@@ -149,7 +161,7 @@ func TestWriteConfigs_mkdirError(t *testing.T) {
 
 func TestWriteUserConfigs(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
-	homeDir, err := UserHomeDir()
+	homeDir, err := UserHomeDir(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +171,7 @@ func TestWriteUserConfigs(t *testing.T) {
 			"~/.config/foo.conf": "user content",
 		},
 	}
-	err = WriteUserConfigs(fs, &testutil.MockSpinner{}, p)
+	err = WriteUserConfigs(fs, testSys, &testutil.MockSpinner{}, p)
 	if err != nil {
 		t.Fatalf("WriteUserConfigs: %v", err)
 	}
@@ -173,7 +185,7 @@ func TestWriteUserConfigs(t *testing.T) {
 func TestWriteUserConfigs_empty(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 	p := &pkg.Package{Name: "test-pkg"}
-	err := WriteUserConfigs(fs, &testutil.MockSpinner{}, p)
+	err := WriteUserConfigs(fs, testSys, &testutil.MockSpinner{}, p)
 	if err != nil {
 		t.Errorf("WriteUserConfigs empty: %v", err)
 	}
@@ -181,7 +193,7 @@ func TestWriteUserConfigs_empty(t *testing.T) {
 
 func TestWriteUserConfigs_modified(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
-	homeDir, err := UserHomeDir()
+	homeDir, err := UserHomeDir(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +207,7 @@ func TestWriteUserConfigs_modified(t *testing.T) {
 			"~/.config/foo.conf": "user content",
 		},
 	}
-	err = WriteUserConfigs(fs, &testutil.MockSpinner{}, p)
+	err = WriteUserConfigs(fs, testSys, &testutil.MockSpinner{}, p)
 	if err != nil {
 		t.Fatalf("WriteUserConfigs: %v", err)
 	}
@@ -205,11 +217,11 @@ func TestWriteUserConfigs_modified(t *testing.T) {
 }
 
 func TestUserHomeDir_default(t *testing.T) {
-	dir, err := UserHomeDir()
+	dir, err := UserHomeDir(testSys)
 	if err != nil {
 		t.Fatalf("UserHomeDir: %v", err)
 	}
-	if dir == "" {
-		t.Error("expected non-empty home directory")
+	if dir != "/home/test" {
+		t.Errorf("expected /home/test, got %q", dir)
 	}
 }

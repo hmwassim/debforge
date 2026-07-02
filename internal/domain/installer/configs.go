@@ -2,10 +2,7 @@ package installer
 
 import (
 	"fmt"
-	"os"
-	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -33,17 +30,17 @@ func WriteConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) er
 
 // WriteUserConfigs writes all user config files defined in p.UserConfigs.
 // Paths starting with ~/ are expanded to the user's home directory.
-func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) error {
+func WriteUserConfigs(fs ports.FileSystem, sys ports.System, spinner ports.Spinner, p *pkg.Package) error {
 	if len(p.UserConfigs) == 0 {
 		return nil
 	}
 
-	homeDir, err := UserHomeDir()
+	homeDir, err := UserHomeDir(sys)
 	if err != nil {
 		return fmt.Errorf("get home directory: %w", err)
 	}
 
-	ownerUID, ownerGID, ownerChown := resolveSudoOwner()
+	ownerUID, ownerGID, ownerChown := resolveSudoOwner(sys)
 
 	spinner.SetDesc("writing user configs for " + p.Name)
 	for path, content := range p.UserConfigs {
@@ -79,14 +76,14 @@ func WriteUserConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package
 // When running under sudo (root with SUDO_USER set), it returns the original
 // user's home directory so that ~ expansion in user_configs paths resolves
 // to the real user's home (e.g. /home/wassim) rather than /root.
-func UserHomeDir() (string, error) {
-	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
-		u, err := user.Lookup(sudoUser)
+func UserHomeDir(sys ports.System) (string, error) {
+	if sudoUser := sys.Getenv("SUDO_USER"); sudoUser != "" && sys.IsPrivileged() {
+		u, err := sys.LookupUser(sudoUser)
 		if err == nil {
 			return u.HomeDir, nil
 		}
 	}
-	return os.UserHomeDir()
+	return sys.UserHomeDir()
 }
 
 // ExpandHome replaces a leading ~/ with homeDir, or returns homeDir for ~.
@@ -103,18 +100,13 @@ func ExpandHome(path, homeDir string) string {
 // resolveSudoOwner returns the uid/gid of the original user when running
 // under sudo (root with SUDO_USER set), so that user config files written
 // by debforge are owned by the invoking user rather than root.
-func resolveSudoOwner() (uid, gid int, ok bool) {
-	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && os.Geteuid() == 0 {
-		u, err := user.Lookup(sudoUser)
+func resolveSudoOwner(sys ports.System) (uid, gid int, ok bool) {
+	if sudoUser := sys.Getenv("SUDO_USER"); sudoUser != "" && sys.IsPrivileged() {
+		u, err := sys.LookupUser(sudoUser)
 		if err != nil {
 			return 0, 0, false
 		}
-		uid, errAtoi1 := strconv.Atoi(u.Uid)
-		gid, errAtoi2 := strconv.Atoi(u.Gid)
-		if errAtoi1 != nil || errAtoi2 != nil {
-			return 0, 0, false
-		}
-		return uid, gid, true
+		return u.Uid, u.Gid, true
 	}
 	return 0, 0, false
 }

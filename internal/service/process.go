@@ -62,7 +62,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	if s.state.IsInstalled(st, name) && !rerun {
-		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, p)
+		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, p)
 		if err != nil {
 			return false, err
 		}
@@ -94,7 +94,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		}
 
 		if !rerun && exists {
-			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, dep)
+			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
 			if err != nil {
 				return false, err
 			}

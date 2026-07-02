@@ -41,16 +41,17 @@ type commandHandler struct {
 	cfg      *self.Config
 	runner   ports.CommandRunner
 	fsys     ports.FileSystem
+	sys      ports.System
 }
 
-func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, ui ports.UI) (*commandHandler, error) {
+func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, ui ports.UI, sys ports.System) (*commandHandler, error) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
 	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui))
+	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui, sys))
 	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui))
+	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui, sys))
 
 	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
 		return nil, fmt.Errorf("load definitions: %w", err)
@@ -64,12 +65,12 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
-		locker: locker, cfg: cfg, runner: runner, fsys: fsys,
+		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
 	}, nil
 }
 
 func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string, forceMode bool) int {
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys)
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
 	for _, name := range names {
 		p, ok := h.reg.Lookup(name)
@@ -113,14 +114,14 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 }
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
-	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys)
+	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		return svc.Run(ctx, names, spinner)
 	})
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys)
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
 			return err

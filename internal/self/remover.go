@@ -45,7 +45,7 @@ func NewRemover(
 		// + remove + state bookkeeping) instead of Remover re-implementing
 		// that loop by hand. lockPath is unused here since RemoveOne is
 		// called while Remove already holds the lock.
-		removeSvc: service.NewRemoveService(registry, instReg, stateSvc, locker, cfg.LockPath, runner, fs),
+		removeSvc: service.NewRemoveService(registry, instReg, stateSvc, locker, cfg.LockPath, runner, fs, sys),
 	}
 }
 

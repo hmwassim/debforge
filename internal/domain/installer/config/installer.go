@@ -20,11 +20,12 @@ type Installer struct {
 	runner ports.CommandRunner
 	fs     ports.FileSystem
 	ui     ports.UI
+	sys    ports.System
 }
 
 // NewInstaller returns a new config Installer.
-func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui}
+func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System) *Installer {
+	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys}
 }
 
 // Install writes the config files and user config files defined by p,
@@ -89,7 +90,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	for path, content := range p.UserConfigs {
 		spinner.SetDesc("removing user config " + path)
-		homeDir, err := installer.UserHomeDir()
+		homeDir, err := installer.UserHomeDir(i.sys)
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
 		}
@@ -109,7 +110,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		spinner.SetDesc("removing config " + path)
 		absPath := path
 		if installer.HasHomePrefix(path) {
-			homeDir, err := installer.UserHomeDir()
+			homeDir, err := installer.UserHomeDir(i.sys)
 			if err != nil {
 				return fmt.Errorf("get home directory: %w", err)
 			}
@@ -134,5 +135,5 @@ func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
 	if err := installer.WriteConfigs(i.fs, spinner, p); err != nil {
 		return err
 	}
-	return installer.WriteUserConfigs(i.fs, spinner, p)
+	return installer.WriteUserConfigs(i.fs, i.sys, spinner, p)
 }

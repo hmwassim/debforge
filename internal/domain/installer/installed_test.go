@@ -20,7 +20,7 @@ func TestCheckInstalled_aptVariantOnlyInstalled(t *testing.T) {
 		},
 	}
 
-	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestCheckInstalled_aptVariantOnlyNotInstalled(t *testing.T) {
 		},
 	}
 
-	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	ok, err := CheckInstalled(context.Background(), runner, nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestCheckInstalled_aptVariantAndPackages(t *testing.T) {
 		},
 	}
 
-	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestCheckInstalled_aptNoVariantFallsBackToPrimary(t *testing.T) {
 		Packages: []string{"real-system-pkg"},
 	}
 
-	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestCheckInstalled_aptNoVariantNoPackagesFallsBackToName(t *testing.T) {
 		Apt:  &pkg.AptConfig{},
 	}
 
-	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	ok, err := CheckInstalled(context.Background(), runner, nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestCheckInstalled_deb_primaryInstalled(t *testing.T) {
 		Packages: []string{"real-system-pkg"},
 	}
 
-	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, p)
+	ok, err := CheckInstalled(context.Background(), testutil.RunnerReturning([]byte("installed\n"), nil), nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestCheckInstalled_deb_primaryNotInstalledFallsBackToName(t *testing.T) {
 		Packages: []string{"real-system-pkg"},
 	}
 
-	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	ok, err := CheckInstalled(context.Background(), runner, nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestCheckInstalled_deb_neitherInstalled(t *testing.T) {
 		Packages: []string{"real-system-pkg"},
 	}
 
-	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	ok, err := CheckInstalled(context.Background(), runner, nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestCheckInstalled_deb_errorNonContext(t *testing.T) {
 	// Non-context errors from dpkg.IsInstalled are treated as
 	// "not installed" (conservative), so CheckInstalled returns
 	// (false, nil) rather than propagating the error.
-	ok, err := CheckInstalled(context.Background(), runner, nil, p)
+	ok, err := CheckInstalled(context.Background(), runner, nil, nil, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestCheckInstalled_deb_contextCancelled(t *testing.T) {
 		Type: pkg.TypeDeb,
 	}
 
-	_, err := CheckInstalled(ctx, runner, nil, p)
+	_, err := CheckInstalled(ctx, runner, nil, testSys, p)
 	if err == nil {
 		t.Error("expected error for cancelled context")
 	}
@@ -229,7 +229,7 @@ func TestCheckInstalled_config_allFilesExist(t *testing.T) {
 		},
 	}
 
-	ok, err := CheckInstalled(context.Background(), nil, fs, p)
+	ok, err := CheckInstalled(context.Background(), nil, fs, testSys, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestCheckInstalled_config_oneMissing(t *testing.T) {
 		},
 	}
 
-	ok, err := CheckInstalled(context.Background(), nil, fs, p)
+	ok, err := CheckInstalled(context.Background(), nil, fs, testSys, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestCheckInstalled_config_userConfigs(t *testing.T) {
 		},
 	}
 
-	ok, err := CheckInstalled(context.Background(), nil, fs, p)
+	ok, err := CheckInstalled(context.Background(), nil, fs, testSys, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestCheckInstalled_source(t *testing.T) {
 		Type: pkg.TypeSource,
 	}
 
-	ok, err := CheckInstalled(context.Background(), nil, nil, p)
+	ok, err := CheckInstalled(context.Background(), nil, nil, testSys, p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestCheckInstalled_aptErrorCancelled(t *testing.T) {
 		Apt:  &pkg.AptConfig{},
 	}
 
-	_, err := CheckInstalled(ctx, runner, nil, p)
+	_, err := CheckInstalled(ctx, runner, nil, testSys, p)
 	if err == nil {
 		t.Error("expected error for cancelled context")
 	}
@@ -324,7 +324,7 @@ func TestCheckInstalled_debErrorCancelled(t *testing.T) {
 		Type: pkg.TypeDeb,
 	}
 
-	_, err := CheckInstalled(ctx, runner, nil, p)
+	_, err := CheckInstalled(ctx, runner, nil, testSys, p)
 	if err == nil {
 		t.Error("expected error for cancelled context")
 	}

@@ -37,7 +37,7 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) 
 
 // Install fetches the source code (git clone or download+extract), runs
 // the build and install scripts, then runs the post-install script.
-func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (err error) {
+func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeSource {
 		return fmt.Errorf("source installer called for type %s", p.Type)
 	}
@@ -52,53 +52,41 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	tmpDir, err := installer.MkdirTemp(i.fs)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if rmerr := i.fs.RemoveAll(tmpDir); rmerr != nil && err == nil {
-			err = fmt.Errorf("clean up temp dir for %s: %w", p.Name, rmerr)
-		}
-	}()
-
-	srcDir, err := i.getSource(ctx, p, tmpDir, spinner)
-	if err != nil {
-		return err
-	}
-
-	if len(p.Packages) > 0 {
-		spinner.SetDesc("installing build dependencies for " + p.Name)
-		if err := i.execApt(ctx, i.runner, append([]string{"install", "-y"}, p.Packages...), spinner); err != nil {
+	return installer.WithTempDir(i.fs, p.Name, func(tmpDir string) error {
+		srcDir, err := i.getSource(ctx, p, tmpDir, spinner)
+		if err != nil {
 			return err
 		}
-	}
 
-	buildScript := i.interpolate(p.Source.BuildScript, p.Version)
-	installScript := i.interpolate(p.Source.InstallScript, p.Version)
-	postinstallScript := i.interpolate(p.Source.PostinstallScript, p.Version)
-
-	if installScript == "" {
-		installScript = buildScript
-	}
-
-	if buildScript != "" {
-		if err := installer.RunScriptInDir(ctx, i.runner, spinner, p.Name, buildScript, "building", srcDir); err != nil {
-			return err
+		if len(p.Packages) > 0 {
+			spinner.SetDesc("installing build dependencies for " + p.Name)
+			if err := i.execApt(ctx, i.runner, append([]string{"install", "-y"}, p.Packages...), spinner); err != nil {
+				return err
+			}
 		}
-	}
 
-	if installScript != "" && installScript != buildScript {
-		if err := installer.RunScriptInDir(ctx, i.runner, spinner, p.Name, installScript, "installing", srcDir); err != nil {
-			return err
+		buildScript := i.interpolate(p.Source.BuildScript, p.Version)
+		installScript := i.interpolate(p.Source.InstallScript, p.Version)
+		postinstallScript := i.interpolate(p.Source.PostinstallScript, p.Version)
+
+		if installScript == "" {
+			installScript = buildScript
 		}
-	}
 
-	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, postinstallScript); err != nil {
-		return err
-	}
+		if buildScript != "" {
+			if err := installer.RunScriptInDir(ctx, i.runner, spinner, p.Name, buildScript, "building", srcDir); err != nil {
+				return err
+			}
+		}
 
-	return nil
+		if installScript != "" && installScript != buildScript {
+			if err := installer.RunScriptInDir(ctx, i.runner, spinner, p.Name, installScript, "installing", srcDir); err != nil {
+				return err
+			}
+		}
+
+		return installer.RunPostInstall(ctx, i.runner, spinner, p.Name, postinstallScript)
+	})
 }
 
 // Remove runs the remove script (if defined) and removes system packages

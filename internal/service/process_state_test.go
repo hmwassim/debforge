@@ -55,7 +55,7 @@ func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
 	stateSvc, statePath, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -128,7 +128,7 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -248,7 +248,7 @@ func TestProcessOne_checkInstalledError(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &testutil.MockRunner{
@@ -286,7 +286,7 @@ func TestProcessOne_resolveError(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 
@@ -317,7 +317,7 @@ func TestProcessOne_lookupInstallerError(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -366,7 +366,7 @@ func TestProcessOne_saveStateError(t *testing.T) {
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -403,7 +403,7 @@ func TestProcessOne_depAlreadyInstalled(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &successRunner{}
@@ -450,7 +450,7 @@ func TestProcessOne_depCheckInstalledError(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &testutil.MockRunner{
@@ -487,7 +487,7 @@ func TestProcessOne_alreadyUpToDate(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -529,7 +529,7 @@ func TestProcessAll_partialFailurePersistsCompleted(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}

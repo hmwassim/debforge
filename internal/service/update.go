@@ -23,7 +23,7 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 				return err
 			}
 			p = applyVariant(p, st, name)
-			cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
+			cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, s.sys, p, spinner)
 			if err != nil {
 				if cleanedUp {
 					if saveErr := saveState(s.state, st, name); saveErr != nil {

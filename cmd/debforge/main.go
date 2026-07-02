@@ -61,7 +61,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return 0
 
 	case "--self-remove":
-		h, err := newHandler(cfg, fsys, runner, locker, ui)
+		h, err := newHandler(cfg, fsys, runner, locker, ui, sys)
 		if err != nil {
 			ui.Error("bootstrap: %s", err)
 			return 1
@@ -105,7 +105,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return 0
 	}
 
-	h, err := newHandler(cfg, fsys, runner, locker, ui)
+	h, err := newHandler(cfg, fsys, runner, locker, ui, sys)
 	if err != nil {
 		ui.Error("bootstrap: %s", err)
 		return 1

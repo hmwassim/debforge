@@ -32,6 +32,7 @@ type baseService struct {
 	lockPath string
 	runner   ports.CommandRunner
 	fs       ports.FileSystem
+	sys      ports.System
 }
 
 // InstallService orchestrates the installation of one or more packages
@@ -51,11 +52,12 @@ func NewInstallService(
 	lockPath string,
 	runner ports.CommandRunner,
 	fs ports.FileSystem,
+	sys ports.System,
 ) *InstallService {
 	return &InstallService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: state, locker: locker,
-			lockPath: lockPath, runner: runner, fs: fs,
+			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
 		},
 		resolver: resolver,
 	}

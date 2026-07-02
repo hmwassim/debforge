@@ -26,11 +26,12 @@ func NewRemoveService(
 	lockPath string,
 	runner ports.CommandRunner,
 	fs ports.FileSystem,
+	sys ports.System,
 ) *RemoveService {
 	return &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: state, locker: locker,
-			lockPath: lockPath, runner: runner, fs: fs,
+			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
 		},
 	}
 }
@@ -75,7 +76,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 
 	p = applyVariant(p, st, name)
 
-	cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, p, spinner)
+	cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, s.sys, p, spinner)
 	if err != nil {
 		if cleanedUp {
 			if saveErr := saveState(s.state, st, name); saveErr != nil {

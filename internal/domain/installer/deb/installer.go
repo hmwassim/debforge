@@ -20,17 +20,18 @@ type Installer struct {
 	runner  ports.CommandRunner
 	fs      ports.FileSystem
 	ui      ports.UI
+	sys     ports.System
 	execApt aptpty.AptExecFunc
 }
 
 // NewInstaller returns a new deb Installer.
-func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec}
+func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System) *Installer {
+	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec}
 }
 
 // Install downloads the .deb file from p.URL, installs it via apt-get,
 // and runs the post-install script.
-func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (err error) {
+func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if p.Type != pkg.TypeDeb {
 		return fmt.Errorf("deb installer called for type %s", p.Type)
 	}
@@ -44,7 +45,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 			return err
 		}
 		if !updated && !p.ForceInstall {
-			ok, err := installer.CheckInstalled(ctx, i.runner, i.fs, p)
+			ok, err := installer.CheckInstalled(ctx, i.runner, i.fs, i.sys, p)
 			if err != nil {
 				return err
 			}
@@ -63,23 +64,14 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 	url := download.ExpandURL(p.URL, p.Version)
 
-	tmpDir, err := installer.MkdirTemp(i.fs)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if rmerr := i.fs.RemoveAll(tmpDir); rmerr != nil && err == nil {
-			err = fmt.Errorf("clean up temp dir for %s: %w", p.Name, rmerr)
+	if err := installer.WithTempDir(i.fs, p.Name, func(tmpDir string) error {
+		tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
+		spinner.SetDesc("downloading " + p.Name)
+		if err := download.Download(ctx, i.fs, url, tmpPath, spinner, p.SHA256); err != nil {
+			return fmt.Errorf("download %s: %w", p.Name, err)
 		}
-	}()
-	tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
-
-	spinner.SetDesc("downloading " + p.Name)
-	if err := download.Download(ctx, i.fs, url, tmpPath, spinner, p.SHA256); err != nil {
-		return fmt.Errorf("download %s: %w", p.Name, err)
-	}
-
-	if err := i.execApt(ctx, i.runner, []string{"install", "-y", tmpPath}, spinner); err != nil {
+		return i.execApt(ctx, i.runner, []string{"install", "-y", tmpPath}, spinner)
+	}); err != nil {
 		return err
 	}
 

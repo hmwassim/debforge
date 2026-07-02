@@ -20,7 +20,7 @@ func TestNewInstallService(t *testing.T) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 	defer cleanup()
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil)
+	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil, nil)
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}
@@ -32,7 +32,7 @@ func TestNewRemoveService(t *testing.T) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 	defer cleanup()
 
-	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil)
+	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil, nil)
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}
@@ -548,7 +548,7 @@ func TestCheckInstalled_runnerError(t *testing.T) {
 	p := &pkg.Package{Name: "test-pkg", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}}
 	st := &State{Packages: map[string]PkgEntry{"test-pkg": {Type: "apt"}}}
 
-	_, err := checkInstalled(ctx, stateSvc, st, "test-pkg", runner, nil, p, &mockSpinner{})
+	_, err := checkInstalled(ctx, stateSvc, st, "test-pkg", runner, nil, nil, p, &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
 	}
@@ -705,7 +705,7 @@ func TestInstallServiceRun_success(t *testing.T) {
 	runner := &nopRunner{}
 	mfs := testutil.NewMockFileSystem()
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath, runner, mfs)
+	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath, runner, mfs, nil)
 
 	ctx := context.Background()
 	spinner := &mockSpinner{}
@@ -874,7 +874,7 @@ func TestInstallServiceRun_loadError(t *testing.T) {
 	svc := NewInstallService(
 		pkg.NewRegistry(), installer.NewRegistry(), NewResolver(pkg.NewRegistry()),
 		stateSvc, &testutil.MockLocker{}, filepath.Join(t.TempDir(), "lock"),
-		&nopRunner{}, testutil.NewMockFileSystem(),
+		&nopRunner{}, testutil.NewMockFileSystem(), nil,
 	)
 
 	err := svc.Run(context.Background(), []string{"test-pkg"}, false, &mockSpinner{})
