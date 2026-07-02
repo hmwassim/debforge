@@ -17,7 +17,9 @@ func (s *UpgradeStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *UpgradeStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
-	spinner := cx.UI.Spinner(ctx, "Refreshing repositories")
+	spinnerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	spinner := cx.UI.Spinner(spinnerCtx, "Refreshing repositories")
 	if err := aptpty.RunUpdate(ctx, cx.Runner, spinner); err != nil {
 		return err
 	}
@@ -25,6 +27,5 @@ func (s *UpgradeStep) Apply(ctx context.Context, cx *Context, result CheckResult
 	if err := aptpty.RunUpgrade(ctx, cx.Runner, spinner); err != nil {
 		return err
 	}
-	spinner.DoneInfo()
 	return nil
 }
