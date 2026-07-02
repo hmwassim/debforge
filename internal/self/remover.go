@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -62,10 +65,23 @@ func (r *Remover) remove(ctx context.Context) error {
 		return nil
 	}
 
+	st, err := r.stateSvc.Load()
+	var names []string
+	if err != nil {
+		r.logger.Warn("could not load state, skipping managed package removal: %s", err)
+	} else {
+		names = r.stateSvc.ListPackages(st)
+		if len(names) > 0 {
+			names = r.selectPackages(names)
+		}
+	}
+
 	spinner := r.logger.Spinner(ctx, "Removing debforge")
 	defer spinner.Done()
 
-	r.removeManagedPackages(ctx, spinner)
+	if len(names) > 0 {
+		r.removeManagedPackages(ctx, names, st, spinner)
+	}
 
 	if err := verifyRemovablePath(r.cfg.RootDir); err != nil {
 		spinner.Fail()
@@ -86,23 +102,71 @@ func (r *Remover) remove(ctx context.Context) error {
 	return nil
 }
 
-// removeManagedPackages best-effort removes every package debforge has
-// installed, via the same RemoveOne path used by "debforge remove" - so
-// self-remove no longer skips updating/saving state the way the old
-// hand-rolled loop here did. Failures are warned about, not fatal: the
-// root directory (including the state file) is about to be deleted
-// regardless, so self-remove should keep going rather than abort partway.
-func (r *Remover) removeManagedPackages(ctx context.Context, spinner ports.Spinner) {
-	st, err := r.stateSvc.Load()
-	if err != nil {
-		r.logger.Warn("could not load state, skipping managed package removal: %s", err)
-		return
-	}
-	names := r.stateSvc.ListPackages(st)
-	if len(names) == 0 {
-		return
+// selectPackages displays a numbered list of managed packages and prompts
+// the user to choose which to remove. Returns nil when nothing should be
+// removed (user enters "0" or invalid input), all names for "a" / "A", or
+// a filtered subset based on comma-separated numbers and ranges.
+func (r *Remover) selectPackages(names []string) []string {
+	sort.Strings(names)
+
+	r.logger.Info("Packages managed by debforge:")
+	for i, name := range names {
+		r.logger.Info("  %d: %s", i+1, name)
 	}
 
+	input := r.logger.PromptInput("a", "0 = Skip, a = All, or select (e.g. 1,2,3 or 1-3)")
+	input = strings.TrimSpace(input)
+	if input == "" || input == "0" {
+		return nil
+	}
+	if input == "a" || input == "A" {
+		return names
+	}
+
+	selected := make(map[int]bool)
+	for _, part := range strings.Split(input, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "-") {
+			bounds := strings.SplitN(part, "-", 2)
+			start, err1 := strconv.Atoi(strings.TrimSpace(bounds[0]))
+			end, err2 := strconv.Atoi(strings.TrimSpace(bounds[1]))
+			if err1 != nil || err2 != nil || start < 1 || end > len(names) || start > end {
+				continue
+			}
+			for i := start; i <= end; i++ {
+				selected[i-1] = true
+			}
+		} else {
+			idx, err := strconv.Atoi(part)
+			if err != nil || idx < 1 || idx > len(names) {
+				continue
+			}
+			selected[idx-1] = true
+		}
+	}
+
+	if len(selected) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(selected))
+	for i, name := range names {
+		if selected[i] {
+			result = append(result, name)
+		}
+	}
+	return result
+}
+
+// removeManagedPackages best-effort removes the given managed packages via
+// the same RemoveOne path used by "debforge remove". Failures are warned
+// about, not fatal: the root directory (including the state file) is about
+// to be deleted regardless, so self-remove should keep going rather than
+// abort partway.
+func (r *Remover) removeManagedPackages(ctx context.Context, names []string, st *service.State, spinner ports.Spinner) {
 	for _, name := range names {
 		spinner.SetDesc("Removing " + name)
 		if err := r.removeSvc.RemoveOne(ctx, name, st, spinner); err != nil {

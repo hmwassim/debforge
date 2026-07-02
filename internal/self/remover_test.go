@@ -2,6 +2,7 @@ package self
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -158,57 +159,148 @@ func TestRemoverRemove_publicMethod_notRoot(t *testing.T) {
 
 // removeManagedPackages tests.
 
-func TestRemoveManagedPackages_stateWithPackage(t *testing.T) {
+func TestSelectPackages_all(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "a" },
+	}
+
+	names := []string{"pkg-a", "pkg-b", "pkg-c"}
+	result := rm.selectPackages(names)
+	if len(result) != 3 {
+		t.Fatalf("expected 3, got %v", result)
+	}
+}
+
+func TestSelectPackages_skip(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "0" },
+	}
+
+	names := []string{"pkg-a", "pkg-b", "pkg-c"}
+	result := rm.selectPackages(names)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestSelectPackages_emptyInput(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "" },
+	}
+
+	names := []string{"pkg-a", "pkg-b", "pkg-c"}
+	result := rm.selectPackages(names)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestSelectPackages_invalidInput(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "xyz" },
+	}
+
+	names := []string{"pkg-a", "pkg-b", "pkg-c"}
+	result := rm.selectPackages(names)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestSelectPackages_specific(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "1,3" },
+	}
+
+	names := []string{"pkg-a", "pkg-b", "pkg-c"}
+	result := rm.selectPackages(names)
+	if len(result) != 2 || result[0] != "pkg-a" || result[1] != "pkg-c" {
+		t.Errorf("expected [pkg-a pkg-c], got %v", result)
+	}
+}
+
+func TestSelectPackages_range(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "2-4" },
+	}
+
+	names := []string{"pkg-a", "pkg-b", "pkg-c", "pkg-d", "pkg-e"}
+	result := rm.selectPackages(names)
+	if len(result) != 3 || result[0] != "pkg-b" || result[1] != "pkg-c" || result[2] != "pkg-d" {
+		t.Errorf("expected [pkg-b pkg-c pkg-d], got %v", result)
+	}
+}
+
+func TestSelectPackages_rangeOutOfBounds(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	rm.logger = &testutil.MockUI{
+		PromptInputFunc: func(_, _ string, _ ...any) string { return "1-99" },
+	}
+
+	names := []string{"pkg-a", "pkg-b"}
+	result := rm.selectPackages(names)
+	if result != nil {
+		t.Errorf("expected nil for out-of-bounds range, got %v", result)
+	}
+}
+
+func TestSelectPackages_emptyNames(t *testing.T) {
+	rm, _ := newRemoverForTest(t)
+	result := rm.selectPackages(nil)
+	if result != nil {
+		t.Errorf("expected nil for empty names, got %v", result)
+	}
+}
+
+func TestRemoveManagedPackages_withPackages(t *testing.T) {
 	ctx := context.Background()
 	rm, deps := newRemoverForTest(t)
 
-	// Write a state file with one package.
 	stateJSON := `{"packages": {"test-pkg": {"type": "apt", "variant": "", "version": "1.0"}}}`
 	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
+
+	st, err := deps.stateSvc.Load()
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
 
 	var warnCalled bool
 	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
 
-	rm.removeManagedPackages(ctx, &testutil.MockSpinner{})
+	rm.removeManagedPackages(ctx, []string{"test-pkg"}, st, &testutil.MockSpinner{})
 
-	// RemoveOne should fail (no package in registry) but the function
-	// handles it gracefully by logging a warning.
 	if !warnCalled {
 		t.Error("expected Warn to be called from RemoveOne failure")
 	}
 }
 
-func TestRemoveManagedPackages_emptyState(t *testing.T) {
+func TestRemoveManagedPackages_partial(t *testing.T) {
 	ctx := context.Background()
 	rm, deps := newRemoverForTest(t)
 
-	// Write an empty state.
-	stateJSON := `{"packages": {}}`
+	stateJSON := `{"packages": {"pkg-a": {"type": "apt"}, "pkg-b": {"type": "apt"}}}`
 	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
 
-	var warnCalled bool
-	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
-
-	rm.removeManagedPackages(ctx, &testutil.MockSpinner{})
-	if warnCalled {
-		t.Error("expected no Warn for empty state")
+	st, err := deps.stateSvc.Load()
+	if err != nil {
+		t.Fatalf("load state: %v", err)
 	}
-}
 
-func TestRemoveManagedPackages_stateLoadError(t *testing.T) {
-	ctx := context.Background()
-	rm, deps := newRemoverForTest(t)
+	var warns []string
+	deps.ui.WarnFunc = func(format string, args ...any) {
+		warns = append(warns, fmt.Sprintf(format, args...))
+	}
 
-	// No state file in mock fs → store returns ErrNotFound → Load returns
-	// empty state, not an error.
-	// To trigger a real load error, write invalid JSON.
-	deps.fs.Files[deps.cfg.StatePath] = []byte(`{{{invalid`)
+	rm.removeManagedPackages(ctx, []string{"pkg-a"}, st, &testutil.MockSpinner{})
 
-	var warnCalled bool
-	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
-
-	rm.removeManagedPackages(ctx, &testutil.MockSpinner{})
-	if !warnCalled {
-		t.Error("expected Warn for state load error")
+	// Only pkg-a was requested; pkg-b should remain in state.
+	if _, ok := st.Packages["pkg-b"]; !ok {
+		t.Error("expected pkg-b to remain in state")
 	}
 }
