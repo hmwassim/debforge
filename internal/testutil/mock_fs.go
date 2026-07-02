@@ -31,6 +31,7 @@ type MockFileSystem struct {
 	ReadlinkFunc  func(path string) (string, error)
 	ExistsFunc    func(path string) (bool, error)
 	StatFunc      func(path string) (ports.FileInfo, error)
+	WalkFunc      func(root string, fn func(path string, info ports.FileInfo, err error) error) error
 	ChownFunc     func(path string, uid, gid int) error
 }
 
@@ -85,7 +86,10 @@ func (m *MockFileSystem) Stat(path string) (ports.FileInfo, error) {
 }
 
 func (m *MockFileSystem) Glob(_ string) ([]string, error) { return nil, nil }
-func (m *MockFileSystem) Walk(_ string, _ func(string, ports.FileInfo, error) error) error {
+func (m *MockFileSystem) Walk(root string, fn func(string, ports.FileInfo, error) error) error {
+	if m.WalkFunc != nil {
+		return m.WalkFunc(root, fn)
+	}
 	return nil
 }
 func (m *MockFileSystem) Rename(oldPath, newPath string) error {
