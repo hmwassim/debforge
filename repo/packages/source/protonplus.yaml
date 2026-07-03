@@ -1,6 +1,8 @@
 name: protonplus
 description: ProtonPlus - Wine/Proton management tool
 type: source
+depends:
+  - yad
 install:
   repo: https://github.com/Vysp3r/ProtonPlus.git
   tag_prefix: v
