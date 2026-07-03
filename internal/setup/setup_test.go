@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -1084,7 +1085,13 @@ func (m *mockSysDesktop) UserHomeDir() (string, error)                { return "
 func (m *mockSysDesktop) LookupUser(name string) (*ports.UserInfo, error) { return nil, nil }
 
 func desktopCx(runner *testutil.MockRunner, de string) *Context {
+	fs := testutil.NewMockFileSystem()
+	return desktopCxWithFs(fs, runner, de)
+}
+
+func desktopCxWithFs(fs *testutil.MockFileSystem, runner *testutil.MockRunner, de string) *Context {
 	return &Context{
+		Fsys:         fs,
 		Runner:       runner,
 		Sys:          &mockSysDesktop{env: map[string]string{"XDG_CURRENT_DESKTOP": de}},
 		UI:           &testutil.MockUI{},
@@ -1092,8 +1099,15 @@ func desktopCx(runner *testutil.MockRunner, de string) *Context {
 	}
 }
 
+func desktopCxSatisfied(runner *testutil.MockRunner, de string) *Context {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}        // dir marker
+	fs.Files["/home/user/.bashrc"] = bashrcDBlock
+	return desktopCxWithFs(fs, runner, de)
+}
+
 func TestDesktopStep_CheckSatisfied_KDE(t *testing.T) {
-	cx := desktopCx(pkgCfgRunner("installed", nil, nil), "KDE")
+	cx := desktopCxSatisfied(pkgCfgRunner("installed", nil, nil), "KDE")
 	result := (&DesktopStep{}).Check(context.Background(), cx)
 	if result.Status != StatusSatisfied {
 		t.Errorf("expected satisfied, got %v", result.Status)
@@ -1101,7 +1115,7 @@ func TestDesktopStep_CheckSatisfied_KDE(t *testing.T) {
 }
 
 func TestDesktopStep_CheckSatisfied_GNOME(t *testing.T) {
-	cx := desktopCx(pkgCfgRunner("installed", nil, nil), "GNOME")
+	cx := desktopCxSatisfied(pkgCfgRunner("installed", nil, nil), "GNOME")
 	result := (&DesktopStep{}).Check(context.Background(), cx)
 	if result.Status != StatusSatisfied {
 		t.Errorf("expected satisfied, got %v", result.Status)
@@ -1109,18 +1123,39 @@ func TestDesktopStep_CheckSatisfied_GNOME(t *testing.T) {
 }
 
 func TestDesktopStep_CheckSatisfied_UnknownDE(t *testing.T) {
-	cx := desktopCx(pkgCfgRunner("installed", nil, nil), "")
+	cx := desktopCxSatisfied(pkgCfgRunner("installed", nil, nil), "")
 	result := (&DesktopStep{}).Check(context.Background(), cx)
 	if result.Status != StatusSatisfied {
 		t.Errorf("expected satisfied, got %v", result.Status)
 	}
 }
 
-func TestDesktopStep_CheckMissing(t *testing.T) {
+func TestDesktopStep_CheckMissing_Packages(t *testing.T) {
 	cx := desktopCx(pkgCfgRunner("", fmt.Errorf("exit 1"), nil), "KDE")
 	result := (&DesktopStep{}).Check(context.Background(), cx)
 	if result.Status != StatusMissing {
 		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_CheckMissing_BashrcDDir(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	// No bashrc.d dir set up
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "KDE")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing for missing bashrc.d dir, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_CheckMissing_BashrcBlock(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{} // dir marker
+	fs.Files["/home/user/.bashrc"] = []byte("existing content without the block")
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "KDE")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing for missing block, got %v", result.Status)
 	}
 }
 
@@ -1129,6 +1164,79 @@ func TestDesktopStep_CheckError(t *testing.T) {
 	result := (&DesktopStep{}).Check(context.Background(), cx)
 	if result.Status != StatusError {
 		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_Apply_CreatesBashrcD(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	if err := (&DesktopStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, err := fs.ReadFile("/home/user/.bashrc")
+	if err != nil {
+		t.Fatalf(".bashrc not written: %v", err)
+	}
+	if !bytes.Contains(data, bashrcDBlock) {
+		t.Error("bashrc.d loader block not found in .bashrc")
+	}
+}
+
+func TestDesktopStep_Apply_ReplacesBlock(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	oldBlock := []byte(bashrcDStartMarker + `if [ -d "$HOME/.config/bashrc.d" ]; then
+    for file in "$HOME/.config/bashrc.d"/*.sh; do
+        [ -f "$file" ] && . "$file"
+    done
+fi` + bashrcDEndMarker)
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
+	fs.Files["/home/user/.bashrc"] = []byte("header\n" + string(oldBlock) + "\nfooter")
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	if err := (&DesktopStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/home/user/.bashrc")
+	if !bytes.HasPrefix(data, []byte("header\n")) {
+		t.Error("content before block should be preserved")
+	}
+	if !bytes.HasSuffix(data, []byte("\nfooter")) {
+		t.Error("content after block should be preserved")
+	}
+	if !bytes.Contains(data, bashrcDBlock) {
+		t.Error("bashrc.d loader block not found after replace")
+	}
+}
+
+func TestDesktopStep_Apply_AppendsBlock(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
+	fs.Files["/home/user/.bashrc"] = []byte("existing content")
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	if err := (&DesktopStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/home/user/.bashrc")
+	if !strings.Contains(string(data), "existing content") {
+		t.Error("existing content should be preserved")
+	}
+	if !bytes.Contains(data, bashrcDBlock) {
+		t.Error("bashrc.d loader block not found after append")
+	}
+}
+
+func TestDesktopStep_Apply_Idempotent(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	if err := (&DesktopStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+	if err := (&DesktopStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("second Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/home/user/.bashrc")
+	count := strings.Count(string(data), bashrcDStartMarker)
+	if count != 1 {
+		t.Errorf("expected exactly 1 occurrence of start marker, got %d", count)
 	}
 }
 

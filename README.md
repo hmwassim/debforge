@@ -83,7 +83,7 @@ remove:
 ### config — static configuration files
 
 ```yaml
-name: system-settings
+name: config-system
 description: System-wide performance and power tuning
 type: config
 install:

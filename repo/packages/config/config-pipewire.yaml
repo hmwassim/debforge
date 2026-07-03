@@ -1,4 +1,4 @@
-name: audio-settings
+name: config-pipewire
 description: PipeWire audio system configuration
 type: config
 install:

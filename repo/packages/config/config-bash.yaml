@@ -1,0 +1,6 @@
+name: config-bash
+description: Bash aliases and shell configuration
+type: config
+install:
+  user_configs:
+    ~/.config/bashrc.d/99-config-bash.sh: 99-config-bash.sh

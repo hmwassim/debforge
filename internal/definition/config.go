@@ -56,6 +56,16 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 		removeConfigs = rm
 	}
 
+	postInstall, err := resolveScriptFile(def.PostInstall, fs, configsDir)
+	if err != nil {
+		return nil, fmt.Errorf("config definition %s: %w", name, err)
+	}
+
+	postRemove, err := resolveScriptFile(def.PostRemove, fs, configsDir)
+	if err != nil {
+		return nil, fmt.Errorf("config definition %s: %w", name, err)
+	}
+
 	return &pkg.Package{
 		Name:          name,
 		Description:   def.Description,
@@ -64,9 +74,29 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 		Configs:       configs,
 		RemoveConfigs: removeConfigs,
 		UserConfigs:   userConfigs,
-		PostInstall:   def.PostInstall,
-		PostRemove:    def.PostRemove,
+		PostInstall:   postInstall,
+		PostRemove:    postRemove,
 	}, nil
+}
+
+// resolveScriptFile reads a script from a file in configsDir if the value
+// looks like a filename (no newlines). Inline scripts (with newlines) and
+// empty values are returned as-is. If the file doesn't exist, the value is
+// treated as an inline script.
+func resolveScriptFile(script string, fs ports.FileSystem, configsDir string) (string, error) {
+	if script == "" || containsNewline(script) {
+		return script, nil
+	}
+	srcPath := filepath.Join(configsDir, script)
+	cleanDir := filepath.Clean(configsDir)
+	if !strings.HasPrefix(filepath.Clean(srcPath), cleanDir+string(filepath.Separator)) && filepath.Clean(srcPath) != cleanDir {
+		return "", fmt.Errorf("script source %s: path traversal outside configs directory", script)
+	}
+	data, err := fs.ReadFile(srcPath)
+	if err != nil {
+		return script, nil
+	}
+	return string(data), nil
 }
 
 // configsDirFromYAMLPath derives the config source directory from the
