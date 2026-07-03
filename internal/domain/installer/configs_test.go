@@ -3,6 +3,7 @@ package installer
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -251,6 +252,77 @@ func TestWriteUserConfigs_existingWithBaseline(t *testing.T) {
 	}
 	if updated[expandedPath] != hashes[expandedPath] {
 		t.Errorf("expected hash to be updated, got %q", updated[expandedPath])
+	}
+}
+
+func TestFileIsModified_forceInstall(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	if FileIsModified(fs, "/any/path", "content", true) {
+		t.Error("expected false when forceInstall is true")
+	}
+}
+
+func TestFileIsModified_notExists(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	if FileIsModified(fs, "/nonexistent", "content", false) {
+		t.Error("expected false when file does not exist")
+	}
+}
+
+func TestFileIsModified_existsError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.ExistsFunc = func(_ string) (bool, error) {
+		return false, errors.New("stat failed")
+	}
+	if FileIsModified(fs, "/any", "content", false) {
+		t.Error("expected false when Exists errors")
+	}
+}
+
+func TestFileIsModified_readError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.ExistsFunc = func(_ string) (bool, error) { return true, nil }
+	// File not in Files map so ReadFile fails
+	if FileIsModified(fs, "/some/file", "other", false) {
+		t.Error("expected false when ReadFile errors")
+	}
+}
+
+func TestFileIsModified_unchanged(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/some/file"] = []byte("same content")
+	if FileIsModified(fs, "/some/file", "same content", false) {
+		t.Error("expected false when content matches")
+	}
+}
+
+func TestFileIsModified_modified(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/some/file"] = []byte("old content")
+	if !FileIsModified(fs, "/some/file", "new content", false) {
+		t.Error("expected true when content differs")
+	}
+}
+
+func TestWriteUserConfigsWithHashes_chownDirError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	sys := &testutil.MockSystem{
+		Privileged: true,
+		Env:        map[string]string{"SUDO_USER": "testuser"},
+	}
+	fs.MkdirAllFunc = func(_ string, _ int) error { return nil }
+	fs.ChownFunc = func(path string, uid, gid int) error {
+		return errors.New("chown failed")
+	}
+	p := &pkg.Package{
+		Name: "test-pkg",
+		UserConfigs: map[string]string{
+			"~/.config/foo.conf": "content",
+		},
+	}
+	_, err := WriteUserConfigsWithHashes(fs, sys, &testutil.MockSpinner{}, p, nil)
+	if err == nil || !strings.Contains(err.Error(), "chown") {
+		t.Fatalf("expected chown error, got %v", err)
 	}
 }
 

@@ -266,6 +266,24 @@ func TestInstall_versionlessNoPrereqsFailsAtDownload(t *testing.T) {
 	}
 }
 
+func TestInstall_prereqsError(t *testing.T) {
+	inst := &Installer{
+		execApt: func(_ context.Context, _ ports.CommandRunner, args []string, _ ports.Spinner) error {
+			return errors.New("apt install failed")
+		},
+	}
+	p := &pkg.Package{
+		Name:     "test-deb",
+		Type:     pkg.TypeDeb,
+		URL:      "http://example.com/pkg.deb",
+		Packages: []string{"prereq"},
+	}
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil || !strings.Contains(err.Error(), "prerequisites") {
+		t.Fatalf("expected prerequisites error, got %v", err)
+	}
+}
+
 func TestInstall_proceedsWhenNotInstalledEvenIfVersionUnchanged(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

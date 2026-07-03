@@ -553,6 +553,131 @@ func TestGetSource_downloadError(t *testing.T) {
 	}
 }
 
+// gitOKRunner succeeds for git commands (ls-remote, clone) and returns
+// nil,nil,nil for everything else (including sh -c via RunWithOptions).
+type gitOKRunner struct{}
+
+func (r *gitOKRunner) Run(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+	if name == "git" && len(args) > 0 && args[0] == "ls-remote" {
+		return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
+	}
+	return nil, nil, nil
+}
+
+func (r *gitOKRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, name string, args ...string) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
+
+func TestInstall_prereqsError(t *testing.T) {
+	inst := &Installer{
+		runner: &gitOKRunner{},
+		fs:     testutil.NewMockFileSystem(),
+		execApt: func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
+			return errors.New("apt install failed")
+		},
+	}
+	p := &pkg.Package{
+		Name:     "test-src",
+		Type:     pkg.TypeSource,
+		Repo:     "https://example.com/repo.git",
+		Packages: []string{"build-dep"},
+		Source:   &pkg.SourceConfig{},
+	}
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil || !strings.Contains(err.Error(), "apt install") {
+		t.Fatalf("expected prereqs error, got %v", err)
+	}
+}
+
+func TestInstall_buildScriptError(t *testing.T) {
+	var buildCalled bool
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "git" {
+				return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+		RunWithOptionsFunc: func(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
+			buildCalled = true
+			return nil, nil, errors.New("build failed")
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+	p := &pkg.Package{
+		Name: "test-src",
+		Type: pkg.TypeSource,
+		Repo: "https://example.com/repo.git",
+		Source: &pkg.SourceConfig{
+			BuildScript: "echo building",
+		},
+	}
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil || !strings.Contains(err.Error(), "building") {
+		t.Fatalf("expected build error, got %v", err)
+	}
+	if !buildCalled {
+		t.Error("RunWithOptions was never called")
+	}
+}
+
+func TestInstall_installScriptError(t *testing.T) {
+	var callCount int
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "git" {
+				return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+		RunWithOptionsFunc: func(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
+			callCount++
+			if callCount == 2 {
+				return nil, nil, errors.New("install failed")
+			}
+			return nil, nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+	p := &pkg.Package{
+		Name: "test-src",
+		Type: pkg.TypeSource,
+		Repo: "https://example.com/repo.git",
+		Source: &pkg.SourceConfig{
+			BuildScript:   "echo building",
+			InstallScript: "echo installing",
+		},
+	}
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil || !strings.Contains(err.Error(), "installing") {
+		t.Fatalf("expected install error, got %v", err)
+	}
+}
+
+func TestInstall_postinstallError(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "git" {
+				return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
+			}
+			if name == "sh" {
+				return nil, nil, errors.New("postinstall failed")
+			}
+			return nil, nil, nil
+		},
+		RunWithOptionsFunc: func(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
+			return nil, nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+	p := newTestPackage("echo building", "")
+	p.Source.PostinstallScript = "echo postinstalling"
+	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
+	if err == nil || !strings.Contains(err.Error(), "post-install") {
+		t.Fatalf("expected postinstall error, got %v", err)
+	}
+}
+
 func TestInstall_checkVersionCmdError(t *testing.T) {
 	runner := &testutil.MockRunner{
 		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {

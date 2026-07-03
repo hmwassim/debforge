@@ -1,9 +1,7 @@
 package definition
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -82,11 +80,12 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 }
 
 // resolveScriptFile reads a script from a file in configsDir if the value
-// looks like a filename (no newlines). Inline scripts (with newlines) and
-// empty values are returned as-is. If the file doesn't exist, the value is
-// treated as an inline script.
+// looks like a filename (no newlines, no shell metacharacters). Inline
+// scripts (with newlines or shell metacharacters) and empty values are
+// returned as-is. If the value looks like a filename but the file can't be
+// read, the error is returned.
 func resolveScriptFile(script string, fs ports.FileSystem, configsDir string) (string, error) {
-	if script == "" || containsNewline(script) {
+	if script == "" || containsNewline(script) || looksLikeShellScript(script) {
 		return script, nil
 	}
 	srcPath := filepath.Join(configsDir, script)
@@ -96,12 +95,15 @@ func resolveScriptFile(script string, fs ports.FileSystem, configsDir string) (s
 	}
 	data, err := fs.ReadFile(srcPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("script file %s not found in configs directory", script)
-		}
-		return script, nil
+		return "", fmt.Errorf("read script file %s: %w", srcPath, err)
 	}
 	return string(data), nil
+}
+
+// looksLikeShellScript reports whether value contains shell metacharacters
+// that indicate it's an inline script rather than a script filename.
+func looksLikeShellScript(value string) bool {
+	return strings.ContainsAny(value, " \t;|&$`'\"(){}<>")
 }
 
 // configsDirFromYAMLPath derives the config source directory from the
