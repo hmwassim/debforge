@@ -787,7 +787,6 @@ func TestInstall_gpuCheckFail(t *testing.T) {
 	runner := &mockCmdRunner{
 		handlers: map[string]func(ctx context.Context, args ...string) ([]byte, []byte, error){
 			"lspci": func(_ context.Context, args ...string) ([]byte, []byte, error) {
-				// No NVIDIA GPU found.
 				return []byte("Intel Corporation Device"), nil, nil
 			},
 		},

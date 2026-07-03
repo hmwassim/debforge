@@ -75,21 +75,28 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 	names = expandGlobs(h.reg, names)
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
+	resolver := service.NewResolver(h.reg)
 	for _, name := range names {
 		p, ok := h.reg.Lookup(name)
-		if !ok || p.Apt == nil {
+		if !ok {
 			continue
 		}
-		if strings.ToLower(p.Name) != "nvidia" {
-			continue
-		}
-		spinner := u.Spinner(ctx, "checking gpu...")
-		if err := aptInst.CheckGPU(ctx, h.runner, p.Name); err != nil {
-			spinner.DoneWarn()
-			u.Warn("%s", err)
+		deps, err := resolver.Resolve(p)
+		if err != nil {
+			u.Error("resolve deps: %s", err)
 			return 1
 		}
-		spinner.Done()
+		for _, dep := range deps {
+			if strings.ToLower(dep.Name) == "nvidia" {
+				spinner := u.Spinner(ctx, "checking gpu...")
+				if err := aptInst.CheckGPU(ctx, h.runner, dep.Name); err != nil {
+					spinner.DoneWarn()
+					u.Warn("%s", err)
+					return 1
+				}
+				spinner.Done()
+			}
+		}
 	}
 
 	var conflicts []string
