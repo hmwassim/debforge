@@ -21,9 +21,14 @@ var resolvedConfigFiles = []resolvedConfig{
 	{
 		Path: "/etc/systemd/resolved.conf.d/99-dot.conf",
 		Content: `[Resolve]
-DNS=1.1.1.1 1.0.0.1
+DNS=1.1.1.2#security.cloudflare-dns.com 1.0.0.2#security.cloudflare-dns.com 2606:4700:4700::1112#security.cloudflare-dns.com 2606:4700:4700::1002#security.cloudflare-dns.com
+FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net
 DNSOverTLS=yes
-DNSSEC=allow-downgrade
+DNSSEC=yes
+DNSStubListener=yes
+MulticastDNS=no
+Cache=yes
+Domains=~.
 `,
 	},
 	{

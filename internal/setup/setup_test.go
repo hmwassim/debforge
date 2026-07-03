@@ -908,9 +908,14 @@ func TestResolvedStep_CheckMissing_Config(t *testing.T) {
 func TestResolvedStep_CheckSatisfied(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 	dotContent := `[Resolve]
-DNS=1.1.1.1 1.0.0.1
+DNS=1.1.1.2#security.cloudflare-dns.com 1.0.0.2#security.cloudflare-dns.com 2606:4700:4700::1112#security.cloudflare-dns.com 2606:4700:4700::1002#security.cloudflare-dns.com
+FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net
 DNSOverTLS=yes
-DNSSEC=allow-downgrade
+DNSSEC=yes
+DNSStubListener=yes
+MulticastDNS=no
+Cache=yes
+Domains=~.
 `
 	nmContent := `[main]
 dns=systemd-resolved
@@ -1019,8 +1024,8 @@ func TestTimesyncdStep_CheckDrifted(t *testing.T) {
 	modified := "user modified content"
 	fs.Files["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = []byte(modified)
 	original := `[Time]
-NTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org
-FallbackNTP=2.debian.pool.ntp.org 3.debian.pool.ntp.org
+NTP=time.cloudflare.com
+FallbackNTP=time.google.com 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
 `
 	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
 	cx.ConfigHashes["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = installer.Sha256Hex([]byte(original))
