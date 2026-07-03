@@ -121,17 +121,31 @@ func (s *ResolvedStep) Apply(ctx context.Context, cx *Context, result CheckResul
 		}
 	}
 
-	cx.Runner.Run(ctx, "ln", "-sf", "/run/systemd/resolve/stub-resolv.conf", "/etc/resolv.conf")
-	cx.Runner.Run(ctx, "systemctl", "enable", "--now", "systemd-resolved")
-	cx.Runner.Run(ctx, "nmcli", "general", "reload")
-	cx.Runner.Run(ctx, "systemctl", "restart", "systemd-resolved")
+	if _, _, err := cx.Runner.Run(ctx, "ln", "-sf", "/run/systemd/resolve/stub-resolv.conf", "/etc/resolv.conf"); err != nil {
+		return fmt.Errorf("link resolv.conf: %w", err)
+	}
+	if _, _, err := cx.Runner.Run(ctx, "systemctl", "enable", "--now", "systemd-resolved"); err != nil {
+		return fmt.Errorf("enable systemd-resolved: %w", err)
+	}
+	if _, _, err := cx.Runner.Run(ctx, "nmcli", "general", "reload"); err != nil {
+		return fmt.Errorf("nmcli reload: %w", err)
+	}
+	if _, _, err := cx.Runner.Run(ctx, "systemctl", "restart", "systemd-resolved"); err != nil {
+		return fmt.Errorf("restart systemd-resolved: %w", err)
+	}
 
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 	for i := 0; i < 15; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
 		_, _, err := cx.Runner.Run(ctx, "resolvectl", "query", "debian.org")
 		if err == nil {
 			break
 		}
-		time.Sleep(2 * time.Second)
 	}
 
 	return nil

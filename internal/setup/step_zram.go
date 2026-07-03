@@ -110,7 +110,11 @@ func (s *ZramStep) Apply(ctx context.Context, cx *Context, result CheckResult) e
 		}
 	}
 
-	cx.Runner.Run(ctx, "systemctl", "daemon-reload")
-	cx.Runner.Run(ctx, "systemctl", "start", "systemd-zram-setup@zram0.service")
+	if _, _, err := cx.Runner.Run(ctx, "systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("daemon-reload: %w", err)
+	}
+	if _, _, err := cx.Runner.Run(ctx, "systemctl", "start", "systemd-zram-setup@zram0.service"); err != nil {
+		return fmt.Errorf("start zram: %w", err)
+	}
 	return nil
 }

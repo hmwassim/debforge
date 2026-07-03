@@ -108,7 +108,11 @@ func (s *TimesyncdStep) Apply(ctx context.Context, cx *Context, result CheckResu
 		}
 	}
 
-	cx.Runner.Run(ctx, "systemctl", "enable", "--now", "systemd-timesyncd")
-	cx.Runner.Run(ctx, "timedatectl", "set-ntp", "true")
+	if _, _, err := cx.Runner.Run(ctx, "systemctl", "enable", "--now", "systemd-timesyncd"); err != nil {
+		return fmt.Errorf("enable timesyncd: %w", err)
+	}
+	if _, _, err := cx.Runner.Run(ctx, "timedatectl", "set-ntp", "true"); err != nil {
+		return fmt.Errorf("set-ntp: %w", err)
+	}
 	return nil
 }

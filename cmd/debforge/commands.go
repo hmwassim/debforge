@@ -367,13 +367,26 @@ func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string)
 func extractFlags(ss []string, yes, force, all *bool) []string {
 	out := make([]string, 0, len(ss))
 	for _, s := range ss {
-		switch s {
-		case "-y", "--yes":
+		switch {
+		case s == "--yes":
 			*yes = true
-		case "-f", "--force":
+		case s == "--force":
 			*force = true
-		case "-a", "--all":
+		case s == "--all":
 			*all = true
+		case strings.HasPrefix(s, "-") && len(s) > 1 && s[1] != '-':
+			for _, c := range s[1:] {
+				switch c {
+				case 'y':
+					*yes = true
+				case 'f':
+					*force = true
+				case 'a':
+					*all = true
+				default:
+					out = append(out, "-"+string(c))
+				}
+			}
 		default:
 			out = append(out, s)
 		}
@@ -410,6 +423,7 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 		return 0
 	}
 	spinner := u.Spinner(ctx, "Processing")
+	defer spinner.Stop()
 	if err := fn(spinner); err != nil {
 		if !errors.Is(err, service.ErrNotInstalled) {
 			u.Error("%s", err)

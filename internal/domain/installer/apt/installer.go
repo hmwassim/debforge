@@ -351,7 +351,7 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 // ---- main packages --------------------------------------------------------
 
 func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	pkgs := p.Packages
+	pkgs := append([]string(nil), p.Packages...)
 	if p.Apt.Variant != "" {
 		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
 			pkgs = append(pkgs, v...)
