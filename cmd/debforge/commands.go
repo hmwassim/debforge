@@ -224,6 +224,9 @@ func (h *commandHandler) doctor(ctx context.Context, u ports.UI) int {
 
 	allOk := true
 	for i, r := range results {
+		if _, ok := steps[i].(*setup.UpgradeStep); ok {
+			continue
+		}
 		name := steps[i].Name()
 		switch r.Status {
 		case setup.StatusSatisfied:
