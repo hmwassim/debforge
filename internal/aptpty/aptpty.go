@@ -263,7 +263,7 @@ const pkgWidth = 24
 func progressDesc(state *runState, pkg string, cur int64) string {
 	if state.phase == phaseDownload {
 		display := pkg
-		if len(pkg) > pkgWidth {
+		if len(pkg) >= pkgWidth {
 			display = pkg[:pkgWidth-3] + "..."
 		} else {
 			display = fmt.Sprintf("%-*s", pkgWidth, display)
