@@ -5,8 +5,6 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
-const SetupStateFile = "setup_state.json"
-
 type State struct {
 	ConfigHashes map[string]string `json:"config_hashes,omitempty"`
 }

@@ -54,7 +54,7 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("LockPath = %q, want %q", cfg.LockPath, wantLockPath)
 	}
 
-	wantStatePath := filepath.Join(DefaultRootDir, "var", "states", "state.json")
+	wantStatePath := filepath.Join(DefaultRootDir, "var", "states", "packages.state.json")
 	if cfg.StatePath != wantStatePath {
 		t.Errorf("StatePath = %q, want %q", cfg.StatePath, wantStatePath)
 	}

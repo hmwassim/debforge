@@ -65,7 +65,7 @@ func DefaultConfig() *Config {
 
 		PkgsDir:        filepath.Join(sourceDir, "repo", "packages"),
 		LockPath:       filepath.Join(varDir, "lock"),
-		StatePath:      filepath.Join(varDir, "states", "state.json"),
-		SetupStatePath: filepath.Join(varDir, "setup_state.json"),
+		StatePath:      filepath.Join(varDir, "states", "packages.state.json"),
+		SetupStatePath: filepath.Join(varDir, "states", "setup.state.json"),
 	}
 }
