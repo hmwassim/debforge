@@ -398,6 +398,150 @@ func TestI386Step_CheckError(t *testing.T) {
 	}
 }
 
+// ---- package step helpers --------------------------------------------------
+
+func mockDpkgRunner(result string, err error) *testutil.MockRunner {
+	return &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if err != nil {
+				return nil, nil, err
+			}
+			n := len(args) - 2
+			lines := make([]byte, 0, n*10)
+			for i := 0; i < n; i++ {
+				lines = append(lines, result+"\n"...)
+			}
+			return lines, nil, nil
+		},
+	}
+}
+
+// ---- FirmwareStep tests ----------------------------------------------------
+
+func TestFirmwareStep_CheckSatisfied(t *testing.T) {
+	step := &FirmwareStep{}
+	cx := &Context{Runner: mockDpkgRunner("installed", nil), UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestFirmwareStep_CheckMissing(t *testing.T) {
+	step := &FirmwareStep{}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			return nil, nil, errors.New("exit status 1")
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestFirmwareStep_CheckError(t *testing.T) {
+	step := &FirmwareStep{}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return nil, nil, context.Canceled
+			}
+			return nil, nil, nil
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+// ---- DevtoolsStep tests ----------------------------------------------------
+
+func TestDevtoolsStep_CheckSatisfied(t *testing.T) {
+	step := &DevtoolsStep{}
+	cx := &Context{Runner: mockDpkgRunner("installed", nil), UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestDevtoolsStep_CheckMissing(t *testing.T) {
+	step := &DevtoolsStep{}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			return nil, nil, errors.New("exit status 1")
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestDevtoolsStep_CheckError(t *testing.T) {
+	step := &DevtoolsStep{}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return nil, nil, context.Canceled
+			}
+			return nil, nil, nil
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+// ---- KernelStep tests ------------------------------------------------------
+
+func TestKernelStep_CheckSatisfied(t *testing.T) {
+	step := &KernelStep{}
+	cx := &Context{Runner: mockDpkgRunner("installed", nil), UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestKernelStep_CheckMissing(t *testing.T) {
+	step := &KernelStep{}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			return nil, nil, errors.New("exit status 1")
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestKernelStep_CheckError(t *testing.T) {
+	step := &KernelStep{}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return nil, nil, context.Canceled
+			}
+			return nil, nil, nil
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := step.Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
 func TestI386Step_Apply(t *testing.T) {
 	step := &I386Step{}
 	var calls []string

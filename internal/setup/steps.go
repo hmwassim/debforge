@@ -12,6 +12,9 @@ func DefaultSteps() []Step {
 		},
 		&I386Step{},
 		&UpgradeStep{},
+		&FirmwareStep{},
+		&DevtoolsStep{},
+		&KernelStep{},
 	}
 }
 
