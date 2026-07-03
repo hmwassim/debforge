@@ -10,16 +10,14 @@ install:
     - python3-setuptools-scm
     - python3-vdf
     - python3-pil
+    - desktop-file-utils
   install: |
     SETUPTOOLS_SCM_PRETEND_VERSION={version} python3 setup.py install --prefix=/usr/local
-    install -Dm644 src/protontricks/data/share/applications/protontricks.desktop \
-      -t /usr/local/share/applications
-    install -Dm644 src/protontricks/data/share/applications/protontricks-launch.desktop \
-      -t /usr/local/share/applications
+    protontricks-desktop-install
   postinstall: |
-    update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
+    update-desktop-database -q ~/.local/share/applications 2>/dev/null || true
 remove:
   script: |
-    rm -f /usr/local/share/applications/protontricks.desktop
-    rm -f /usr/local/share/applications/protontricks-launch.desktop
-    update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
+    rm -f ~/.local/share/applications/protontricks.desktop
+    rm -f ~/.local/share/applications/protontricks-launch.desktop
+    update-desktop-database -q ~/.local/share/applications 2>/dev/null || true
