@@ -1,0 +1,14 @@
+name: protontricks
+description: A simple wrapper for running Winetricks commands for Proton-enabled games
+type: source
+install:
+  url: https://github.com/Matoking/protontricks/archive/refs/tags/{version}.tar.gz
+  packages:
+    - python3
+    - python3-setuptools
+    - python3-wheel
+    - python3-setuptools-scm
+    - python3-vdf
+    - python3-pil
+  install: |
+    SETUPTOOLS_SCM_PRETEND_VERSION={version} python3 setup.py install --prefix=/usr/local
