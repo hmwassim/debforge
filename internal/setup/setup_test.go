@@ -1084,9 +1084,9 @@ type mockSysDesktop struct {
 	env map[string]string
 }
 
-func (m *mockSysDesktop) IsPrivileged() bool                          { return false }
-func (m *mockSysDesktop) Getenv(key string) string                    { return m.env[key] }
-func (m *mockSysDesktop) UserHomeDir() (string, error)                { return "/home/user", nil }
+func (m *mockSysDesktop) IsPrivileged() bool                              { return false }
+func (m *mockSysDesktop) Getenv(key string) string                        { return m.env[key] }
+func (m *mockSysDesktop) UserHomeDir() (string, error)                    { return "/home/user", nil }
 func (m *mockSysDesktop) LookupUser(name string) (*ports.UserInfo, error) { return nil, nil }
 
 func desktopCx(runner *testutil.MockRunner, de string) *Context {
@@ -1106,7 +1106,7 @@ func desktopCxWithFs(fs *testutil.MockFileSystem, runner *testutil.MockRunner, d
 
 func desktopCxSatisfied(runner *testutil.MockRunner, de string) *Context {
 	fs := testutil.NewMockFileSystem()
-	fs.Files["/home/user/.config/bashrc.d"] = []byte{}        // dir marker
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{} // dir marker
 	fs.Files["/home/user/.bashrc"] = bashrcDBlock
 	return desktopCxWithFs(fs, runner, de)
 }
