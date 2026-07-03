@@ -5,4 +5,5 @@ install:
   user_configs:
     ~/.config/bashrc.d/00-readline.sh: 00-readline.sh
     ~/.config/bashrc.d/10-aliases.sh: 10-aliases.sh
+    ~/.config/bashrc.d/90-fzf.sh: 90-fzf.sh
     ~/.config/bashrc.d/99-starship.sh: 99-starship.sh

@@ -26,7 +26,7 @@ fi
 
 var baseDesktopPackages = []string{
 	"eza", "starship", "papirus-icon-theme", "fastfetch", "bat", "ripgrep",
-	"flatpak", "xdg-desktop-portal",
+	"flatpak", "xdg-desktop-portal", "fzf",
 }
 
 type DesktopStep struct{}
