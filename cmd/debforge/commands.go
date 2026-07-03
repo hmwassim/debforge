@@ -342,7 +342,7 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 		u.Info("Cancelled")
 		return 0
 	}
-	spinner := u.Spinner(ctx, "Working")
+	spinner := u.Spinner(ctx, "Processing")
 	if err := fn(spinner); err != nil {
 		if !errors.Is(err, service.ErrNotInstalled) {
 			u.Error("%s", err)

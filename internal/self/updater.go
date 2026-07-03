@@ -41,7 +41,7 @@ func (u *Updater) update(ctx context.Context) error {
 			return fmt.Errorf("mkdir %s: %w", d, err)
 		}
 	}
-	spinner := u.logger.Spinner(ctx, "Working")
+	spinner := u.logger.Spinner(ctx, "Processing")
 	defer spinner.Done()
 
 	sourceExists, err := sourceRepoExists(u.fs, u.cfg.SourceDir)
