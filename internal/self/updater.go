@@ -128,6 +128,11 @@ func (u *Updater) update(ctx context.Context) error {
 		return fmt.Errorf("symlink: %w", err)
 	}
 
+	if err := u.installCompletions(ctx); err != nil {
+		spinner.SetDesc("Warning: completions not installed")
+		u.logger.Warn("completions: %s", err)
+	}
+
 	if sourceExists {
 		spinner.SetDesc("Updated to latest version")
 	} else {
@@ -208,6 +213,31 @@ func (u *Updater) verify(ctx context.Context, path string) error {
 
 func (u *Updater) installBinary(src, dst string) error {
 	return u.fs.Rename(src, dst)
+}
+
+func (u *Updater) installCompletions(ctx context.Context) error {
+	type completion struct {
+		src, dst string
+	}
+	entries := []completion{
+		{"completions/debforge.bash", "/usr/share/bash-completion/completions/debforge"},
+		{"completions/_debforge", "/usr/share/zsh/vendor-completions/_debforge"},
+		{"completions/debforge.fish", "/usr/share/fish/vendor_completions.d/debforge.fish"},
+	}
+	for _, e := range entries {
+		src := filepath.Join(u.cfg.SourceDir, e.src)
+		data, err := u.fs.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", e.src, err)
+		}
+		if err := u.fs.MkdirAll(filepath.Dir(e.dst), 0755); err != nil {
+			return fmt.Errorf("mkdir %s: %w", filepath.Dir(e.dst), err)
+		}
+		if err := u.fs.WriteFile(e.dst, data, 0644); err != nil {
+			return fmt.Errorf("write %s: %w", e.dst, err)
+		}
+	}
+	return nil
 }
 
 func (u *Updater) ensureLink(target, link string) error {

@@ -1,0 +1,39 @@
+#compdef debforge
+
+_debforge() {
+    local -a commands=(
+        'install:Install packages'
+        'remove:Remove packages from system'
+        'update:Reinstall packages'
+        'setup:Provision system'
+        'doctor:Check system health'
+        'search:Search packages'
+    )
+
+    local idx
+    for ((idx=1; idx<=$#words; idx++)); do
+        [[ "${words[idx]}" == "debforge" ]] && break
+    done
+
+    if [[ $CURRENT -eq $((idx + 1)) ]]; then
+        _describe 'command' commands
+        return
+    fi
+
+    local cmd="${words[idx+1]}"
+    case "$cmd" in
+        install|remove|update|search)
+            local pkgs_dir="${DEBFORGE_PKGS_DIR:-/opt/debforge/src/repo/packages}"
+            local -a packages
+            packages=(${(f)"$(grep -rh '^name:' $pkgs_dir 2>/dev/null | awk '{print $2}' | sort -u)"})
+            local -a used=()
+            for ((i=idx+2; i<CURRENT; i++)); do
+                [[ "${words[i]}" != -* ]] && used+=("${words[i]}")
+            done
+            packages=(${packages:|used})
+            _describe 'package' packages
+            ;;
+    esac
+}
+
+_debforge "$@"

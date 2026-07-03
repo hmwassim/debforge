@@ -82,6 +82,14 @@ if [ -e "$LINK" ] && [ ! -L "$LINK" ]; then
 fi
 ln -sf "$BIN_DIR/debforge" "$LINK"
 
+info "Installing shell completions..."
+mkdir -p /usr/share/bash-completion/completions \
+         /usr/share/zsh/vendor-completions \
+         /usr/share/fish/vendor_completions.d
+cp "$SRC_DIR/completions/debforge.bash" /usr/share/bash-completion/completions/debforge
+cp "$SRC_DIR/completions/_debforge" /usr/share/zsh/vendor-completions/_debforge
+cp "$SRC_DIR/completions/debforge.fish" /usr/share/fish/vendor_completions.d/debforge.fish
+
 echo ""
 ok "debforge installed at ${LINK}"
 

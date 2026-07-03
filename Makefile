@@ -22,3 +22,7 @@ install: build
 	install -d /opt/debforge/bin
 	cp bin/$(BINARY) /opt/debforge/bin/$(BINARY)
 	ln -sf /opt/debforge/bin/$(BINARY) /usr/local/bin/$(BINARY)
+	install -d /usr/share/bash-completion/completions /usr/share/zsh/vendor-completions /usr/share/fish/vendor_completions.d
+	install -m644 completions/debforge.bash /usr/share/bash-completion/completions/debforge
+	install -m644 completions/_debforge /usr/share/zsh/vendor-completions/_debforge
+	install -m644 completions/debforge.fish /usr/share/fish/vendor_completions.d/debforge.fish
