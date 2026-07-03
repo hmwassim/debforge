@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"sort"
 	"strings"
 
@@ -71,6 +72,7 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 }
 
 func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string, forceMode bool) int {
+	names = expandGlobs(h.reg, names)
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
 	for _, name := range names {
@@ -115,6 +117,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 }
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
+	names = expandGlobs(h.reg, names)
 	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
 	st, err := h.stateSvc.Load()
@@ -130,6 +133,7 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
+	names = expandGlobs(h.reg, names)
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
@@ -346,4 +350,32 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 		return 1
 	}
 	return 0
+}
+
+// expandGlobs expands glob patterns in names against the registry.
+// Names without glob characters are kept as-is. Duplicates are removed.
+func expandGlobs(reg *pkg.Registry, names []string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, name := range names {
+		if !containsGlob(name) {
+			if !seen[name] {
+				out = append(out, name)
+				seen[name] = true
+			}
+			continue
+		}
+		reg.Range(func(key string, _ *pkg.Package) bool {
+			if ok, _ := path.Match(name, key); ok && !seen[key] {
+				out = append(out, key)
+				seen[key] = true
+			}
+			return true
+		})
+	}
+	return out
+}
+
+func containsGlob(s string) bool {
+	return strings.ContainsAny(s, "*?[")
 }
