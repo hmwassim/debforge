@@ -82,6 +82,32 @@ func TestExtractFlags(t *testing.T) {
 			wantY: true,
 		},
 		{
+			name:  "combined short flags",
+			input: []string{"-yf", "firefox"},
+			want:  []string{"firefox"},
+			wantY: true,
+			wantF: true,
+		},
+		{
+			name:  "combined short flags all three",
+			input: []string{"-yfa", "firefox"},
+			want:  []string{"firefox"},
+			wantY: true,
+			wantF: true,
+			wantA: true,
+		},
+		{
+			name:  "unknown short flag passes through",
+			input: []string{"-x", "firefox"},
+			want:  []string{"-x", "firefox"},
+		},
+		{
+			name:  "mixed known and unknown short flags",
+			input: []string{"-yx", "firefox"},
+			want:  []string{"-x", "firefox"},
+			wantY: true,
+		},
+		{
 			name:  "empty input",
 			input: []string{},
 			want:  []string{},

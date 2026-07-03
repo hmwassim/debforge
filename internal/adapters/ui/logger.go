@@ -32,7 +32,7 @@ func (c *consoleOutput) writef(w io.Writer, format string, args ...any) {
 	c.mu.Unlock()
 }
 
-func isTerminal(w io.Writer) bool {
+var isTerminal = func(w io.Writer) bool {
 	if f, ok := w.(*os.File); ok {
 		return term.IsTerminal(int(f.Fd()))
 	}

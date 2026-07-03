@@ -1,6 +1,6 @@
 package setup
 
-func DefaultSteps() []Step {
+var DefaultSteps = func() []Step {
 	return []Step{
 		&ReposStep{
 			Sources: []RepoSource{

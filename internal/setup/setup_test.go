@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
@@ -1443,5 +1444,370 @@ func TestFontsStep_Apply_ForceOverwrites(t *testing.T) {
 	data, _ := fs.ReadFile("/etc/fonts/local.conf")
 	if string(data) == "old content" {
 		t.Error("force should overwrite")
+	}
+}
+
+// ---- Step Name tests -------------------------------------------------------
+
+func TestStepNames(t *testing.T) {
+	tests := []struct {
+		step Step
+		want string
+	}{
+		{&ReposStep{}, "Configured Debian repositories"},
+		{&I386Step{}, "Enabled i386 architecture"},
+		{&UpgradeStep{}, "Upgraded system packages"},
+		{&FirmwareStep{}, "Installed firmware"},
+		{&DevtoolsStep{}, "Installed core development tools"},
+		{&KernelStep{}, "Installed backported kernel"},
+		{&ZramStep{}, "Configured zram swap"},
+		{&ResolvedStep{}, "Configured DNS-over-TLS"},
+		{&TimesyncdStep{}, "Configured NTP time sync"},
+		{&ExtrepoStep{}, "Configured extrepo"},
+		{&MesaStep{}, "Installed Mesa GPU drivers"},
+		{&MultimediaStep{}, "Installed multimedia stack"},
+		{&FontsStep{}, "Installed fonts"},
+		{&DesktopStep{}, "Installed desktop tools"},
+	}
+	for _, tc := range tests {
+		got := tc.step.Name()
+		if got != tc.want {
+			t.Errorf("%T.Name() = %q, want %q", tc.step, got, tc.want)
+		}
+	}
+}
+
+// ---- UpgradeStep tests ----------------------------------------------------
+
+func TestUpgradeStep_Check(t *testing.T) {
+	step := &UpgradeStep{}
+	result := step.Check(context.Background(), &Context{UI: &testutil.MockUI{}})
+	if result.Status != StatusMissing {
+		t.Errorf("expected StatusMissing, got %v", result.Status)
+	}
+}
+
+func saveAptExec() func() {
+	orig := aptpty.AptExec
+	return func() { aptpty.AptExec = orig }
+}
+
+func TestUpgradeStep_Apply(t *testing.T) {
+	defer saveAptExec()()
+	aptpty.AptExec = func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
+		return nil
+	}
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "apt-get" && len(args) > 0 && args[0] == "update" {
+				return nil, nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+	step := &UpgradeStep{}
+	ui := &testutil.MockUI{}
+	cx := &Context{Runner: runner, UI: ui}
+	if err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+}
+
+func TestUpgradeStep_ApplyUpdateError(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "apt-get" && len(args) > 0 && args[0] == "update" {
+				return nil, nil, errors.New("update failed")
+			}
+			return nil, nil, nil
+		},
+	}
+	step := &UpgradeStep{}
+	ui := &testutil.MockUI{}
+	cx := &Context{Runner: runner, UI: ui}
+	err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "update failed") {
+		t.Errorf("expected update failed, got %v", err)
+	}
+}
+
+func TestUpgradeStep_ApplyUpgradeError(t *testing.T) {
+	defer saveAptExec()()
+	aptpty.AptExec = func(_ context.Context, _ ports.CommandRunner, args []string, _ ports.Spinner) error {
+		return errors.New("upgrade failed")
+	}
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "apt-get" && len(args) > 0 && args[0] == "update" {
+				return nil, nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+	step := &UpgradeStep{}
+	ui := &testutil.MockUI{}
+	cx := &Context{Runner: runner, UI: ui}
+	err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "upgrade failed") {
+		t.Errorf("expected upgrade failed, got %v", err)
+	}
+}
+
+// ---- allInstalled tests ---------------------------------------------------
+
+func TestAllInstalled_emptyList(t *testing.T) {
+	ok, err := allInstalled(context.Background(), nil, nil)
+	if err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if !ok {
+		t.Error("expected true for empty list")
+	}
+}
+
+func TestAllInstalled_notInstalledLine(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			return []byte("installed\nnot-installed\n"), nil, nil
+		},
+	}
+	ok, err := allInstalled(context.Background(), runner, []string{"pkg1", "pkg2"})
+	if err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if ok {
+		t.Error("expected false for not-installed line")
+	}
+}
+
+// ---- ZramStep Apply error paths -------------------------------------------
+
+func TestZramStep_Apply_DaemonReloadError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmdCount int
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmdCount++
+		if cmdCount == 1 && name == "systemctl" && len(args) > 0 && args[0] == "daemon-reload" {
+			return nil, nil, errors.New("daemon-reload failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&ZramStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestZramStep_Apply_StartServiceError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmdCount int
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmdCount++
+		if cmdCount == 2 && name == "systemctl" && len(args) > 0 && args[0] == "start" {
+			return nil, nil, errors.New("start failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&ZramStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// ---- TimesyncdStep Apply error paths --------------------------------------
+
+func TestTimesyncdStep_Apply_SystemctlError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "systemctl" {
+			return nil, nil, errors.New("systemctl failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&TimesyncdStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestTimesyncdStep_Apply_TimedatectlError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "timedatectl" {
+			return nil, nil, errors.New("timedatectl failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&TimesyncdStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// ---- ResolvedStep Apply error paths ---------------------------------------
+
+func TestResolvedStep_Apply_SystemctlError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "systemctl" {
+			return nil, nil, errors.New("systemctl failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&ResolvedStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestResolvedStep_Apply_NmcliError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "nmcli" {
+			return nil, nil, errors.New("nmcli failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&ResolvedStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestResolvedStep_Apply_ResolvectlError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var callCount int
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "resolvectl" {
+			callCount++
+			return nil, nil, errors.New("resolvectl failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	_ = callCount
+	err := (&ResolvedStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error for resolvectl failure, got nil")
+	}
+}
+
+// ---- DesktopStep Apply error paths ----------------------------------------
+
+func TestDesktopStep_Apply_FlatpakError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "flatpak" {
+			return nil, nil, errors.New("flatpak failed")
+		}
+		return nil, nil, nil
+	})
+	cx := desktopCxWithFs(fs, runner, "")
+	err := (&DesktopStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error for flatpak failure, got nil")
+	}
+}
+
+// ---- ReposStep Apply error paths ------------------------------------------
+
+func TestReposStep_ApplyWriteError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.WriteFileFunc = func(_ string, _ []byte, _ int) error {
+		return errors.New("write denied")
+	}
+	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list", Content: "deb ..."}}}
+	cx := newReposCx(fs, false)
+	err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// ---- ExtrepoStep Apply error paths ----------------------------------------
+
+func TestExtrepoStep_Apply_WriteError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.WriteFileFunc = func(_ string, _ []byte, _ int) error {
+		return errors.New("write denied")
+	}
+	runner := pkgCfgRunner("installed", nil, nil)
+	cx := newPkgCfgCx(fs, runner)
+	err := (&ExtrepoStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// ---- FontsStep Apply error paths -----------------------------------------
+
+func TestFontsStep_Apply_FcCacheError(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		if name == "fc-cache" {
+			return nil, nil, errors.New("fc-cache failed")
+		}
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	err := (&FontsStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// ---- DesktopStep bashrc read error paths ----------------------------------
+
+func TestDesktopStep_Check_BashrcNotReadable(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
+	// No .bashrc file — ReadFile returns error
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing for unreadable bashrc, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_Check_BashrcDriftedWithBaseline(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modifiedBlock := []byte(bashrcDStartMarker + "new content from update\n" + bashrcDEndMarker)
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
+	fs.Files["/home/user/.bashrc"] = modifiedBlock
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	// Baseline matches the current disk content (user hasn't touched it),
+	// but the step's default block has been updated.
+	cx.ConfigHashes["/home/user/.bashrc"] = installer.Sha256Hex(modifiedBlock)
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusDrifted {
+		t.Errorf("expected drifted for modified block with matching baseline, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_Check_BashrcConflict(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modifiedBlock := []byte(bashrcDStartMarker + "modified content" + bashrcDEndMarker)
+	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
+	fs.Files["/home/user/.bashrc"] = modifiedBlock
+	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
+	cx.ConfigHashes["/home/user/.bashrc"] = installer.Sha256Hex([]byte("original baseline"))
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusConflict {
+		t.Errorf("expected conflict for modified block with different baseline, got %v", result.Status)
 	}
 }

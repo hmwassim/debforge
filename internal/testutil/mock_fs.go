@@ -34,6 +34,7 @@ type MockFileSystem struct {
 	ExistsFunc    func(path string) (bool, error)
 	StatFunc      func(path string) (ports.FileInfo, error)
 	WalkFunc      func(root string, fn func(path string, info ports.FileInfo, err error) error) error
+	WriteFileFunc func(path string, data []byte, perm int) error
 	ChownFunc     func(path string, uid, gid int) error
 }
 
@@ -50,7 +51,10 @@ func (m *MockFileSystem) ReadFile(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (m *MockFileSystem) WriteFile(path string, data []byte, _ int) error {
+func (m *MockFileSystem) WriteFile(path string, data []byte, perm int) error {
+	if m.WriteFileFunc != nil {
+		return m.WriteFileFunc(path, data, perm)
+	}
 	m.Files[path] = data
 	return nil
 }

@@ -101,12 +101,18 @@ func (d *Display) run() {
 	if !d.tty {
 		// Nothing to animate without a terminal: emit one line up front
 		// and let doneWith print the final state when the spinner ends.
-		defaultConsole.writef(d.w, "[%s] %s\n", "i", d.content)
+		d.mu.Lock()
+		content := d.content
+		d.mu.Unlock()
+		defaultConsole.writef(d.w, "[%s] %s\n", "i", content)
 		<-d.stopOrCtxDone()
 		return
 	}
 
-	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, d.content)
+	d.mu.Lock()
+	content := d.content
+	d.mu.Unlock()
+	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, content)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	idx := 1

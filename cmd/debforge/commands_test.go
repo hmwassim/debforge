@@ -333,10 +333,11 @@ func newHandlerForTest(
 	cfg *self.Config,
 	runner ports.CommandRunner,
 	fsys ports.FileSystem,
+	sys ports.System,
 ) *commandHandler {
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
-		locker: locker, cfg: cfg, runner: runner, fsys: fsys,
+		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
 	}
 }
 
@@ -352,7 +353,7 @@ func TestInstall_success(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var promptCalled bool
 	u := &testutil.MockUI{
@@ -380,7 +381,7 @@ func TestInstall_error(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var errorCalled bool
 	u := &testutil.MockUI{
@@ -415,7 +416,7 @@ func TestInstall_selectVariantsError(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var errorCalled bool
 	u := &testutil.MockUI{
@@ -457,7 +458,7 @@ func TestRemove_success(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var promptCalled bool
 	u := &testutil.MockUI{
@@ -485,7 +486,7 @@ func TestRemove_notInstalled(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var errorCalled bool
 	u := &testutil.MockUI{
@@ -542,7 +543,7 @@ func TestRemove_warnsOnCascade(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var infoMsg string
 	u := &testutil.MockUI{
@@ -601,7 +602,7 @@ func TestRemove_noWarnWithoutCascade(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var infoCalled bool
 	u := &testutil.MockUI{
@@ -649,7 +650,7 @@ func TestUpdate_success(t *testing.T) {
 		return nil
 	}
 
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var promptCalled bool
 	u := &testutil.MockUI{
@@ -674,7 +675,7 @@ func TestSearch_nonTerminal(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	// Pipe stdout so term.IsTerminal returns false.
 	old := os.Stdout
@@ -716,7 +717,7 @@ func TestSearch_loadError(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var errorCalled bool
 	u := &testutil.MockUI{
@@ -751,7 +752,7 @@ func TestInstall_gpuCheckSuccess(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	u := &testutil.MockUI{
 		PromptFunc: func(_ string, _ ...any) bool { return true },
@@ -782,7 +783,7 @@ func TestInstall_gpuCheckFail(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var warnCalled bool
 	u := &testutil.MockUI{
@@ -807,7 +808,7 @@ func TestSearch_noResultsWithPattern(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var infoCalled bool
 	u := &testutil.MockUI{
@@ -831,7 +832,7 @@ func TestSearch_emptyRegistryNoPattern(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	var infoCalled bool
 	u := &testutil.MockUI{
@@ -924,7 +925,7 @@ func TestSearch_pagerSuccess(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	// Force isTerminal=true and set PAGER to cat.
 	oldTerm := isTerminal
@@ -967,7 +968,7 @@ func TestSearch_pagerFails(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	oldTerm := isTerminal
 	isTerminal = func(_ int) bool { return true }
@@ -1010,7 +1011,7 @@ func TestSearch_noPagerAvailableTerminal(t *testing.T) {
 	stateSvc := service.NewStateManager(st)
 
 	cfg := &self.Config{LockPath: "/lock"}
-	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys)
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
 
 	oldTerm := isTerminal
 	isTerminal = func(_ int) bool { return true }
@@ -1068,7 +1069,7 @@ func TestInstall_conflictCheck(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var infoCalled bool
 	u := &testutil.MockUI{
@@ -1105,7 +1106,7 @@ func TestUpdate_runUpdateError(t *testing.T) {
 			},
 		},
 	}
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var errorCalled bool
 	u := &testutil.MockUI{
@@ -1158,7 +1159,7 @@ func TestUpdate_allMode(t *testing.T) {
 		return nil
 	}
 
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var promptCalled bool
 	u := &testutil.MockUI{
@@ -1205,7 +1206,7 @@ func TestUpdate_allMode_runUpgradeError(t *testing.T) {
 		return errors.New("full-upgrade failed")
 	}
 
-	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys)
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
 
 	var errorCalled bool
 	u := &testutil.MockUI{
@@ -1403,5 +1404,198 @@ install:
 	}
 	if !strings.Contains(err.Error(), "load state") {
 		t.Errorf("expected error to contain 'load state', got %q", err.Error())
+	}
+}
+
+// ---- GPU check tests -------------------------------------------------------
+
+func TestInstall_GPUCheck_nvidiaDepPasses(t *testing.T) {
+	reg := pkg.NewRegistry()
+	nv := &pkg.Package{Name: "nvflux", Type: pkg.TypeSource, Depends: []string{"nvidia"}}
+	reg.Register(nv)
+	reg.Register(&pkg.Package{Name: "nvidia", Type: pkg.TypeApt})
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeSource, &mockInstaller{})
+	instReg.Register(pkg.TypeApt, &mockInstaller{})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+	cfg := &self.Config{LockPath: "/lock"}
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "lspci" {
+				return []byte("NVIDIA GeForce RTX 4090"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
+	u := &testutil.MockUI{
+		PromptFunc: func(_ string, _ ...any) bool { return true },
+	}
+	code := h.install(context.Background(), u, []string{"nvflux"}, false)
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+}
+
+func TestInstall_GPUCheck_nvidiaDepFails(t *testing.T) {
+	reg := pkg.NewRegistry()
+	nv := &pkg.Package{Name: "nvflux", Type: pkg.TypeSource, Depends: []string{"nvidia"}}
+	reg.Register(nv)
+	reg.Register(&pkg.Package{Name: "nvidia", Type: pkg.TypeApt})
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeSource, &mockInstaller{})
+	instReg.Register(pkg.TypeApt, &mockInstaller{})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+	cfg := &self.Config{LockPath: "/lock"}
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "lspci" {
+				return []byte("Intel integrated graphics"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
+
+	var warnCalled bool
+	u := &testutil.MockUI{
+		PromptFunc: func(_ string, _ ...any) bool { return true },
+		WarnFunc:   func(_ string, _ ...any) { warnCalled = true },
+	}
+	code := h.install(context.Background(), u, []string{"nvflux"}, false)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+	if !warnCalled {
+		t.Error("expected Warn to be called when GPU check fails")
+	}
+}
+
+func TestInstall_GPUCheck_noNvidiaDepSkipsCheck(t *testing.T) {
+	reg := pkg.NewRegistry()
+	testPkg := &pkg.Package{Name: "firefox", Type: pkg.TypeApt}
+	reg.Register(testPkg)
+
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, &mockInstaller{})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+	cfg := &self.Config{LockPath: "/lock"}
+
+	lspciCalled := false
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "lspci" {
+				lspciCalled = true
+			}
+			return nil, nil, nil
+		},
+	}
+
+	h := newHandlerForTest(reg, instReg, stateSvc, &testutil.MockLocker{}, cfg, runner, fsys, &testutil.MockSystem{})
+	u := &testutil.MockUI{
+		PromptFunc: func(_ string, _ ...any) bool { return true },
+	}
+	code := h.install(context.Background(), u, []string{"firefox"}, false)
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+	if lspciCalled {
+		t.Error("lspci should not be called for unrelated package")
+	}
+}
+
+// ---- expandGlobs tests ----------------------------------------------------
+
+func TestExpandGlobs_noGlob(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "firefox"})
+	reg.Register(&pkg.Package{Name: "vim"})
+	result := expandGlobs(reg, []string{"firefox", "vim"})
+	if len(result) != 2 {
+		t.Errorf("expected 2, got %d", len(result))
+	}
+}
+
+func TestExpandGlobs_globExpands(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "fonts-nerd-fira"})
+	reg.Register(&pkg.Package{Name: "fonts-nerd-hack"})
+	reg.Register(&pkg.Package{Name: "other-pkg"})
+	result := expandGlobs(reg, []string{"fonts-nerd-*"})
+	if len(result) != 2 {
+		t.Errorf("expected 2, got %d: %v", len(result), result)
+	}
+}
+
+func TestExpandGlobs_shortPrefixTreatedAsLiteral(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "f*"})
+	result := expandGlobs(reg, []string{"f*"})
+	if len(result) != 1 || result[0] != "f*" {
+		t.Errorf("expected literal 'f*', got %v", result)
+	}
+}
+
+func TestExpandGlobs_dedup(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "fonts-nerd-hack"})
+	reg.Register(&pkg.Package{Name: "fonts-nerd-fira"})
+	result := expandGlobs(reg, []string{"fonts-nerd-*", "fonts-nerd-hack"})
+	if len(result) != 2 {
+		t.Errorf("expected 2 (hack deduped), got %d: %v", len(result), result)
+	}
+}
+
+func TestExpandGlobs_globNoMatch(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "firefox"})
+	result := expandGlobs(reg, []string{"fonts-nerd-*"})
+	if len(result) != 0 {
+		t.Errorf("expected 0, got %d", len(result))
+	}
+}
+
+func TestContainsGlob(t *testing.T) {
+	if !containsGlob("foo*") {
+		t.Error("expected true for *")
+	}
+	if !containsGlob("foo?") {
+		t.Error("expected true for ?")
+	}
+	if !containsGlob("[abc]") {
+		t.Error("expected true for [")
+	}
+	if containsGlob("literal") {
+		t.Error("expected false for literal")
+	}
+}
+
+func TestGlobPrefixLen(t *testing.T) {
+	if n := globPrefixLen("abc*"); n != 3 {
+		t.Errorf("expected 3, got %d", n)
+	}
+	if n := globPrefixLen("ab*"); n != 2 {
+		t.Errorf("expected 2, got %d", n)
+	}
+	if n := globPrefixLen("*"); n != 0 {
+		t.Errorf("expected 0, got %d", n)
+	}
+	if n := globPrefixLen("no-glob"); n != 7 {
+		t.Errorf("expected 7, got %d", n)
 	}
 }
