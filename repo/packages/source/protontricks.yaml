@@ -12,3 +12,5 @@ install:
     - python3-pil
   install: |
     SETUPTOOLS_SCM_PRETEND_VERSION={version} python3 setup.py install --prefix=/usr/local
+  postinstall: |
+    update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
