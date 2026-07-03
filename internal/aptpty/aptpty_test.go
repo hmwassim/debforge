@@ -334,7 +334,7 @@ func TestHandleLine_prompt(t *testing.T) {
 func TestProgressDesc_downloadWithLabel(t *testing.T) {
 	state := &runState{phase: phaseDownload, overallTotal: 10000000, overallLabel: "10 MB"}
 	got := progressDesc(state, "libc6", 5000000)
-	want := "Downloading libc6... [5.0M/10 MB]"
+	want := "Downloading libc6                   [5.0M/10 MB]"
 	if got != want {
 		t.Errorf("progressDesc = %q, want %q", got, want)
 	}
@@ -343,7 +343,7 @@ func TestProgressDesc_downloadWithLabel(t *testing.T) {
 func TestProgressDesc_downloadWithoutLabel(t *testing.T) {
 	state := &runState{phase: phaseDownload, overallTotal: 10000000}
 	got := progressDesc(state, "libc6", 5000000)
-	want := "Downloading libc6... [5.0M/10.0M]"
+	want := "Downloading libc6                   [5.0M/10.0M]"
 	if got != want {
 		t.Errorf("progressDesc = %q, want %q", got, want)
 	}
@@ -352,8 +352,9 @@ func TestProgressDesc_downloadWithoutLabel(t *testing.T) {
 func TestProgressDesc_downloadNoOverall(t *testing.T) {
 	state := &runState{phase: phaseDownload}
 	got := progressDesc(state, "libc6", 5000000)
-	if got != "Downloading libc6... [5.0M/1]" {
-		t.Errorf("progressDesc = %q, want %q", got, "Downloading libc6... [5.0M/1]")
+	want := "Downloading libc6                   [5.0M/?]"
+	if got != want {
+		t.Errorf("progressDesc = %q, want %q", got, want)
 	}
 }
 

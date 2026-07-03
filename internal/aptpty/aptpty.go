@@ -46,7 +46,6 @@ type runState struct {
 	cumulativeDone int64
 	prevPkgTotal   int64
 	installPkg     string
-	maxPkgLen      int
 }
 
 // ---- public API -----------------------------------------------------------
@@ -203,9 +202,6 @@ func handleLine(line string, state *runState, cur, total *int64, pkg *string, sp
 		*cur = c
 		*total = t
 		*pkg = n
-		if len(n) > state.maxPkgLen {
-			state.maxPkgLen = len(n)
-		}
 		return
 	}
 
@@ -262,18 +258,23 @@ func collectErr(s string, aptErrs *[]string) {
 	}
 }
 
+const pkgWidth = 24
+
 func progressDesc(state *runState, pkg string, cur int64) string {
 	if state.phase == phaseDownload {
-		if state.maxPkgLen > 0 {
-			pkg = fmt.Sprintf("%-*s", state.maxPkgLen, pkg)
+		display := pkg
+		if len(pkg) > pkgWidth {
+			display = pkg[:pkgWidth-3] + "..."
+		} else {
+			display = fmt.Sprintf("%-*s", pkgWidth, display)
 		}
 		curS := textutil.FormatSize(cur)
 		if state.overallLabel != "" {
-			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, state.overallLabel)
+			return fmt.Sprintf("Downloading %s[%s/%s]", display, curS, state.overallLabel)
 		} else if state.overallTotal > 0 {
-			return fmt.Sprintf("Downloading %s... [%s/%s]", pkg, curS, textutil.FormatSize(state.overallTotal))
+			return fmt.Sprintf("Downloading %s[%s/%s]", display, curS, textutil.FormatSize(state.overallTotal))
 		} else {
-			return fmt.Sprintf("Downloading %s... [%s/1]", pkg, curS)
+			return fmt.Sprintf("Downloading %s[%s/%s]", display, curS, "?")
 		}
 	} else {
 		disp := pkg
