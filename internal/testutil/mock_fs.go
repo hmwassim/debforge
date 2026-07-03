@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
@@ -24,6 +25,7 @@ type MockFileSystem struct {
 	// about the exact path.
 	TempDir string
 
+	CreateFunc    func(path string) (io.WriteCloser, error)
 	MkdirAllFunc  func(path string, perm int) error
 	RemoveAllFunc func(path string) error
 	RenameFunc    func(oldPath, newPath string) error
@@ -53,8 +55,25 @@ func (m *MockFileSystem) WriteFile(path string, data []byte, _ int) error {
 	return nil
 }
 
-func (m *MockFileSystem) Create(_ string) (io.WriteCloser, error) {
-	return nil, fmt.Errorf("MockFileSystem.Create not implemented")
+func (m *MockFileSystem) Create(path string) (io.WriteCloser, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(path)
+	}
+	return &memWriteCloser{fs: m, path: path}, nil
+}
+
+// memWriteCloser is an io.WriteCloser that buffers writes and writes to the
+// Files map on Close.
+type memWriteCloser struct {
+	fs   *MockFileSystem
+	path string
+	buf  bytes.Buffer
+}
+
+func (w *memWriteCloser) Write(p []byte) (int, error) { return w.buf.Write(p) }
+func (w *memWriteCloser) Close() error {
+	w.fs.Files[w.path] = w.buf.Bytes()
+	return nil
 }
 
 func (m *MockFileSystem) RemoveAll(path string) error {

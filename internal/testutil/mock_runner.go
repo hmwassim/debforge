@@ -8,15 +8,21 @@ import (
 
 type RunFunc func(ctx context.Context, name string, args ...string) ([]byte, []byte, error)
 
+type RunWithOptionsFunc func(ctx context.Context, opts ports.RunOptions, name string, args ...string) ([]byte, []byte, error)
+
 type MockRunner struct {
-	RunFunc RunFunc
+	RunFunc          RunFunc
+	RunWithOptionsFunc RunWithOptionsFunc
 }
 
 func (m *MockRunner) Run(ctx context.Context, name string, args ...string) ([]byte, []byte, error) {
 	return m.RunFunc(ctx, name, args...)
 }
 
-func (m *MockRunner) RunWithOptions(ctx context.Context, _ ports.RunOptions, name string, args ...string) ([]byte, []byte, error) {
+func (m *MockRunner) RunWithOptions(ctx context.Context, opts ports.RunOptions, name string, args ...string) ([]byte, []byte, error) {
+	if m.RunWithOptionsFunc != nil {
+		return m.RunWithOptionsFunc(ctx, opts, name, args...)
+	}
 	return m.RunFunc(ctx, name, args...)
 }
 

@@ -13,15 +13,6 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-type mockSystem struct{ privileged bool }
-
-func (m *mockSystem) IsPrivileged() bool           { return m.privileged }
-func (m *mockSystem) Getenv(_ string) string       { return "" }
-func (m *mockSystem) UserHomeDir() (string, error) { return "/home/test", nil }
-func (m *mockSystem) LookupUser(_ string) (*ports.UserInfo, error) {
-	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
-}
-
 func TestUsage(t *testing.T) {
 	old := os.Stdout
 	r, w, err := os.Pipe()
@@ -49,7 +40,7 @@ func TestUsage(t *testing.T) {
 	}
 }
 
-func newRunWithEnv(t *testing.T) (*testutil.MockFileSystem, *mockCmdRunner, *testutil.MockLocker, *mockSystem, *testutil.MockUI, *self.Config) {
+func newRunWithEnv(t *testing.T) (*testutil.MockFileSystem, *mockCmdRunner, *testutil.MockLocker, *testutil.MockSystem, *testutil.MockUI, *self.Config) {
 	t.Helper()
 	fsys := testutil.NewMockFileSystem()
 	cfg := &self.Config{PkgsDir: "/pkgs", LockPath: "/lock", StatePath: "/state.json"}
@@ -62,7 +53,7 @@ func newRunWithEnv(t *testing.T) (*testutil.MockFileSystem, *mockCmdRunner, *tes
 		},
 	}
 	locker := &testutil.MockLocker{}
-	sys := &mockSystem{privileged: true}
+	sys := &testutil.MockSystem{Privileged: true}
 	ui := &testutil.MockUI{}
 	return fsys, runner, locker, sys, ui, cfg
 }
@@ -109,7 +100,7 @@ func TestRunWith_unknownCommand(t *testing.T) {
 
 func TestRunWith_selfUpdate_notPrivileged(t *testing.T) {
 	fsys, runner, locker, _, ui, cfg := newRunWithEnv(t)
-	sys := &mockSystem{}
+	sys := &testutil.MockSystem{}
 	code := runWithArgs(context.Background(), []string{"--self-update"}, fsys, runner, locker, sys, ui, cfg)
 	if code != 1 {
 		t.Errorf("expected 1, got %d", code)
@@ -118,7 +109,7 @@ func TestRunWith_selfUpdate_notPrivileged(t *testing.T) {
 
 func TestRunWith_selfRemove_notPrivileged(t *testing.T) {
 	fsys, runner, locker, _, ui, cfg := newRunWithEnv(t)
-	sys := &mockSystem{}
+	sys := &testutil.MockSystem{}
 	code := runWithArgs(context.Background(), []string{"--self-remove"}, fsys, runner, locker, sys, ui, cfg)
 	if code != 1 {
 		t.Errorf("expected 1, got %d", code)
@@ -340,7 +331,7 @@ func TestRunWith_selfRemove_bootstrapError(t *testing.T) {
 	fsys.Files["/state.json"] = []byte(`{{{invalid json}}}`)
 	cfg := &self.Config{PkgsDir: "/pkgs", LockPath: "/lock", StatePath: "/state.json"}
 	runner := &mockCmdRunner{}
-	sys := &mockSystem{privileged: true}
+	sys := &testutil.MockSystem{Privileged: true}
 	ui := &testutil.MockUI{}
 	var errorCalled string
 	ui.ErrorFunc = func(fmt string, args ...any) {
@@ -360,7 +351,7 @@ func TestRunWith_bootstrapError(t *testing.T) {
 	fsys.Files["/state.json"] = []byte(`{{{invalid json}}}`)
 	cfg := &self.Config{PkgsDir: "/pkgs", LockPath: "/lock", StatePath: "/state.json"}
 	runner := &mockCmdRunner{}
-	sys := &mockSystem{privileged: true}
+	sys := &testutil.MockSystem{Privileged: true}
 	ui := &testutil.MockUI{}
 	var errorCalled string
 	ui.ErrorFunc = func(fmt string, args ...any) {

@@ -15,16 +15,7 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-type mockSys struct{}
-
-func (m *mockSys) IsPrivileged() bool           { return false }
-func (m *mockSys) Getenv(_ string) string       { return "" }
-func (m *mockSys) UserHomeDir() (string, error) { return "/home/test", nil }
-func (m *mockSys) LookupUser(_ string) (*ports.UserInfo, error) {
-	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
-}
-
-var testSys = &mockSys{}
+var testSys = &testutil.MockSystem{}
 
 type mockFileSystem struct {
 	files         map[string][]byte

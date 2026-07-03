@@ -22,15 +22,6 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-type mockSys struct{}
-
-func (m *mockSys) IsPrivileged() bool           { return false }
-func (m *mockSys) Getenv(_ string) string       { return "" }
-func (m *mockSys) UserHomeDir() (string, error) { return "/home/test", nil }
-func (m *mockSys) LookupUser(_ string) (*ports.UserInfo, error) {
-	return &ports.UserInfo{HomeDir: "/home/test", Uid: 1000, Gid: 1000}, nil
-}
-
 func TestCheckVersion_firstInstall(t *testing.T) {
 	runner := &testutil.MockRunner{
 		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
@@ -199,7 +190,7 @@ func TestNewInstaller(t *testing.T) {
 	runner := &testutil.MockRunner{}
 	fs := testutil.NewMockFileSystem()
 	ui := &testutil.MockUI{}
-	inst := NewInstaller(runner, fs, ui, &mockSys{})
+	inst := NewInstaller(runner, fs, ui, &testutil.MockSystem{})
 	if inst.runner != runner {
 		t.Error("runner not set")
 	}
