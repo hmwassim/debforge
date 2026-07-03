@@ -18,9 +18,9 @@ post_install: |
   MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
   MEM_TOTAL_MB=$(( MEM_TOTAL_KB / 1024 ))
   DIRTY_BG=$(( MEM_TOTAL_MB * 5 / 100 ))
-  (( DIRTY_BG > 1024 )) && DIRTY_BG=1024
+  [ "$DIRTY_BG" -gt 1024 ] && DIRTY_BG=1024
   DIRTY_MAX=$(( MEM_TOTAL_MB * 20 / 100 ))
-  (( DIRTY_MAX > 4096 )) && DIRTY_MAX=4096
+  [ "$DIRTY_MAX" -gt 4096 ] && DIRTY_MAX=4096
   mkdir -p /etc/sysctl.d
   printf '%s\n' \
     '# Virtual Memory (VM) Tuning for zRAM' \
