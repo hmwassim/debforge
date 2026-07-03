@@ -56,6 +56,16 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
+	if err := installer.RunPreInstall(ctx, i.runner, spinner, p.Name, p.PreInstall); err != nil {
+		return err
+	}
+	if p.PreInstall != "" {
+		spinner.SetDesc("refreshing package list...")
+		if err := i.execApt(ctx, i.runner, []string{"update"}, spinner); err != nil {
+			return err
+		}
+	}
+
 	if !p.ForceInstall {
 		upToDate, err := i.isUpToDate(ctx, p, spinner)
 		if err != nil {

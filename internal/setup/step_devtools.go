@@ -8,7 +8,7 @@ import (
 )
 
 var devtoolsPackages = []string{
-	"git", "curl", "wget", "unzip", "p7zip-full", "gzip",
+	"git", "curl", "wget", "unzip", "p7zip-full", "gzip", "gnupg",
 	"build-essential", "pkg-config", "cmake",
 	"nvme-cli", "smartmontools", "pciutils", "usbutils",
 	"cabextract", "zenity", "jq", "lm-sensors", "ddcutil",

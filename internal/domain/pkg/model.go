@@ -56,6 +56,7 @@ type Package struct {
 	Repo       string
 
 	// scripts
+	PreInstall  string
 	PostInstall string
 	PostRemove  string
 

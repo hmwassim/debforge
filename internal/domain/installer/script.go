@@ -68,6 +68,14 @@ func WithTempDir(fs ports.FileSystem, name string, fn func(tmpDir string) error)
 	return nil
 }
 
+// RunPreInstall executes the pre-install script if non-empty.
+func RunPreInstall(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner, name, script string) error {
+	if script == "" {
+		return nil
+	}
+	return RunScript(ctx, runner, spinner, name, script, "running pre-install for")
+}
+
 // RunPostInstall executes the post-install script if non-empty.
 func RunPostInstall(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner, name, script string) error {
 	if script == "" {

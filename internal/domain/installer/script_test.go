@@ -72,6 +72,13 @@ func TestRunScriptInDir_success(t *testing.T) {
 	}
 }
 
+func TestRunPreInstall_empty(t *testing.T) {
+	err := RunPreInstall(context.Background(), nil, nil, "test", "")
+	if err != nil {
+		t.Errorf("RunPreInstall empty: %v", err)
+	}
+}
+
 func TestRunPostInstall_empty(t *testing.T) {
 	err := RunPostInstall(context.Background(), nil, nil, "test", "")
 	if err != nil {
