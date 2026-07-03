@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
@@ -970,5 +971,266 @@ func TestTimesyncdStep_Apply_WritesConfigAndRunsServices(t *testing.T) {
 	}
 	if !foundTimedate {
 		t.Error("expected timedatectl set-ntp true")
+	}
+}
+
+// ---- DesktopStep helpers & tests ------------------------------------------
+
+type mockSysDesktop struct {
+	env map[string]string
+}
+
+func (m *mockSysDesktop) IsPrivileged() bool                          { return false }
+func (m *mockSysDesktop) Getenv(key string) string                    { return m.env[key] }
+func (m *mockSysDesktop) UserHomeDir() (string, error)                { return "/home/user", nil }
+func (m *mockSysDesktop) LookupUser(name string) (*ports.UserInfo, error) { return nil, nil }
+
+func desktopCx(runner *testutil.MockRunner, de string) *Context {
+	return &Context{
+		Runner:       runner,
+		Sys:          &mockSysDesktop{env: map[string]string{"XDG_CURRENT_DESKTOP": de}},
+		UI:           &testutil.MockUI{},
+		ConfigHashes: make(map[string]string),
+	}
+}
+
+func TestDesktopStep_CheckSatisfied_KDE(t *testing.T) {
+	cx := desktopCx(pkgCfgRunner("installed", nil, nil), "KDE")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_CheckSatisfied_GNOME(t *testing.T) {
+	cx := desktopCx(pkgCfgRunner("installed", nil, nil), "GNOME")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_CheckSatisfied_UnknownDE(t *testing.T) {
+	cx := desktopCx(pkgCfgRunner("installed", nil, nil), "")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_CheckMissing(t *testing.T) {
+	cx := desktopCx(pkgCfgRunner("", fmt.Errorf("exit 1"), nil), "KDE")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestDesktopStep_CheckError(t *testing.T) {
+	cx := desktopCx(pkgCfgRunner("", context.Canceled, nil), "KDE")
+	result := (&DesktopStep{}).Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+// ---- MesaStep tests -------------------------------------------------------
+
+func TestMesaStep_CheckSatisfied(t *testing.T) {
+	cx := &Context{Runner: mockDpkgRunner("installed", nil), UI: &testutil.MockUI{}}
+	result := (&MesaStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestMesaStep_CheckMissing(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, _ string, _ ...string) ([]byte, []byte, error) {
+			return nil, nil, errors.New("exit status 1")
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := (&MesaStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestMesaStep_CheckError(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return nil, nil, context.Canceled
+			}
+			return nil, nil, nil
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := (&MesaStep{}).Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+// ---- MultimediaStep tests -------------------------------------------------
+
+func TestMultimediaStep_CheckSatisfied(t *testing.T) {
+	cx := &Context{Runner: mockDpkgRunner("installed", nil), UI: &testutil.MockUI{}}
+	result := (&MultimediaStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestMultimediaStep_CheckMissing(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, _ string, _ ...string) ([]byte, []byte, error) {
+			return nil, nil, errors.New("exit status 1")
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := (&MultimediaStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestMultimediaStep_CheckError(t *testing.T) {
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				return nil, nil, context.Canceled
+			}
+			return nil, nil, nil
+		},
+	}
+	cx := &Context{Runner: runner, UI: &testutil.MockUI{}}
+	result := (&MultimediaStep{}).Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+// ---- FontsStep tests ------------------------------------------------------
+
+func TestFontsStep_CheckMissing_Package(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", fmt.Errorf("exit 1"), nil))
+	result := (&FontsStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestFontsStep_CheckSatisfied(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/fonts/local.conf"] = []byte(fontsConfigFiles[0].Content)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/fonts/local.conf"] = installer.Sha256Hex([]byte(fontsConfigFiles[0].Content))
+	result := (&FontsStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestFontsStep_CheckMissing_Config(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	result := (&FontsStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing (no config), got %v", result.Status)
+	}
+}
+
+func TestFontsStep_CheckDrifted(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/fonts/local.conf"] = []byte("user modified")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/fonts/local.conf"] = installer.Sha256Hex([]byte(fontsConfigFiles[0].Content))
+	result := (&FontsStep{}).Check(context.Background(), cx)
+	if result.Status != StatusDrifted {
+		t.Errorf("expected drifted, got %v", result.Status)
+	}
+}
+
+func TestFontsStep_CheckConflict(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/fonts/local.conf"] = []byte("user modified")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/fonts/local.conf"] = installer.Sha256Hex([]byte("original baseline"))
+	result := (&FontsStep{}).Check(context.Background(), cx)
+	if result.Status != StatusConflict {
+		t.Errorf("expected conflict, got %v", result.Status)
+	}
+}
+
+func TestFontsStep_Apply_WritesConfigAndRunsFcCache(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmds []string
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmds = append(cmds, name+" "+strings.Join(args, " "))
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	if err := (&FontsStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/fonts/local.conf"); err != nil {
+		t.Errorf("config file not written: %v", err)
+	}
+	if cx.ConfigHashes["/etc/fonts/local.conf"] == "" {
+		t.Error("hash should be recorded")
+	}
+	found := false
+	for _, c := range cmds {
+		if c == "fc-cache -f -v" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected fc-cache -f -v")
+	}
+}
+
+func TestFontsStep_Apply_ConflictWritesSidecar(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/fonts/local.conf"] = []byte("user content")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/fonts/local.conf"] = installer.Sha256Hex([]byte("original baseline"))
+	if err := (&FontsStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/fonts/local.conf.debforge-new"); err != nil {
+		t.Error("sidecar should exist")
+	}
+}
+
+func TestFontsStep_Apply_DriftedSkipsWithoutForce(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modified := "user modified content"
+	fs.Files["/etc/fonts/local.conf"] = []byte(modified)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/fonts/local.conf"] = installer.Sha256Hex([]byte(fontsConfigFiles[0].Content))
+	if err := (&FontsStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusDrifted}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/fonts/local.conf")
+	if string(data) != modified {
+		t.Error("user-modified file should not be overwritten")
+	}
+}
+
+func TestFontsStep_Apply_ForceOverwrites(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/fonts/local.conf"] = []byte("old content")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.Force = true
+	if err := (&FontsStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/fonts/local.conf")
+	if string(data) == "old content" {
+		t.Error("force should overwrite")
 	}
 }

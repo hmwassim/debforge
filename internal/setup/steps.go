@@ -19,6 +19,10 @@ func DefaultSteps() []Step {
 		&ResolvedStep{},
 		&TimesyncdStep{},
 		&ExtrepoStep{},
+		&MesaStep{},
+		&MultimediaStep{},
+		&FontsStep{},
+		&DesktopStep{},
 	}
 }
 
