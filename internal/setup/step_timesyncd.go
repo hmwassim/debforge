@@ -60,13 +60,18 @@ func (s *TimesyncdStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *TimesyncdStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
+	initialDesc := "Configuring systemd-timesyncd"
 	if result.Status == StatusMissing {
-		spinner := cx.UI.Spinner(ctx, "Installing systemd-timesyncd")
+		initialDesc = "Installing systemd-timesyncd"
+	}
+	spinner := cx.UI.Spinner(ctx, initialDesc)
+	defer spinner.Stop()
+
+	if result.Status == StatusMissing {
 		if err := aptpty.RunInstall(ctx, cx.Runner, timesyncdPackages, spinner); err != nil {
-			spinner.Stop()
 			return err
 		}
-		spinner.Stop()
+		spinner.SetDesc("Configuring systemd-timesyncd")
 	}
 
 	for _, cfg := range timesyncdConfigFiles {

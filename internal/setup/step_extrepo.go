@@ -62,13 +62,18 @@ func (s *ExtrepoStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *ExtrepoStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
+	initialDesc := "Configuring extrepo"
 	if result.Status == StatusMissing {
-		spinner := cx.UI.Spinner(ctx, "Installing extrepo")
+		initialDesc = "Installing extrepo"
+	}
+	spinner := cx.UI.Spinner(ctx, initialDesc)
+	defer spinner.Stop()
+
+	if result.Status == StatusMissing {
 		if err := aptpty.RunInstall(ctx, cx.Runner, []string{"extrepo"}, spinner); err != nil {
-			spinner.Stop()
 			return err
 		}
-		spinner.Stop()
+		spinner.SetDesc("Configuring extrepo")
 	}
 
 	for _, cfg := range extrepoConfigFiles {

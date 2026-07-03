@@ -62,13 +62,18 @@ func (s *ZramStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *ZramStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
+	initialDesc := "Configuring zram-generator"
 	if result.Status == StatusMissing {
-		spinner := cx.UI.Spinner(ctx, "Installing zram-generator")
+		initialDesc = "Installing zram-generator"
+	}
+	spinner := cx.UI.Spinner(ctx, initialDesc)
+	defer spinner.Stop()
+
+	if result.Status == StatusMissing {
 		if err := aptpty.RunInstall(ctx, cx.Runner, zramPackages, spinner); err != nil {
-			spinner.Stop()
 			return err
 		}
-		spinner.Stop()
+		spinner.SetDesc("Configuring zram-generator")
 	}
 
 	for _, cfg := range zramConfigFiles {

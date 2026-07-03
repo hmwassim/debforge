@@ -197,13 +197,18 @@ func (s *FontsStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *FontsStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
+	initialDesc := "Configuring fontconfig"
 	if result.Status == StatusMissing {
-		spinner := cx.UI.Spinner(ctx, "Installing fonts")
+		initialDesc = "Installing fonts"
+	}
+	spinner := cx.UI.Spinner(ctx, initialDesc)
+	defer spinner.Stop()
+
+	if result.Status == StatusMissing {
 		if err := aptpty.RunInstall(ctx, cx.Runner, fontsPackages, spinner); err != nil {
-			spinner.Stop()
 			return err
 		}
-		spinner.Stop()
+		spinner.SetDesc("Configuring fontconfig")
 	}
 
 	for _, cfg := range fontsConfigFiles {

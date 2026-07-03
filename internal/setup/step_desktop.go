@@ -79,13 +79,18 @@ func (s *DesktopStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *DesktopStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
+	initialDesc := "Configuring desktop"
 	if result.Status == StatusMissing {
-		spinner := cx.UI.Spinner(ctx, "Installing desktop tools")
+		initialDesc = "Installing desktop tools"
+	}
+	spinner := cx.UI.Spinner(ctx, initialDesc)
+	defer spinner.Stop()
+
+	if result.Status == StatusMissing {
 		if err := aptpty.RunInstall(ctx, cx.Runner, desktopPackages(cx.Sys), spinner); err != nil {
-			spinner.Stop()
 			return err
 		}
-		spinner.Stop()
+		spinner.SetDesc("Configuring desktop")
 	}
 
 	homeDir, err := installer.UserHomeDir(cx.Sys)

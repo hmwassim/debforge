@@ -73,13 +73,18 @@ func (s *ResolvedStep) Check(ctx context.Context, cx *Context) CheckResult {
 }
 
 func (s *ResolvedStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
+	initialDesc := "Configuring systemd-resolved"
 	if result.Status == StatusMissing {
-		spinner := cx.UI.Spinner(ctx, "Installing systemd-resolved")
+		initialDesc = "Installing systemd-resolved"
+	}
+	spinner := cx.UI.Spinner(ctx, initialDesc)
+	defer spinner.Stop()
+
+	if result.Status == StatusMissing {
 		if err := aptpty.RunInstall(ctx, cx.Runner, resolvedPackages, spinner); err != nil {
-			spinner.Stop()
 			return err
 		}
-		spinner.Stop()
+		spinner.SetDesc("Configuring systemd-resolved")
 	}
 
 	for _, cfg := range resolvedConfigFiles {
