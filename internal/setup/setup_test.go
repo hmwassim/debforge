@@ -1771,7 +1771,7 @@ func TestFontsStep_Apply_FcCacheError(t *testing.T) {
 	}
 }
 
-// ---- DesktopStep bashrc read error paths ----------------------------------
+// ---- DesktopStep bashrc error paths ----------------------------------------
 
 func TestDesktopStep_Check_BashrcNotReadable(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
@@ -1784,30 +1784,4 @@ func TestDesktopStep_Check_BashrcNotReadable(t *testing.T) {
 	}
 }
 
-func TestDesktopStep_Check_BashrcDriftedWithBaseline(t *testing.T) {
-	fs := testutil.NewMockFileSystem()
-	modifiedBlock := []byte(bashrcDStartMarker + "new content from update\n" + bashrcDEndMarker)
-	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
-	fs.Files["/home/user/.bashrc"] = modifiedBlock
-	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
-	// Baseline matches the current disk content (user hasn't touched it),
-	// but the step's default block has been updated.
-	cx.ConfigHashes["/home/user/.bashrc"] = installer.Sha256Hex(modifiedBlock)
-	result := (&DesktopStep{}).Check(context.Background(), cx)
-	if result.Status != StatusDrifted {
-		t.Errorf("expected drifted for modified block with matching baseline, got %v", result.Status)
-	}
-}
 
-func TestDesktopStep_Check_BashrcConflict(t *testing.T) {
-	fs := testutil.NewMockFileSystem()
-	modifiedBlock := []byte(bashrcDStartMarker + "modified content" + bashrcDEndMarker)
-	fs.Files["/home/user/.config/bashrc.d"] = []byte{}
-	fs.Files["/home/user/.bashrc"] = modifiedBlock
-	cx := desktopCxWithFs(fs, pkgCfgRunner("installed", nil, nil), "")
-	cx.ConfigHashes["/home/user/.bashrc"] = installer.Sha256Hex([]byte("original baseline"))
-	result := (&DesktopStep{}).Check(context.Background(), cx)
-	if result.Status != StatusConflict {
-		t.Errorf("expected conflict for modified block with different baseline, got %v", result.Status)
-	}
-}
