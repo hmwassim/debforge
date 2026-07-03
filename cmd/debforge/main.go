@@ -150,6 +150,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.update(ctx, ui, names, forceMode, allMode)
 
 	case "setup":
+		extractFlags(args[1:], &yesMode, &forceMode, &allMode)
 		return h.setup(ctx, ui, forceMode)
 
 	case "search":
