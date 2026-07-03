@@ -18,6 +18,18 @@ import (
 	"github.com/hmwassim/debforge/internal/textutil"
 )
 
+func isCommitHash(v string) bool {
+	if len(v) != 40 {
+		return false
+	}
+	for _, b := range []byte(v) {
+		if !(b >= '0' && b <= '9' || b >= 'a' && b <= 'f' || b >= 'A' && b <= 'F') {
+			return false
+		}
+	}
+	return true
+}
+
 // DownloadFunc downloads a file from a URL.
 type DownloadFunc func(ctx context.Context, fs ports.FileSystem, url, dest string, spinner ports.Spinner, sha256 string) error
 
@@ -123,7 +135,7 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 	if p.Repo != "" && !p.Source.SkipClone {
 		spinner.SetDesc("cloning " + p.Name)
 		args := []string{"clone", "--depth", "1"}
-		if p.Version != "" {
+		if p.Version != "" && !isCommitHash(p.Version) {
 			prefix := p.TagPrefix
 			if prefix == "" {
 				prefix = "v"
