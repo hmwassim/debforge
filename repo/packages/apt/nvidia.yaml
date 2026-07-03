@@ -24,6 +24,7 @@ install:
       options nvidia NVreg_DynamicPowerManagement=0x02
 remove:
   packages:
+    - nvidia-driver-assistant
     - nvidia-vaapi-driver
     - nvtop
 post_remove: |
