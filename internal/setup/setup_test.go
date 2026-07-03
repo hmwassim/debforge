@@ -605,18 +605,29 @@ func pkgCfgRunner(pkgResult string, pkgErr error, extra func(name string, args .
 // ---- ExtrepoStep tests ----------------------------------------------------
 
 func TestExtrepoStep_CheckSatisfied(t *testing.T) {
-	cx := newPkgCfgCx(nil, pkgCfgRunner("installed", nil, nil))
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/extrepo/config.yaml"] = []byte(extrepoConfigFiles[0].Content)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/extrepo/config.yaml"] = installer.Sha256Hex([]byte(extrepoConfigFiles[0].Content))
 	result := (&ExtrepoStep{}).Check(context.Background(), cx)
 	if result.Status != StatusSatisfied {
 		t.Errorf("expected satisfied, got %v", result.Status)
 	}
 }
 
-func TestExtrepoStep_CheckMissing(t *testing.T) {
+func TestExtrepoStep_CheckMissing_Package(t *testing.T) {
 	cx := newPkgCfgCx(nil, pkgCfgRunner("", fmt.Errorf("exit 1"), nil))
 	result := (&ExtrepoStep{}).Check(context.Background(), cx)
 	if result.Status != StatusMissing {
 		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestExtrepoStep_CheckMissing_Config(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("installed", nil, nil))
+	result := (&ExtrepoStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing (no config), got %v", result.Status)
 	}
 }
 
@@ -625,6 +636,93 @@ func TestExtrepoStep_CheckError(t *testing.T) {
 	result := (&ExtrepoStep{}).Check(context.Background(), cx)
 	if result.Status != StatusError {
 		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+func TestExtrepoStep_CheckDrifted(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/extrepo/config.yaml"] = []byte("user modified")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/extrepo/config.yaml"] = installer.Sha256Hex([]byte(extrepoConfigFiles[0].Content))
+	result := (&ExtrepoStep{}).Check(context.Background(), cx)
+	if result.Status != StatusDrifted {
+		t.Errorf("expected drifted, got %v", result.Status)
+	}
+}
+
+func TestExtrepoStep_CheckConflict(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/extrepo/config.yaml"] = []byte("user modified")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/extrepo/config.yaml"] = installer.Sha256Hex([]byte("original baseline"))
+	result := (&ExtrepoStep{}).Check(context.Background(), cx)
+	if result.Status != StatusConflict {
+		t.Errorf("expected conflict, got %v", result.Status)
+	}
+}
+
+func TestExtrepoStep_Apply_WritesConfig(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmds []string
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmds = append(cmds, name+" "+strings.Join(args, " "))
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	if err := (&ExtrepoStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, err := fs.ReadFile("/etc/extrepo/config.yaml")
+	if err != nil {
+		t.Fatalf("config not written: %v", err)
+	}
+	if string(data) != extrepoConfigFiles[0].Content {
+		t.Errorf("expected config content, got %q", string(data))
+	}
+	if cx.ConfigHashes["/etc/extrepo/config.yaml"] == "" {
+		t.Error("hash should be recorded")
+	}
+}
+
+func TestExtrepoStep_Apply_ConflictWritesSidecar(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/extrepo/config.yaml"] = []byte("user content")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/extrepo/config.yaml"] = installer.Sha256Hex([]byte("original baseline"))
+	if err := (&ExtrepoStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/extrepo/config.yaml.debforge-new"); err != nil {
+		t.Error("sidecar should exist")
+	}
+}
+
+func TestExtrepoStep_Apply_DriftedSkipsWithoutForce(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modified := "user modified content"
+	fs.Files["/etc/extrepo/config.yaml"] = []byte(modified)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/extrepo/config.yaml"] = installer.Sha256Hex([]byte(extrepoConfigFiles[0].Content))
+	if err := (&ExtrepoStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusDrifted}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/extrepo/config.yaml")
+	if string(data) != modified {
+		t.Error("user-modified file should not be overwritten")
+	}
+}
+
+func TestExtrepoStep_Apply_ForceOverwrites(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/extrepo/config.yaml"] = []byte("old content")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.Force = true
+	if err := (&ExtrepoStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/extrepo/config.yaml")
+	if string(data) == "old content" {
+		t.Error("force should overwrite")
 	}
 }
 
