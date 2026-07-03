@@ -27,13 +27,13 @@ func (r *Runner) Run(ctx context.Context, cx *Context) error {
 			cx.UI.Info("%s (exists already)", step.Name())
 
 		case StatusDrifted:
-			cx.UI.Info("%s (modified by user)", step.Name())
+			cx.UI.Warn("%s (modified by user)", step.Name())
 			if err := step.Apply(ctx, cx, result); err != nil {
 				return fmt.Errorf("%s: %w", step.Name(), err)
 			}
 
 		case StatusConflict:
-			cx.UI.Info("%s (modified by user)", step.Name())
+			cx.UI.Warn("%s (modified by user)", step.Name())
 			if err := step.Apply(ctx, cx, result); err != nil {
 				return fmt.Errorf("%s: %w", step.Name(), err)
 			}
@@ -42,7 +42,7 @@ func (r *Runner) Run(ctx context.Context, cx *Context) error {
 			if err := step.Apply(ctx, cx, result); err != nil {
 				return fmt.Errorf("%s: %w", step.Name(), err)
 			}
-			cx.UI.Info("%s", step.Name())
+			cx.UI.Success("%s", step.Name())
 
 		case StatusError:
 			return fmt.Errorf("%s: %s", step.Name(), result.Summary)
