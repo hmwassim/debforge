@@ -39,7 +39,14 @@ func DecideConfigAction(fs ports.FileSystem, path, newContent, baselineHash stri
 		return ConfigWrite
 	}
 	if baselineHash == "" {
-		return ConfigSkip
+		diskData, err := fs.ReadFile(path)
+		if err != nil {
+			return ConfigWrite
+		}
+		if string(diskData) == newContent {
+			return ConfigSkip
+		}
+		return ConfigWrite
 	}
 	diskData, err := fs.ReadFile(path)
 	if err != nil {

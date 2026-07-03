@@ -71,11 +71,37 @@ func (s *DesktopStep) Check(ctx context.Context, cx *Context) CheckResult {
 	}
 
 	data, err := cx.Fsys.ReadFile(bashrc)
-	if err != nil || !bytes.Contains(data, bashrcDBlock) {
-		return CheckResult{Status: StatusMissing, Summary: "bashrc.d loader not found in .bashrc"}
+	if err != nil {
+		return CheckResult{Status: StatusMissing, Summary: "bashrc not readable"}
 	}
 
-	return CheckResult{Status: StatusSatisfied}
+	start := bytes.Index(data, []byte(bashrcDStartMarker))
+	end := bytes.Index(data, []byte(bashrcDEndMarker))
+	if start == -1 || end == -1 {
+		return CheckResult{Status: StatusMissing, Summary: "bashrc.d loader not found in .bashrc"}
+	}
+	end += len(bashrcDEndMarker)
+	diskRegionHash := installer.Sha256Hex(data[start:end])
+	newHash := installer.Sha256Hex(bashrcDBlock)
+	baselineHash := cx.ConfigHashes[bashrc]
+
+	switch {
+	case baselineHash == "":
+		if diskRegionHash == newHash {
+			cx.ConfigHashes[bashrc] = diskRegionHash
+			return CheckResult{Status: StatusSatisfied}
+		}
+		return CheckResult{Status: StatusMissing, Summary: "bashrc.d loader region mismatch"}
+	case diskRegionHash == baselineHash && diskRegionHash == newHash:
+		return CheckResult{Status: StatusSatisfied}
+	case diskRegionHash == baselineHash && diskRegionHash != newHash:
+		return CheckResult{Status: StatusDrifted, Summary: "bashrc.d loader defaults updated"}
+	case diskRegionHash != baselineHash && diskRegionHash == newHash:
+		cx.ConfigHashes[bashrc] = diskRegionHash
+		return CheckResult{Status: StatusSatisfied}
+	default:
+		return CheckResult{Status: StatusConflict, Summary: "bashrc.d loader modified by user"}
+	}
 }
 
 func (s *DesktopStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
@@ -129,5 +155,9 @@ func (s *DesktopStep) Apply(ctx context.Context, cx *Context, result CheckResult
 	cx.Runner.Run(ctx, "flatpak", "remote-add", "--if-not-exists",
 		"flathub", "https://flathub.org/repo/flathub.flatpakrepo")
 
-	return cx.Fsys.WriteFile(bashrc, updated, 0644)
+	if err := cx.Fsys.WriteFile(bashrc, updated, 0644); err != nil {
+		return fmt.Errorf("write bashrc: %w", err)
+	}
+	cx.ConfigHashes[bashrc] = installer.Sha256Hex(bashrcDBlock)
+	return nil
 }

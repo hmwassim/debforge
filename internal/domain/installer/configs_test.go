@@ -115,12 +115,21 @@ func TestDecideConfigAction_bothModified(t *testing.T) {
 	}
 }
 
-func TestDecideConfigAction_noBaseline(t *testing.T) {
+func TestDecideConfigAction_noBaselineDiffers(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
-	fs.Files["/etc/foo.conf"] = []byte("some content")
-	got := DecideConfigAction(fs, "/etc/foo.conf", "new content", "", false)
+	fs.Files["/etc/foo.conf"] = []byte("existing content")
+	got := DecideConfigAction(fs, "/etc/foo.conf", "package content", "", false)
+	if got != ConfigWrite {
+		t.Errorf("expected ConfigWrite when no baseline and content differs, got %v", got)
+	}
+}
+
+func TestDecideConfigAction_noBaselineMatches(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/foo.conf"] = []byte("same content")
+	got := DecideConfigAction(fs, "/etc/foo.conf", "same content", "", false)
 	if got != ConfigSkip {
-		t.Errorf("expected ConfigSkip when no baseline, got %v", got)
+		t.Errorf("expected ConfigSkip when no baseline but content matches, got %v", got)
 	}
 }
 

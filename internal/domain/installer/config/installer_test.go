@@ -530,7 +530,7 @@ func TestInstall_bothModifiedWritesSidecar(t *testing.T) {
 	}
 }
 
-func TestInstall_noBaselineBootstrap(t *testing.T) {
+func TestInstall_noBaselineOverwrites(t *testing.T) {
 	fs := newMockFS()
 	fs.files["/etc/foo.conf"] = []byte("existing disk content")
 
@@ -547,25 +547,25 @@ func TestInstall_noBaselineBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	// First run with no baseline should NOT overwrite existing file
-	if string(fs.files["/etc/foo.conf"]) != "existing disk content" {
-		t.Errorf("expected existing file untouched, got %q", string(fs.files["/etc/foo.conf"]))
+	// No baseline and content differs: file is overwritten with package content
+	if string(fs.files["/etc/foo.conf"]) != "package content" {
+		t.Errorf("expected file overwritten with package content, got %q", string(fs.files["/etc/foo.conf"]))
 	}
-	// Bootstrap hash should be recorded = hash of on-disk content
-	if p.ConfigHashes == nil || p.ConfigHashes["/etc/foo.conf"] != hashContent("existing disk content") {
-		t.Errorf("expected bootstrap hash of disk content, got %v", p.ConfigHashes)
+	// Hash records the written content
+	if p.ConfigHashes["/etc/foo.conf"] != hashContent("package content") {
+		t.Errorf("expected hash of package content, got %v", p.ConfigHashes)
 	}
 
-	// Second run: disk content matches package definition (both "existing disk content")
-	p.Configs["/etc/foo.conf"] = "existing disk content"
-	p.ConfigHashes["/etc/foo.conf"] = hashContent("existing disk content")
+	// Second run: disk content matches package definition → skip
+	p.Configs["/etc/foo.conf"] = "package content"
+	p.ConfigHashes["/etc/foo.conf"] = hashContent("package content")
 	p.Version = "newhash"
-	fs.files["/etc/foo.conf"] = []byte("existing disk content")
+	fs.files["/etc/foo.conf"] = []byte("package content")
 	err = (&Installer{fs: fs, sys: testSys}).Install(context.Background(), p, &testutil.MockSpinner{})
 	if err != nil {
 		t.Fatalf("Install second run: %v", err)
 	}
-	if string(fs.files["/etc/foo.conf"]) != "existing disk content" {
+	if string(fs.files["/etc/foo.conf"]) != "package content" {
 		t.Errorf("expected file unchanged, got %q", string(fs.files["/etc/foo.conf"]))
 	}
 

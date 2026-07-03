@@ -1,7 +1,9 @@
 package definition
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -94,6 +96,9 @@ func resolveScriptFile(script string, fs ports.FileSystem, configsDir string) (s
 	}
 	data, err := fs.ReadFile(srcPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("script file %s not found in configs directory", script)
+		}
 		return script, nil
 	}
 	return string(data), nil
