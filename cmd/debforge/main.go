@@ -114,6 +114,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	switch args[0] {
 	case "install":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		if yesMode {
+			ui.SetYes(true)
+		}
 		if len(names) == 0 {
 			usage()
 			return 1
@@ -125,6 +128,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 
 	case "remove":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		if yesMode {
+			ui.SetYes(true)
+		}
 		if len(names) == 0 {
 			usage()
 			return 1
@@ -136,6 +142,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 
 	case "update":
 		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		if yesMode {
+			ui.SetYes(true)
+		}
 		if len(names) == 0 && !allMode {
 			usage()
 			return 1
@@ -151,6 +160,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 
 	case "setup":
 		extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		if yesMode {
+			ui.SetYes(true)
+		}
 		return h.setup(ctx, ui, forceMode)
 
 	case "doctor":
