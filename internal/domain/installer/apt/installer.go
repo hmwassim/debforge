@@ -61,8 +61,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	}
 	if p.PreInstall != "" {
 		spinner.SetDesc("refreshing package list...")
-		if err := i.execApt(ctx, i.runner, []string{"update"}, spinner); err != nil {
-			return err
+		if _, _, err := i.runner.Run(ctx, "apt-get", "update"); err != nil {
+			return fmt.Errorf("apt-get update: %w", err)
 		}
 	}
 
