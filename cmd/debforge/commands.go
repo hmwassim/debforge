@@ -161,8 +161,7 @@ func (h *commandHandler) setup(ctx context.Context, u ports.UI, force bool) int 
 		return 1
 	}
 
-	steps := setup.DefaultSteps()
-	u.Info(summarizeSteps(steps))
+	u.Info("Provision system with recommended configuration")
 	if !u.Prompt("Continue?") {
 		u.Info("Cancelled")
 		return 0
@@ -183,7 +182,7 @@ func (h *commandHandler) setup(ctx context.Context, u ports.UI, force bool) int 
 		ConfigHashes: st.ConfigHashes,
 	}
 
-	runner := setup.NewRunner(steps...)
+	runner := setup.NewRunner(setup.DefaultSteps()...)
 
 	if err := runner.Run(ctx, cx); err != nil {
 		u.Error("%s", err)
@@ -404,35 +403,4 @@ func globPrefixLen(s string) int {
 		}
 	}
 	return len(s)
-}
-
-func summarizeSteps(steps []setup.Step) string {
-	var labels []string
-	for _, s := range steps {
-		if label := stepShortLabel(s); label != "" {
-			labels = append(labels, label)
-		}
-	}
-	return "Provision system: " + strings.Join(labels, ", ")
-}
-
-func stepShortLabel(s setup.Step) string {
-	switch s.(type) {
-	case *setup.ReposStep:
-		return "package sources"
-	case *setup.UpgradeStep:
-		return "system upgrade"
-	case *setup.FirmwareStep:
-		return "hardware firmware"
-	case *setup.KernelStep:
-		return "kernel configuration"
-	case *setup.MesaStep:
-		return "graphics stack (Mesa)"
-	case *setup.MultimediaStep:
-		return "media codecs"
-	case *setup.DesktopStep:
-		return "desktop tools"
-	default:
-		return ""
-	}
 }
