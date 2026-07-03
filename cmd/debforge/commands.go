@@ -199,6 +199,57 @@ func (h *commandHandler) setup(ctx context.Context, u ports.UI, force bool) int 
 	return 0
 }
 
+func (h *commandHandler) doctor(ctx context.Context, u ports.UI) int {
+	if !h.sys.IsPrivileged() {
+		u.Error("doctor must be run as root")
+		return 1
+	}
+
+	st, err := setup.LoadState(h.fsys, h.cfg.SetupStatePath)
+	if err != nil {
+		u.Error("load setup state: %s", err)
+		return 1
+	}
+
+	cx := &setup.Context{
+		Runner:       h.runner,
+		Fsys:         h.fsys,
+		Sys:          h.sys,
+		UI:           u,
+		ConfigHashes: st.ConfigHashes,
+	}
+
+	steps := setup.DefaultSteps()
+	results := setup.NewRunner(steps...).CheckAll(ctx, cx)
+
+	allOk := true
+	for i, r := range results {
+		name := steps[i].Name()
+		switch r.Status {
+		case setup.StatusSatisfied:
+			u.Success("%s", name)
+		case setup.StatusMissing:
+			u.Info("%s (not configured)", name)
+			allOk = false
+		case setup.StatusDrifted:
+			u.Warn("%s (modified by user): %s", name, r.Summary)
+			allOk = false
+		case setup.StatusConflict:
+			u.Warn("%s (conflict): %s", name, r.Summary)
+			allOk = false
+		case setup.StatusError:
+			u.Error("%s: %s", name, r.Summary)
+			allOk = false
+		}
+	}
+
+	if allOk {
+		u.Success("All systems ready")
+		return 0
+	}
+	return 1
+}
+
 func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []string) int {
 	st, err := h.stateSvc.Load()
 	if err != nil {

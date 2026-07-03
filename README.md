@@ -51,6 +51,7 @@ Commands:
         --all            Update all packages and run apt-get upgrade
     setup                Provision system (repos, firmware, desktop)
         --force          Skip checks, reapply all steps
+    doctor               Check system health
     search [<pattern>]   Search packages by name or description
     --self-update        Update debforge itself
     --self-remove        Remove debforge from system
@@ -75,6 +76,12 @@ contents.
 Packages that require an NVIDIA GPU (`nvidia`, and anything depending on it)
 check for one via `lspci` before installing and fail cleanly if none is
 found.
+
+### `doctor`
+
+Read-only system health check. Runs every setup step's check and reports the
+status of each — satisfied (green), not configured (blue), drifted or conflict
+(yellow), or error (red). Exits 0 when everything is ready, 1 otherwise.
 
 ## Config file conflicts
 

@@ -153,6 +153,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		extractFlags(args[1:], &yesMode, &forceMode, &allMode)
 		return h.setup(ctx, ui, forceMode)
 
+	case "doctor":
+		return h.doctor(ctx, ui)
+
 	case "search":
 		patterns := args[1:]
 		return h.search(ctx, ui, patterns)
@@ -180,6 +183,7 @@ func usage() {
 	fmt.Println("        --all            Update all packages and run apt-get upgrade")
 	fmt.Println("    setup                Provision system (repos, firmware, desktop)")
 	fmt.Println("        --force          Skip checks, reapply all steps")
+	fmt.Println("    doctor               Check system health")
 	fmt.Println("    search [<pattern>]   Search packages by name or description")
 	fmt.Println("    --self-update        Update debforge itself")
 	fmt.Println("    --self-remove        Remove debforge from system")
