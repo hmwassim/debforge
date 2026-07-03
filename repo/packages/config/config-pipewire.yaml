@@ -4,6 +4,7 @@ type: config
 install:
   configs:
     /etc/modprobe.d/99-audio-disable-powersave.conf: 99-audio-disable-powersave.conf
+    /etc/security/limits.d/20-audio.conf: 20-audio.conf
   user_configs:
     ~/.config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf: 51-disable-suspend.conf
     ~/.config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf: 52-deprioritize-hdmi.conf
