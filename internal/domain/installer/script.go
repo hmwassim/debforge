@@ -13,7 +13,7 @@ import (
 func RunScript(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner, name, script, verb string) error {
 	spinner.SetDesc(verb + " " + name)
 	if _, stderr, err := runner.Run(ctx, "sh", "-c", script); err != nil {
-		return fmt.Errorf("%s %s: %w%s", verb, name, err, trimErr(stderr))
+		return fmt.Errorf("%s %s: %w%s", verb, name, err, TrimErr(stderr))
 	}
 	return nil
 }
@@ -22,12 +22,12 @@ func RunScript(ctx context.Context, runner ports.CommandRunner, spinner ports.Sp
 func RunScriptInDir(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner, name, script, verb, dir string) error {
 	spinner.SetDesc(verb + " " + name)
 	if _, stderr, err := runner.RunWithOptions(ctx, ports.RunOptions{Dir: dir}, "sh", "-c", script); err != nil {
-		return fmt.Errorf("%s %s: %w%s", verb, name, err, trimErr(stderr))
+		return fmt.Errorf("%s %s: %w%s", verb, name, err, TrimErr(stderr))
 	}
 	return nil
 }
 
-func trimErr(stderr []byte) string {
+func TrimErr(stderr []byte) string {
 	out := strings.TrimSpace(string(stderr))
 	if out == "" {
 		return ""

@@ -131,8 +131,9 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 			args = append(args, "--branch", prefix+p.Version)
 		}
 		args = append(args, "--", p.Repo, srcDir)
-		if _, _, err := i.runner.Run(ctx, "git", args...); err != nil {
-			return "", fmt.Errorf("clone %s: %w", p.Name, err)
+		if stdout, stderr, err := i.runner.Run(ctx, "git", args...); err != nil {
+			_ = stdout
+			return "", fmt.Errorf("clone %s: %w%s", p.Name, err, installer.TrimErr(stderr))
 		}
 		return srcDir, nil
 	}
