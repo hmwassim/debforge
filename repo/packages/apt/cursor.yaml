@@ -5,19 +5,19 @@ install:
   packages:
     - cursor
 preinstall: |
-  mkdir -p /etc/apt/keyrings
+  mkdir -p /usr/share/keyrings
   curl -fsSL https://downloads.cursor.com/keys/anysphere.asc \
     | gpg --dearmor \
-    | tee /etc/apt/keyrings/cursor.gpg > /dev/null
-  chmod 644 /etc/apt/keyrings/cursor.gpg
+    | tee /usr/share/keyrings/anysphere.gpg > /dev/null
+  chmod 644 /usr/share/keyrings/anysphere.gpg
   tee /etc/apt/sources.list.d/cursor.sources > /dev/null <<EOF
   Types: deb
   URIs: https://downloads.cursor.com/aptrepo
   Suites: stable
   Components: main
   Architectures: amd64,arm64
-  Signed-By: /etc/apt/keyrings/cursor.gpg
+  Signed-By: /usr/share/keyrings/anysphere.gpg
   EOF
 post_remove: |
-  rm -f /etc/apt/keyrings/cursor.gpg
+  rm -f /usr/share/keyrings/anysphere.gpg
   rm -f /etc/apt/sources.list.d/cursor.sources
