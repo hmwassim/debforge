@@ -1394,13 +1394,13 @@ func TestFontsStep_Apply_WritesConfigAndRunsFcCache(t *testing.T) {
 	}
 	found := false
 	for _, c := range cmds {
-		if c == "fc-cache -f -v" {
+		if c == "fc-cache -f" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("expected fc-cache -f -v")
+		t.Error("expected fc-cache -f")
 	}
 }
 
