@@ -115,6 +115,8 @@ Commands:
     remove <name>...    Remove packages from system
     update [<name>...]   Reinstall packages (runs apt-get update)
         --all           Update all packages and run apt-get upgrade
+    setup               Provision system (repos, firmware, desktop)
+        --force         Skip checks, reapply all steps
     --self-update       Update debforge itself
     --self-remove       Remove debforge from system
     --help              Show this help

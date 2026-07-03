@@ -84,4 +84,11 @@ ln -sf "$BIN_DIR/debforge" "$LINK"
 
 echo ""
 ok "debforge installed at ${LINK}"
+
+# Setup failure should not roll back the installation
+trap - ERR
+info "Provisioning system with 'debforge setup --force'..."
+"$BIN_DIR/debforge" setup --force || warn "setup encountered errors (debforge remains installed)"
+
+echo ""
 echo "  Run 'sudo debforge --self-update' to update."
