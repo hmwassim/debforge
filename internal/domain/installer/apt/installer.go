@@ -66,10 +66,6 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	if err := i.autoSelectNvidiaVariant(ctx, p, spinner); err != nil {
-		return err
-	}
-
 	if err := i.SelectVariant(ctx, p); err != nil {
 		return err
 	}
@@ -211,57 +207,6 @@ func CheckGPU(ctx context.Context, runner ports.CommandRunner, pkgName string) e
 
 func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
 	return CheckGPU(ctx, i.runner, p.Name)
-}
-
-// autoSelectNvidiaVariant installs nvidia-driver-assistant and uses it to
-// automatically detect the correct driver variant (open vs proprietary),
-// skipping the interactive prompt. Only runs for the "nvidia" package.
-func (i *Installer) autoSelectNvidiaVariant(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if strings.ToLower(p.Name) != "nvidia" || len(p.Apt.Variants) == 0 {
-		return nil
-	}
-	if p.Apt.Variant != "" {
-		if _, ok := p.Apt.Variants[p.Apt.Variant]; ok || p.Apt.Variant == skipVariant {
-			return nil
-		}
-		p.Apt.Variant = ""
-	}
-
-	spinner.SetDesc("installing nvidia-driver-assistant")
-	if _, _, err := i.runner.Run(ctx, "apt-get", "install", "-y", "nvidia-driver-assistant"); err != nil {
-		return fmt.Errorf("install nvidia-driver-assistant: %w", err)
-	}
-
-	spinner.SetDesc("detecting NVIDIA driver variant")
-	out, _, err := i.runner.Run(ctx, "nvidia-driver-assistant")
-	if err != nil {
-		return fmt.Errorf("nvidia-driver-assistant: %w", err)
-	}
-
-	// Parse output for the recommended apt-get install line.
-	// Expected: "  sudo apt-get install -Vy nvidia-open"
-	var recommended string
-	for _, line := range strings.Split(string(out), "\n") {
-		if !strings.Contains(line, "apt-get install") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) > 0 {
-			recommended = fields[len(fields)-1]
-		}
-		break
-	}
-
-	switch recommended {
-	case "nvidia-open":
-		p.Apt.Variant = "open"
-	case "cuda-drivers":
-		p.Apt.Variant = "proprietary"
-	default:
-		return fmt.Errorf("unrecognized NVIDIA driver variant %q from nvidia-driver-assistant", recommended)
-	}
-
-	return nil
 }
 
 // ---- conflicts ------------------------------------------------------------
