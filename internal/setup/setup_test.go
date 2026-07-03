@@ -3,6 +3,8 @@ package setup
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -560,5 +562,413 @@ func TestI386Step_Apply(t *testing.T) {
 	}
 	if len(calls) < 1 || calls[0] != "dpkg --add-architecture" {
 		t.Errorf("expected dpkg --add-architecture, got %v", calls)
+	}
+}
+
+// ---- config-heavy step helpers --------------------------------------------
+
+func newPkgCfgCx(fs *testutil.MockFileSystem, runner *testutil.MockRunner) *Context {
+	if fs == nil {
+		fs = testutil.NewMockFileSystem()
+	}
+	return &Context{
+		Fsys:         fs,
+		Runner:       runner,
+		UI:           &testutil.MockUI{},
+		ConfigHashes: make(map[string]string),
+	}
+}
+
+func pkgCfgRunner(pkgResult string, pkgErr error, extra func(name string, args ...string) ([]byte, []byte, error)) *testutil.MockRunner {
+	return &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "dpkg-query" {
+				if pkgErr != nil {
+					return nil, nil, pkgErr
+				}
+				n := len(args) - 2
+				lines := make([]byte, 0, n*10)
+				for i := 0; i < n; i++ {
+					lines = append(lines, pkgResult+"\n"...)
+				}
+				return lines, nil, nil
+			}
+			if extra != nil {
+				return extra(name, args...)
+			}
+			return nil, nil, nil
+		},
+	}
+}
+
+// ---- ExtrepoStep tests ----------------------------------------------------
+
+func TestExtrepoStep_CheckSatisfied(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("installed", nil, nil))
+	result := (&ExtrepoStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestExtrepoStep_CheckMissing(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", fmt.Errorf("exit 1"), nil))
+	result := (&ExtrepoStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestExtrepoStep_CheckError(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", context.Canceled, nil))
+	result := (&ExtrepoStep{}).Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+// ---- ZramStep tests -------------------------------------------------------
+
+func TestZramStep_CheckMissing_Package(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", fmt.Errorf("exit 1"), nil))
+	result := (&ZramStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestZramStep_CheckMissing_Config(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/systemd/zram-generator.conf"] = []byte(`[zram0]
+zram-size = min(ram / 2, 8192)
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+`)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/zram-generator.conf"] = installer.Sha256Hex([]byte(`[zram0]
+zram-size = min(ram / 2, 8192)
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+`))
+	result := (&ZramStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestZramStep_CheckError(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", context.Canceled, nil))
+	result := (&ZramStep{}).Check(context.Background(), cx)
+	if result.Status != StatusError {
+		t.Errorf("expected error, got %v", result.Status)
+	}
+}
+
+func TestZramStep_CheckDrifted(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modified := "user modified content"
+	fs.Files["/etc/systemd/zram-generator.conf"] = []byte(modified)
+	original := `[zram0]
+zram-size = min(ram / 2, 8192)
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+`
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/zram-generator.conf"] = installer.Sha256Hex([]byte(original))
+	result := (&ZramStep{}).Check(context.Background(), cx)
+	if result.Status != StatusDrifted {
+		t.Errorf("expected drifted, got %v", result.Status)
+	}
+}
+
+func TestZramStep_CheckConflict(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modified := "user modified content"
+	fs.Files["/etc/systemd/zram-generator.conf"] = []byte(modified)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/zram-generator.conf"] = installer.Sha256Hex([]byte("original baseline"))
+	result := (&ZramStep{}).Check(context.Background(), cx)
+	if result.Status != StatusConflict {
+		t.Errorf("expected conflict, got %v", result.Status)
+	}
+}
+
+func TestZramStep_Apply_WritesConfigAndRunsServices(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmds []string
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmds = append(cmds, name+" "+strings.Join(args, " "))
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	if err := (&ZramStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/systemd/zram-generator.conf"); err != nil {
+		t.Errorf("config file not written: %v", err)
+	}
+	if cx.ConfigHashes["/etc/systemd/zram-generator.conf"] == "" {
+		t.Error("hash should be recorded")
+	}
+	var foundDaemon, foundStart bool
+	for _, c := range cmds {
+		if c == "systemctl daemon-reload" {
+			foundDaemon = true
+		}
+		if c == "systemctl start systemd-zram-setup@zram0.service" {
+			foundStart = true
+		}
+	}
+	if !foundDaemon {
+		t.Error("expected systemctl daemon-reload")
+	}
+	if !foundStart {
+		t.Error("expected systemctl start systemd-zram-setup@zram0.service")
+	}
+}
+
+func TestZramStep_Apply_ConflictWritesSidecar(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	userContent := "user modified content"
+	fs.Files["/etc/systemd/zram-generator.conf"] = []byte(userContent)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/zram-generator.conf"] = installer.Sha256Hex([]byte("original baseline"))
+	if err := (&ZramStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/systemd/zram-generator.conf")
+	if string(data) != userContent {
+		t.Error("original should be untouched")
+	}
+	if _, err := fs.ReadFile("/etc/systemd/zram-generator.conf.debforge-new"); err != nil {
+		t.Error("sidecar should exist")
+	}
+}
+
+func TestZramStep_Apply_DriftedSkipsWithoutForce(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modified := "user modified content"
+	fs.Files["/etc/systemd/zram-generator.conf"] = []byte(modified)
+	original := `[zram0]
+zram-size = min(ram / 2, 8192)
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+`
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/zram-generator.conf"] = installer.Sha256Hex([]byte(original))
+	if err := (&ZramStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusDrifted}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/systemd/zram-generator.conf")
+	if string(data) != modified {
+		t.Error("user-modified file should not be overwritten")
+	}
+	if cx.ConfigHashes["/etc/systemd/zram-generator.conf"] == "" {
+		t.Error("hash should be recorded on skip")
+	}
+}
+
+func TestZramStep_Apply_ForceOverwrites(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/systemd/zram-generator.conf"] = []byte("old content")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.Force = true
+	if err := (&ZramStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := fs.ReadFile("/etc/systemd/zram-generator.conf")
+	if string(data) == "old content" {
+		t.Error("force should overwrite")
+	}
+}
+
+// ---- ResolvedStep tests ---------------------------------------------------
+
+func TestResolvedStep_CheckMissing_Package(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", fmt.Errorf("exit 1"), nil))
+	result := (&ResolvedStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestResolvedStep_CheckMissing_Config(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	result := (&ResolvedStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing (no configs), got %v", result.Status)
+	}
+}
+
+func TestResolvedStep_CheckSatisfied(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	dotContent := `[Resolve]
+DNS=1.1.1.1 1.0.0.1
+DNSOverTLS=yes
+DNSSEC=allow-downgrade
+`
+	nmContent := `[main]
+dns=systemd-resolved
+`
+	fs.Files["/etc/systemd/resolved.conf.d/99-dot.conf"] = []byte(dotContent)
+	fs.Files["/etc/NetworkManager/conf.d/10-dns.conf"] = []byte(nmContent)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/resolved.conf.d/99-dot.conf"] = installer.Sha256Hex([]byte(dotContent))
+	cx.ConfigHashes["/etc/NetworkManager/conf.d/10-dns.conf"] = installer.Sha256Hex([]byte(nmContent))
+	result := (&ResolvedStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestResolvedStep_CheckConflict(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/systemd/resolved.conf.d/99-dot.conf"] = []byte("user changed")
+	fs.Files["/etc/NetworkManager/conf.d/10-dns.conf"] = []byte(`[main]
+dns=systemd-resolved
+`)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/resolved.conf.d/99-dot.conf"] = installer.Sha256Hex([]byte("user changed"))
+	cx.ConfigHashes["/etc/NetworkManager/conf.d/10-dns.conf"] = installer.Sha256Hex([]byte("original"))
+	result := (&ResolvedStep{}).Check(context.Background(), cx)
+	if result.Status != StatusConflict {
+		t.Errorf("expected conflict, got %v", result.Status)
+	}
+}
+
+func TestResolvedStep_Apply_WritesConfigsAndRunsServices(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmds []string
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		cmds = append(cmds, cmd)
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	if err := (&ResolvedStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/systemd/resolved.conf.d/99-dot.conf"); err != nil {
+		t.Errorf("99-dot.conf not written: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/NetworkManager/conf.d/10-dns.conf"); err != nil {
+		t.Errorf("10-dns.conf not written: %v", err)
+	}
+	expected := []string{
+		"ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf",
+		"systemctl enable --now systemd-resolved",
+		"nmcli general reload",
+		"systemctl restart systemd-resolved",
+		"resolvectl query debian.org",
+	}
+	for _, e := range expected {
+		found := false
+		for _, c := range cmds {
+			if c == e {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected command %q not found in %v", e, cmds)
+		}
+	}
+}
+
+// ---- TimesyncdStep tests --------------------------------------------------
+
+func TestTimesyncdStep_CheckMissing_Package(t *testing.T) {
+	cx := newPkgCfgCx(nil, pkgCfgRunner("", fmt.Errorf("exit 1"), nil))
+	result := (&TimesyncdStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing, got %v", result.Status)
+	}
+}
+
+func TestTimesyncdStep_CheckMissing_Config(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	result := (&TimesyncdStep{}).Check(context.Background(), cx)
+	if result.Status != StatusMissing {
+		t.Errorf("expected missing (no config), got %v", result.Status)
+	}
+}
+
+func TestTimesyncdStep_CheckSatisfied(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	content := `[Time]
+NTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org
+FallbackNTP=2.debian.pool.ntp.org 3.debian.pool.ntp.org
+`
+	fs.Files["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = []byte(content)
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = installer.Sha256Hex([]byte(content))
+	result := (&TimesyncdStep{}).Check(context.Background(), cx)
+	if result.Status != StatusSatisfied {
+		t.Errorf("expected satisfied, got %v", result.Status)
+	}
+}
+
+func TestTimesyncdStep_CheckDrifted(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	modified := "user modified content"
+	fs.Files["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = []byte(modified)
+	original := `[Time]
+NTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org
+FallbackNTP=2.debian.pool.ntp.org 3.debian.pool.ntp.org
+`
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = installer.Sha256Hex([]byte(original))
+	result := (&TimesyncdStep{}).Check(context.Background(), cx)
+	if result.Status != StatusDrifted {
+		t.Errorf("expected drifted, got %v", result.Status)
+	}
+}
+
+func TestTimesyncdStep_CheckConflict(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = []byte("user modified")
+	cx := newPkgCfgCx(fs, pkgCfgRunner("installed", nil, nil))
+	cx.ConfigHashes["/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"] = installer.Sha256Hex([]byte("original baseline"))
+	result := (&TimesyncdStep{}).Check(context.Background(), cx)
+	if result.Status != StatusConflict {
+		t.Errorf("expected conflict, got %v", result.Status)
+	}
+}
+
+func TestTimesyncdStep_Apply_WritesConfigAndRunsServices(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	var cmds []string
+	runner := pkgCfgRunner("installed", nil, func(name string, args ...string) ([]byte, []byte, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		cmds = append(cmds, cmd)
+		return nil, nil, nil
+	})
+	cx := newPkgCfgCx(fs, runner)
+	if err := (&TimesyncdStep{}).Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := fs.ReadFile("/etc/systemd/timesyncd.conf.d/10-timesyncd.conf"); err != nil {
+		t.Errorf("config not written: %v", err)
+	}
+	var foundEnable, foundTimedate bool
+	for _, c := range cmds {
+		if c == "systemctl enable --now systemd-timesyncd" {
+			foundEnable = true
+		}
+		if c == "timedatectl set-ntp true" {
+			foundTimedate = true
+		}
+	}
+	if !foundEnable {
+		t.Error("expected systemctl enable --now systemd-timesyncd")
+	}
+	if !foundTimedate {
+		t.Error("expected timedatectl set-ntp true")
 	}
 }

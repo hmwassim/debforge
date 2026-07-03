@@ -15,6 +15,10 @@ func DefaultSteps() []Step {
 		&FirmwareStep{},
 		&DevtoolsStep{},
 		&KernelStep{},
+		&ZramStep{},
+		&ResolvedStep{},
+		&TimesyncdStep{},
+		&ExtrepoStep{},
 	}
 }
 
