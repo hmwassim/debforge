@@ -353,12 +353,15 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 }
 
 // expandGlobs expands glob patterns in names against the registry.
-// Names without glob characters are kept as-is. Duplicates are removed.
+// Names without glob characters are kept as-is. Globs with fewer than
+// three literal characters before the first wildcard are treated as
+// literals (preventing accidental matches from single-char prefixes).
+// Duplicates are removed.
 func expandGlobs(reg *pkg.Registry, names []string) []string {
 	var out []string
 	seen := make(map[string]bool)
 	for _, name := range names {
-		if !containsGlob(name) {
+		if !containsGlob(name) || globPrefixLen(name) < 3 {
 			if !seen[name] {
 				out = append(out, name)
 				seen[name] = true
@@ -378,4 +381,13 @@ func expandGlobs(reg *pkg.Registry, names []string) []string {
 
 func containsGlob(s string) bool {
 	return strings.ContainsAny(s, "*?[")
+}
+
+func globPrefixLen(s string) int {
+	for i, r := range s {
+		if r == '*' || r == '?' || r == '[' {
+			return i
+		}
+	}
+	return len(s)
 }
