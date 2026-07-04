@@ -1585,8 +1585,8 @@ func TestExpandGlobs_categoryNoMatch(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "steam", Categories: []string{"gaming"}})
 	result := expandGlobs(reg, []string{"@nonexistent"})
-	if len(result) != 0 {
-		t.Errorf("expected 0, got %d", len(result))
+	if len(result) != 1 || result[0] != "@nonexistent" {
+		t.Errorf("expected [@nonexistent], got %v", result)
 	}
 }
 

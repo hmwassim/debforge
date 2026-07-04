@@ -73,6 +73,10 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 
 func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string, forceMode bool) int {
 	names = expandGlobs(h.reg, names)
+	if cat := firstUnknownCategory(names); cat != "" {
+		u.Error("unknown category: %s", cat)
+		return 1
+	}
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
 	resolver := service.NewResolver(h.reg)
@@ -125,6 +129,10 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
 	names = expandGlobs(h.reg, names)
+	if cat := firstUnknownCategory(names); cat != "" {
+		u.Error("unknown category: %s", cat)
+		return 1
+	}
 	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
 	st, err := h.stateSvc.Load()
@@ -141,6 +149,10 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
 	names = expandGlobs(h.reg, names)
+	if cat := firstUnknownCategory(names); cat != "" {
+		u.Error("unknown category: %s", cat)
+		return 1
+	}
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
@@ -447,23 +459,45 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 // against the registry. Names without glob characters and without a @
 // prefix are kept as-is. Globs with fewer than three literal characters
 // before the first wildcard are treated as literals. Duplicates are
-// removed.
+// removed. Unknown @category names are kept in the output so callers
+// can report an error.
 func expandGlobs(reg *pkg.Registry, names []string) []string {
 	var out []string
 	seen := make(map[string]bool)
+
+	// Build a category→packages index once, on first @ encountered.
+	hasCat := false
+	for _, n := range names {
+		if strings.HasPrefix(n, "@") {
+			hasCat = true
+			break
+		}
+	}
+	var catIndex map[string][]string
+	if hasCat {
+		catIndex = make(map[string][]string)
+		reg.Range(func(key string, p *pkg.Package) bool {
+			for _, c := range p.Categories {
+				catIndex[c] = append(catIndex[c], key)
+			}
+			return true
+		})
+	}
+
 	for _, name := range names {
 		if strings.HasPrefix(name, "@") {
 			cat := name[1:]
-			reg.Range(func(key string, p *pkg.Package) bool {
-				for _, c := range p.Categories {
-					if c == cat && !seen[key] {
-						out = append(out, key)
-						seen[key] = true
-						break
-					}
+			pkgs, ok := catIndex[cat]
+			if !ok {
+				out = append(out, name)
+				continue
+			}
+			for _, key := range pkgs {
+				if !seen[key] {
+					out = append(out, key)
+					seen[key] = true
 				}
-				return true
-			})
+			}
 			continue
 		}
 		if !containsGlob(name) || globPrefixLen(name) < 3 {
@@ -482,6 +516,17 @@ func expandGlobs(reg *pkg.Registry, names []string) []string {
 		})
 	}
 	return out
+}
+
+// firstUnknownCategory returns the first @-prefixed name in names
+// with the prefix stripped, or "" if none.
+func firstUnknownCategory(names []string) string {
+	for _, n := range names {
+		if strings.HasPrefix(n, "@") {
+			return n[1:]
+		}
+	}
+	return ""
 }
 
 func containsGlob(s string) bool {
