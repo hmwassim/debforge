@@ -1,8 +1,7 @@
 name: cursor
 description: Cursor AI code editor
 type: apt
-categories:
-  - development
+category: development
 install:
   packages:
     - cursor

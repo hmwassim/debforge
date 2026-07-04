@@ -1,8 +1,7 @@
 name: scx-scheds
 description: sched_ext scheduler collection
 type: deb
-categories:
-  - system
+category: system
 package: scx-scheds
 install:
   url: https://github.com/hmwassim/scx-bundler/releases/download/v{version}/scx-scheds_{version}_amd64.deb

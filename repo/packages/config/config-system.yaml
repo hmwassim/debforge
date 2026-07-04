@@ -1,8 +1,7 @@
 name: config-system
 description: System-wide performance and power tuning
 type: config
-categories:
-  - system
+category: system
 install:
   configs:
     /etc/systemd/system.conf.d/00-timeout.conf: systemd-00-timeout.conf

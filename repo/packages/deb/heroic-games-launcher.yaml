@@ -1,8 +1,7 @@
 name: heroic-games-launcher
 description: Heroic Games Launcher for Epic/GOG
 type: deb
-categories:
-  - gaming
+category: gaming
 package: heroic
 install:
   url: https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v{version}/Heroic-{version}-linux-amd64.deb

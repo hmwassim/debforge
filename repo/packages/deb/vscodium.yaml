@@ -1,8 +1,7 @@
 name: vscodium
 description: VS Code without Microsoft branding
 type: deb
-categories:
-  - development
+category: development
 package: codium
 install:
   url: https://github.com/VSCodium/vscodium/releases/download/{version}/codium_{version}_amd64.deb

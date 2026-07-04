@@ -14,7 +14,7 @@ import (
 type configDefinition struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description,omitempty"`
-	Categories  []string `yaml:"categories,omitempty"`
+	Category    string   `yaml:"category,omitempty"`
 	Type        string   `yaml:"type"`
 	Depends     []string `yaml:"depends,omitempty"`
 
@@ -70,7 +70,7 @@ func parseConfig(name string, data []byte, fs ports.FileSystem, configsDir strin
 	return &pkg.Package{
 		Name:          name,
 		Description:   def.Description,
-		Categories:    def.Categories,
+		Category:      def.Category,
 		Type:          pkg.TypeConfig,
 		Depends:       def.Depends,
 		Configs:       configs,

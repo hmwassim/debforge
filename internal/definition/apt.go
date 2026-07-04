@@ -11,7 +11,7 @@ import (
 type aptDefinition struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description,omitempty"`
-	Categories  []string `yaml:"categories,omitempty"`
+	Category    string   `yaml:"category,omitempty"`
 	Type        string   `yaml:"type"`
 	Depends     []string `yaml:"depends,omitempty"`
 
@@ -47,7 +47,7 @@ func parseApt(name string, data []byte) (*pkg.Package, error) {
 	return &pkg.Package{
 		Name:          name,
 		Description:   def.Description,
-		Categories:    def.Categories,
+		Category:      def.Category,
 		Type:          pkg.TypeApt,
 		Depends:       def.Depends,
 		Packages:      def.Install.Packages,

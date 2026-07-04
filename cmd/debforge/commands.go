@@ -330,14 +330,7 @@ func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string)
 		for _, pat := range patterns {
 			if strings.HasPrefix(pat, "@") {
 				cat := pat[1:]
-				found := false
-				for _, c := range p.Categories {
-					if c == cat {
-						found = true
-						break
-					}
-				}
-				if !found {
+				if p.Category != cat {
 					return true
 				}
 			} else {
@@ -477,8 +470,8 @@ func expandGlobs(reg *pkg.Registry, names []string) []string {
 	if hasCat {
 		catIndex = make(map[string][]string)
 		reg.Range(func(key string, p *pkg.Package) bool {
-			for _, c := range p.Categories {
-				catIndex[c] = append(catIndex[c], key)
+			if p.Category != "" {
+				catIndex[p.Category] = append(catIndex[p.Category], key)
 			}
 			return true
 		})

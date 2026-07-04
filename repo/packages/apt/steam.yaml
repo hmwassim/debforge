@@ -1,8 +1,7 @@
 name: steam
 description: Steam gaming platform
 type: apt
-categories:
-  - gaming
+category: gaming
 install:
   packages:
     - steam-installer

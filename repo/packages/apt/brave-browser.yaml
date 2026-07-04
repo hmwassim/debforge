@@ -1,8 +1,7 @@
 name: brave-browser
 description: Brave web browser
 type: apt
-categories:
-  - browsers
+category: browsers
 install:
   extrepo:
     - brave_release

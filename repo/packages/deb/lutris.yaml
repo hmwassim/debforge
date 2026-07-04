@@ -1,8 +1,7 @@
 name: lutris
 description: Lutris open gaming platform
 type: deb
-categories:
-  - gaming
+category: gaming
 package: lutris
 install:
   url: https://github.com/lutris/lutris/releases/download/v{version}/lutris_{version}_all.deb

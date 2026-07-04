@@ -1,8 +1,7 @@
 name: helium-browser
 description: Helium web browser
 type: deb
-categories:
-  - browsers
+category: browsers
 package: helium-bin
 install:
   url: https://github.com/imputnet/helium-linux/releases/download/{version}/helium-bin_{version}-1_amd64.deb

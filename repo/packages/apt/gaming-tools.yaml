@@ -1,8 +1,7 @@
 name: gaming-tools
 description: Gaming dependencies and tools bundle
 type: apt
-categories:
-  - gaming
+category: gaming
 install:
   packages:
     - fizmo-sdl2

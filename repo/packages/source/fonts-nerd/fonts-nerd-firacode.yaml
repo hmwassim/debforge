@@ -1,8 +1,7 @@
 name: fonts-nerd-firacode
 description: Fira Code Nerd Font
 type: source
-categories:
-  - fonts
+category: fonts
 install:
   repo: https://github.com/ryanoasis/nerd-fonts.git
   skip_clone: true

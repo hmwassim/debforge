@@ -1,8 +1,7 @@
 name: dev-tools
 description: Development tools and utilities bundle
 type: apt
-categories:
-  - development
+category: development
 install:
   packages:
     - build-essential

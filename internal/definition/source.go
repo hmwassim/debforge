@@ -11,7 +11,7 @@ import (
 type sourceDefinition struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description,omitempty"`
-	Categories  []string `yaml:"categories,omitempty"`
+	Category    string   `yaml:"category,omitempty"`
 	Type        string   `yaml:"type"`
 	Depends     []string `yaml:"depends,omitempty"`
 
@@ -44,7 +44,7 @@ func parseSource(name string, data []byte) (*pkg.Package, error) {
 	return &pkg.Package{
 		Name:        name,
 		Description: def.Description,
-		Categories:  def.Categories,
+		Category:    def.Category,
 		Type:        pkg.TypeSource,
 		Depends:     def.Depends,
 		Repo:        def.Install.Repo,

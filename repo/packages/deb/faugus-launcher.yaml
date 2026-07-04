@@ -1,8 +1,7 @@
 name: faugus-launcher
 description: Faugus game launcher
 type: deb
-categories:
-  - gaming
+category: gaming
 package: faugus-launcher
 install:
   url: https://github.com/Faugus/faugus-launcher/releases/download/{version}/faugus-launcher_{version}-1_all.deb
