@@ -1,6 +1,8 @@
 name: github-desktop
 description: GitHub Desktop Git client
 type: deb
+categories:
+  - development
 package: github-desktop
 tag_prefix: release-
 install:

@@ -1570,6 +1570,47 @@ func TestExpandGlobs_globNoMatch(t *testing.T) {
 	}
 }
 
+func TestExpandGlobs_categoryExpands(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Categories: []string{"gaming"}})
+	reg.Register(&pkg.Package{Name: "lutris", Categories: []string{"gaming"}})
+	reg.Register(&pkg.Package{Name: "firefox", Categories: []string{"browsers"}})
+	result := expandGlobs(reg, []string{"@gaming"})
+	if len(result) != 2 {
+		t.Errorf("expected 2 gaming packages, got %d: %v", len(result), result)
+	}
+}
+
+func TestExpandGlobs_categoryNoMatch(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Categories: []string{"gaming"}})
+	result := expandGlobs(reg, []string{"@nonexistent"})
+	if len(result) != 0 {
+		t.Errorf("expected 0, got %d", len(result))
+	}
+}
+
+func TestExpandGlobs_categoryDedup(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Categories: []string{"gaming"}})
+	reg.Register(&pkg.Package{Name: "lutris", Categories: []string{"gaming"}})
+	result := expandGlobs(reg, []string{"@gaming", "steam"})
+	if len(result) != 2 {
+		t.Errorf("expected 2 (steam deduped), got %d: %v", len(result), result)
+	}
+}
+
+func TestExpandGlobs_categoryAndGlob(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Categories: []string{"gaming"}})
+	reg.Register(&pkg.Package{Name: "steamtinkerlaunch", Categories: []string{"gaming"}})
+	reg.Register(&pkg.Package{Name: "firefox", Categories: []string{"browsers"}})
+	result := expandGlobs(reg, []string{"@gaming", "firefox"})
+	if len(result) != 3 {
+		t.Errorf("expected 3 (2 gaming + 1 literal), got %d: %v", len(result), result)
+	}
+}
+
 func TestContainsGlob(t *testing.T) {
 	if !containsGlob("foo*") {
 		t.Error("expected true for *")

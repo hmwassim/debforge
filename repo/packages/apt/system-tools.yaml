@@ -1,0 +1,14 @@
+name: system-tools
+description: System utilities and tools
+type: apt
+categories:
+  - system
+install:
+  packages:
+    - unrar
+    - gvfs
+    - gvfs:i386
+    - mono-complete
+    - smpeg-plaympeg
+    - mjpegtools
+    - libxvidcore4

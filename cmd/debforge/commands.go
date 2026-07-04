@@ -313,18 +313,28 @@ func selectPager() (cmd string, args []string) {
 func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
 	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
 
-	pat := ""
-	if len(patterns) > 0 {
-		pat = strings.ToLower(strings.Join(patterns, " "))
-	}
-
 	var names []string
 	reg.Range(func(name string, p *pkg.Package) bool {
-		if pat != "" {
-			n := strings.ToLower(name)
-			d := strings.ToLower(p.Description)
-			if !strings.Contains(n, pat) && !strings.Contains(d, pat) {
-				return true
+		for _, pat := range patterns {
+			if strings.HasPrefix(pat, "@") {
+				cat := pat[1:]
+				found := false
+				for _, c := range p.Categories {
+					if c == cat {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return true
+				}
+			} else {
+				patLower := strings.ToLower(pat)
+				n := strings.ToLower(name)
+				d := strings.ToLower(p.Description)
+				if !strings.Contains(n, patLower) && !strings.Contains(d, patLower) {
+					return true
+				}
 			}
 		}
 		names = append(names, name)
@@ -433,15 +443,29 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 	return 0
 }
 
-// expandGlobs expands glob patterns in names against the registry.
-// Names without glob characters are kept as-is. Globs with fewer than
-// three literal characters before the first wildcard are treated as
-// literals (preventing accidental matches from single-char prefixes).
-// Duplicates are removed.
+// expandGlobs expands glob patterns and @category references in names
+// against the registry. Names without glob characters and without a @
+// prefix are kept as-is. Globs with fewer than three literal characters
+// before the first wildcard are treated as literals. Duplicates are
+// removed.
 func expandGlobs(reg *pkg.Registry, names []string) []string {
 	var out []string
 	seen := make(map[string]bool)
 	for _, name := range names {
+		if strings.HasPrefix(name, "@") {
+			cat := name[1:]
+			reg.Range(func(key string, p *pkg.Package) bool {
+				for _, c := range p.Categories {
+					if c == cat && !seen[key] {
+						out = append(out, key)
+						seen[key] = true
+						break
+					}
+				}
+				return true
+			})
+			continue
+		}
 		if !containsGlob(name) || globPrefixLen(name) < 3 {
 			if !seen[name] {
 				out = append(out, name)

@@ -1,6 +1,8 @@
 name: steamtinkerlaunch
 description: SteamTinkerLaunch game tools
 type: source
+categories:
+  - gaming
 depends:
   - yad
 install:

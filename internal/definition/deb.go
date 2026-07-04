@@ -11,6 +11,7 @@ import (
 type debDefinition struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description,omitempty"`
+	Categories  []string `yaml:"categories,omitempty"`
 	Type        string   `yaml:"type"`
 	Package     string   `yaml:"package"`
 	Depends     []string `yaml:"depends,omitempty"`
@@ -41,6 +42,7 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 	return &pkg.Package{
 		Name:        name,
 		Description: def.Description,
+		Categories:  def.Categories,
 		Type:        pkg.TypeDeb,
 		Depends:     def.Depends,
 		Repo:        def.Repo,

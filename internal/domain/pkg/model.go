@@ -44,6 +44,7 @@ type Package struct {
 	Description string
 	Type        Type
 	Depends     []string
+	Categories  []string
 
 	// cross-type
 	Packages []string
@@ -95,6 +96,7 @@ func (p *Package) PrimarySystemPackage() string {
 func (p *Package) Clone() *Package {
 	cp := *p
 	cp.Depends = copySlice(p.Depends)
+	cp.Categories = copySlice(p.Categories)
 	cp.Packages = copySlice(p.Packages)
 	cp.Remove = copySlice(p.Remove)
 	cp.Configs = copyMap(p.Configs)

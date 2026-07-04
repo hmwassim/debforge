@@ -1,6 +1,8 @@
 name: docker
 description: Docker container runtime
 type: apt
+categories:
+  - development
 install:
   extrepo:
     - docker-ce

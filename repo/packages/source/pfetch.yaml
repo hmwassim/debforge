@@ -1,6 +1,8 @@
 name: pfetch
 description: Pretty fetch system information tool
 type: source
+categories:
+  - extra
 install:
   repo: https://github.com/Gobidev/pfetch-rs.git
   skip_clone: true

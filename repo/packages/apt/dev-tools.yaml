@@ -1,0 +1,14 @@
+name: dev-tools
+description: Development tools and utilities bundle
+type: apt
+categories:
+  - development
+install:
+  packages:
+    - build-essential
+    - git
+    - cmake
+    - python3
+    - python3-pip
+    - python3-venv
+    - mingw-w64

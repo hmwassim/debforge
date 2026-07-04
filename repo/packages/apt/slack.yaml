@@ -1,6 +1,8 @@
 name: slack
 description: Slack desktop client
 type: apt
+categories:
+  - communication
 install:
   extrepo:
     - slack

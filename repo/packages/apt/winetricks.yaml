@@ -1,6 +1,8 @@
 name: winetricks
 description: Latest upstream Winetricks
 type: apt
+categories:
+  - gaming
 install:
   packages:
     - curl

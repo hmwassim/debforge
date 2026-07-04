@@ -1,6 +1,8 @@
 name: fonts-nerd-jetbrainsmono
 description: JetBrains Mono Nerd Font
 type: source
+categories:
+  - fonts
 install:
   repo: https://github.com/ryanoasis/nerd-fonts.git
   skip_clone: true

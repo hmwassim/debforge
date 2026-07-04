@@ -1,6 +1,8 @@
 name: vesktop
 description: Vesktop Discord client
 type: deb
+categories:
+  - communication
 package: vesktop
 install:
   url: https://github.com/Vencord/Vesktop/releases/download/v{version}/vesktop_{version}_amd64.deb

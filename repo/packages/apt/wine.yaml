@@ -1,6 +1,8 @@
 name: wine
 description: Wine Windows compatibility layer
 type: apt
+categories:
+  - gaming
 install:
   packages:
     - wine
@@ -12,6 +14,5 @@ install:
     - wine32-preloader:i386
     - wine64-preloader
     - wine-binfmt
-    - mingw-w64
     - q4wine
     - winbind
