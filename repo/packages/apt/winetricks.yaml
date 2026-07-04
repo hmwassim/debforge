@@ -1,5 +1,5 @@
 name: winetricks
-description: Winetricks - helper script to install Windows runtime libraries for Wine
+description: Winetricks runtime libraries helper for Wine
 type: apt
 install:
   packages:

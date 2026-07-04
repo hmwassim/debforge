@@ -1,5 +1,5 @@
 name: protontricks
-description: A simple wrapper for running Winetricks commands for Proton-enabled games
+description: Winetricks wrapper for Proton-enabled games
 type: source
 install:
   url: https://github.com/Matoking/protontricks/archive/refs/tags/{version}.tar.gz
