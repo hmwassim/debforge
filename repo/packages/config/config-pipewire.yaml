@@ -1,7 +1,7 @@
 name: config-pipewire
 description: PipeWire audio system configuration
 type: config
-category: system
+category: config
 install:
   configs:
     /etc/modprobe.d/99-audio-disable-powersave.conf: 99-audio-disable-powersave.conf

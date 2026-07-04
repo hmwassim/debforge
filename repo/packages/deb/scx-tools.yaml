@@ -1,7 +1,7 @@
 name: scx-tools
 description: sched_ext scheduler tools
 type: deb
-category: system
+category: sched-ext
 package: scx-tools
 depends:
   - scx-scheds
