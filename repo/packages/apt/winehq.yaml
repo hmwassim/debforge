@@ -1,0 +1,13 @@
+name: winehq
+description: WineHQ builds (stable/staging)
+type: apt
+install:
+  extrepo:
+    - winehq
+  conflicts:
+    - wine
+    - wine32
+    - wine64
+  variants:
+    stable: [winehq-stable]
+    staging: [winehq-staging]
