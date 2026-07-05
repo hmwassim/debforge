@@ -30,11 +30,6 @@ func (h *commandHandler) selfUpdate(ctx context.Context, u ports.UI, forceMode b
 }
 
 func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string, forceMode bool) int {
-	var ok bool
-	names, ok = h.resolveNames(names, u)
-	if !ok {
-		return 1
-	}
 	if !h.checkGPUPreconditions(ctx, u, names) {
 		return 1
 	}
@@ -54,10 +49,6 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 }
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
-	names, ok := h.resolveNames(names, u)
-	if !ok {
-		return 1
-	}
 	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 
 	st, err := h.stateSvc.Load()
@@ -73,10 +64,6 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
-	names, ok := h.resolveNames(names, u)
-	if !ok {
-		return 1
-	}
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {

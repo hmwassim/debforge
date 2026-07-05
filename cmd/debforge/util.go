@@ -55,7 +55,7 @@ func (h *commandHandler) checkConflicts(ctx context.Context, u ports.UI, names [
 	return conflicts
 }
 
-func extractFlags(ss []string, yes, force, all, self *bool) []string {
+func extractFlags(ss []string, yes, force, all, self, verbose *bool) []string {
 	out := make([]string, 0, len(ss))
 	for _, s := range ss {
 		switch {
@@ -67,6 +67,8 @@ func extractFlags(ss []string, yes, force, all, self *bool) []string {
 			*all = true
 		case s == "--self":
 			*self = true
+		case s == "--verbose":
+			*verbose = true
 		case strings.HasPrefix(s, "-") && len(s) > 1 && s[1] != '-':
 			for _, c := range s[1:] {
 				switch c {
@@ -76,6 +78,8 @@ func extractFlags(ss []string, yes, force, all, self *bool) []string {
 					*force = true
 				case 'a':
 					*all = true
+				case 'v':
+					*verbose = true
 				default:
 					out = append(out, "-"+string(c))
 				}

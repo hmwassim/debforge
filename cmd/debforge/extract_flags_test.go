@@ -13,6 +13,7 @@ func TestExtractFlags(t *testing.T) {
 		wantY bool
 		wantF bool
 		wantA bool
+		wantV bool
 	}{
 		{
 			name:  "no flags",
@@ -122,12 +123,24 @@ func TestExtractFlags(t *testing.T) {
 			input: []string{"--selfish", "firefox"},
 			want:  []string{"--selfish", "firefox"},
 		},
+		{
+			name:  "short verbose",
+			input: []string{"-v", "firefox"},
+			want:  []string{"firefox"},
+			wantV: true,
+		},
+		{
+			name:  "long verbose",
+			input: []string{"--verbose", "firefox"},
+			want:  []string{"firefox"},
+			wantV: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var yes, force, all, self bool
-			got := extractFlags(tc.input, &yes, &force, &all, &self)
+			var yes, force, all, self, verbose bool
+			got := extractFlags(tc.input, &yes, &force, &all, &self, &verbose)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("extractFlags(%v) = %v, want %v", tc.input, got, tc.want)
 			}
@@ -139,6 +152,9 @@ func TestExtractFlags(t *testing.T) {
 			}
 			if all != tc.wantA {
 				t.Errorf("all = %v, want %v", all, tc.wantA)
+			}
+			if verbose != tc.wantV {
+				t.Errorf("verbose = %v, want %v", verbose, tc.wantV)
 			}
 		})
 	}

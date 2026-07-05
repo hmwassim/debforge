@@ -73,11 +73,8 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	forceMode := *f || *force
 	allMode := *a || *all
 	selfMode := false
+	verboseMode := false
 	args := fs.Args()
-
-	if yesMode {
-		ui.SetYes(true)
-	}
 
 	if len(args) == 0 {
 		usage()
@@ -90,12 +87,13 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return 1
 	}
 
+	names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode, &verboseMode)
+	if yesMode {
+		ui.SetYes(true)
+	}
+
 	switch args[0] {
 	case "install":
-		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
-		if yesMode {
-			ui.SetYes(true)
-		}
 		if selfMode {
 			ui.Error("--self is not supported for install")
 			return 1
@@ -107,13 +105,13 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
 		}
+		names, ok := h.resolveNames(names, ui)
+		if !ok {
+			return 1
+		}
 		return h.install(ctx, ui, names, forceMode)
 
 	case "remove":
-		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
-		if yesMode {
-			ui.SetYes(true)
-		}
 		if selfMode {
 			return h.selfRemove(ctx, ui)
 		}
@@ -124,13 +122,13 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
 		}
+		names, ok := h.resolveNames(names, ui)
+		if !ok {
+			return 1
+		}
 		return h.remove(ctx, ui, names)
 
 	case "update":
-		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
-		if yesMode {
-			ui.SetYes(true)
-		}
 		if selfMode {
 			return h.selfUpdate(ctx, ui, forceMode)
 		}
@@ -145,13 +143,13 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
 		}
+		names, ok := h.resolveNames(names, ui)
+		if !ok {
+			return 1
+		}
 		return h.update(ctx, ui, names, forceMode, allMode)
 
 	case "setup":
-		extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
-		if yesMode {
-			ui.SetYes(true)
-		}
 		if selfMode {
 			ui.Error("--self is not supported for setup")
 			return 1
@@ -162,9 +160,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.doctor(ctx, ui)
 
 	case "list":
-		showPackages := slices.Contains(args[1:], "--packages")
+		showPackages := slices.Contains(names, "--packages")
 		category := ""
-		for _, a := range args[1:] {
+		for _, a := range names {
 			if strings.HasPrefix(a, "@") {
 				category = a[1:]
 				break
@@ -173,20 +171,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.list(ctx, ui, category, showPackages)
 
 	case "search":
-		patterns := args[1:]
-		return h.search(ctx, ui, patterns)
+		return h.search(ctx, ui, names)
 
 	case "info":
-		verbose := false
-		names := make([]string, 0, len(args[1:]))
-		for _, a := range args[1:] {
-			switch a {
-			case "-v", "--verbose":
-				verbose = true
-			default:
-				names = append(names, a)
-			}
-		}
 		if len(names) == 0 {
 			usage()
 			return 1
@@ -195,7 +182,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		if !ok {
 			return 1
 		}
-		return h.info(ctx, ui, names, verbose)
+		return h.info(ctx, ui, names, verboseMode)
 
 	default:
 		usage()
@@ -212,6 +199,7 @@ func usage() {
 	fmt.Println("    -y, --yes               Skip confirmation prompts")
 	fmt.Println("    -f, --force             Force operation (reinstall)")
 	fmt.Println("    -a, --all               Update all packages (update only)")
+	fmt.Println("    -v, --verbose           Show detailed output where supported")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("    install <name>...       Install packages")
