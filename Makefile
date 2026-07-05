@@ -37,7 +37,7 @@ lint:
 
 # NOTE: /opt/debforge and /usr/local/bin/debforge below must match
 # DefaultRootDir / DefaultLinkPath in internal/self/config.go and the
-# equivalent values in inshall.sh. Make cannot import Go constants, so
+# equivalent values in install.sh. Make cannot import Go constants, so
 # these three places are kept in sync by hand - if you change one, change
 # all three.
 install: build

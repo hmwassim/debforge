@@ -4,12 +4,12 @@ A package manager for Debian (Trixie) that installs `apt`, `.deb`, source-built,
 and config-file packages from YAML definitions.
 
 ```
-curl -sL https://raw.githubusercontent.com/hmwassim/debforge/main/inshall.sh | sudo bash
+curl -sL https://raw.githubusercontent.com/hmwassim/debforge/main/install.sh | sudo bash
 ```
 
 The installer also rewrites `/etc/apt/sources.list` to enable
 `contrib`/`non-free`/`non-free-firmware`/`backports` (required for several
-packages in this repo) and runs a full system upgrade. See [`inshall.sh`](inshall.sh)
+packages in this repo) and runs a full system upgrade. See [`install.sh`](install.sh)
 for exactly what runs before you pipe it into `sudo bash`.
 
 ## What debforge does with root
