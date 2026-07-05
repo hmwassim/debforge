@@ -516,6 +516,145 @@ func TestRemoveOne_removeError(t *testing.T) {
 	}
 }
 
+// ---- Tests extracted from service_test.go ----------------------------------
+// pkgIsOrphaned tests
+
+func TestPkgIsOrphaned_nonAptOrDeb(t *testing.T) {
+	p := &pkg.Package{Name: "test", Type: pkg.TypeSource}
+	if pkgIsOrphaned(p, nil) {
+		t.Error("expected false for non-apt/deb type")
+	}
+}
+
+func TestPkgIsOrphaned_variantSomeInstalled(t *testing.T) {
+	p := &pkg.Package{
+		Name: "test", Type: pkg.TypeApt,
+		Apt: &pkg.AptConfig{Variants: map[string][]string{
+			"stable": {"pkg-stable"}, "staging": {"pkg-staging"},
+		}},
+	}
+	if pkgIsOrphaned(p, map[string]bool{"pkg-stable": true}) {
+		t.Error("expected false when a variant package is installed")
+	}
+}
+
+func TestPkgIsOrphaned_variantNoneInstalled(t *testing.T) {
+	p := &pkg.Package{
+		Name: "test", Type: pkg.TypeApt,
+		Apt: &pkg.AptConfig{Variants: map[string][]string{
+			"stable": {"pkg-stable"},
+		}},
+	}
+	if !pkgIsOrphaned(p, map[string]bool{}) {
+		t.Error("expected true when no variant package is installed")
+	}
+}
+
+func TestPkgIsOrphaned_noVariantInstalled(t *testing.T) {
+	p := &pkg.Package{
+		Name: "test", Type: pkg.TypeApt,
+		Packages: []string{"real-pkg"},
+	}
+	if pkgIsOrphaned(p, map[string]bool{"real-pkg": true}) {
+		t.Error("expected false when primary package is installed")
+	}
+}
+
+func TestPkgIsOrphaned_noVariantNotInstalled(t *testing.T) {
+	p := &pkg.Package{
+		Name: "test", Type: pkg.TypeApt,
+		Packages: []string{"real-pkg"},
+	}
+	if !pkgIsOrphaned(p, map[string]bool{}) {
+		t.Error("expected true when primary package is not installed")
+	}
+}
+
+// extrepoNeeded tests
+
+func TestExtrepoNeeded(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}})
+	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-2"}}})
+
+	svc := &RemoveService{baseService: baseService{reg: reg}}
+	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
+
+	if !svc.extrepoNeeded(context.Background(), "repo-2", "pkg-a", st) {
+		t.Error("expected repo-2 needed by pkg-b")
+	}
+	if svc.extrepoNeeded(context.Background(), "repo-1", "pkg-a", st) {
+		t.Error("expected repo-1 not needed after removing pkg-a (it is the only consumer)")
+	}
+}
+
+func TestExtrepoNeeded_notNeeded(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}})
+	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt})
+
+	svc := &RemoveService{baseService: baseService{reg: reg}}
+	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
+
+	if svc.extrepoNeeded(context.Background(), "repo-1", "pkg-a", st) {
+		t.Error("expected repo-1 not needed by any other package")
+	}
+}
+
+// disableOrphanedExtrepos tests
+
+func TestDisableOrphanedExtrepos(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1", "repo-2"}}})
+	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}})
+
+	var disabled []string
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "extrepo" && len(args) >= 2 && args[0] == "disable" {
+				disabled = append(disabled, args[1])
+			}
+			return nil, nil, nil
+		},
+	}
+
+	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner}}
+	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1", "repo-2"}}}
+	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
+
+	svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{})
+
+	if len(disabled) != 1 || disabled[0] != "repo-2" {
+		t.Errorf("expected only repo-2 to be disabled, got %v", disabled)
+	}
+}
+
+func TestDisableOrphanedExtrepos_noApt(t *testing.T) {
+	svc := &RemoveService{}
+	p := &pkg.Package{Name: "test", Type: pkg.TypeDeb}
+	svc.disableOrphanedExtrepos(context.Background(), p, nil, &mockSpinner{})
+}
+
+func TestDisableOrphanedExtrepos_error(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}})
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "extrepo" {
+				return nil, nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+
+	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner}}
+	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}}
+	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}}}
+
+	svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{})
+}
+
 func TestRemoveOne_saveStateError(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "debforge-test-*")
 	if err != nil {

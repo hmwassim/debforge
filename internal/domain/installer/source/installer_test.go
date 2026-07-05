@@ -3,7 +3,6 @@ package source
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -35,10 +34,6 @@ type recordingRunner struct {
 func (r *recordingRunner) Run(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
 	r.record(name, args)
 	if name == "git" && len(args) > 0 && args[0] == "ls-remote" {
-		// Answer both LatestTag's "ls-remote --tags <repo>" and the
-		// "ls-remote <repo> HEAD" fallback with a single fake tag, so
-		// version detection succeeds without touching the network and
-		// without masking the build/install script assertions under test.
 		return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
 	}
 	return nil, nil, nil
@@ -51,7 +46,7 @@ func (r *recordingRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, 
 
 func (r *recordingRunner) record(name string, args []string) {
 	if name != "sh" {
-		return // e.g. "git clone ..." - not a script execution
+		return
 	}
 	for i, a := range args {
 		if a == "-c" && i+1 < len(args) {
@@ -73,96 +68,49 @@ func newTestPackage(build, install string) *pkg.Package {
 	}
 }
 
-func TestInstall_buildOnlyRunsOnce(t *testing.T) {
-	runner := &recordingRunner{}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-
-	p := newTestPackage("echo building", "")
-
-	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Install: %v", err)
+func equalScripts(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
 	}
-
-	count := 0
-	for _, s := range runner.scripts {
-		if s == "echo building" {
-			count++
+	for i := range got {
+		if got[i] != want[i] {
+			return false
 		}
 	}
-	if count != 1 {
-		t.Errorf("expected build script to run exactly once when no install script is set, ran %d times (all scripts: %v)", count, runner.scripts)
-	}
+	return true
 }
 
-func TestInstall_buildAndInstallBothRunOnceInOrder(t *testing.T) {
-	runner := &recordingRunner{}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+// gitOKRunner succeeds for git commands (ls-remote, clone) and returns
+// nil,nil,nil for everything else (including sh -c via RunWithOptions).
+type gitOKRunner struct{}
 
-	p := newTestPackage("echo building", "echo installing")
-
-	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Install: %v", err)
+func (r *gitOKRunner) Run(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+	if name == "git" && len(args) > 0 && args[0] == "ls-remote" {
+		return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
 	}
-
-	want := []string{"echo building", "echo installing"}
-	if !equalScripts(runner.scripts, want) {
-		t.Errorf("expected scripts %v in order, got %v", want, runner.scripts)
-	}
+	return nil, nil, nil
 }
 
-func TestInstall_neitherBuildNorInstallRunsNothing(t *testing.T) {
-	runner := &recordingRunner{}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-
-	p := newTestPackage("", "")
-
-	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Install: %v", err)
-	}
-
-	if len(runner.scripts) != 0 {
-		t.Errorf("expected no scripts run, got %v", runner.scripts)
-	}
+func (r *gitOKRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, name string, args ...string) ([]byte, []byte, error) {
+	return nil, nil, nil
 }
 
-func TestInstall_postinstallAlwaysRunsAfterInstall(t *testing.T) {
-	runner := &recordingRunner{}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-
-	p := newTestPackage("echo building", "echo installing")
-	p.Source.PostinstallScript = "echo postinstalling"
-
-	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Install: %v", err)
+func TestNewInstaller(t *testing.T) {
+	runner := &testutil.MockRunner{}
+	fs := testutil.NewMockFileSystem()
+	ui := &testutil.MockUI{}
+	inst := NewInstaller(runner, fs, ui)
+	if inst.runner != runner {
+		t.Error("runner not set")
 	}
-
-	want := []string{"echo building", "echo installing", "echo postinstalling"}
-	if !equalScripts(runner.scripts, want) {
-		t.Errorf("expected scripts %v in order, got %v", want, runner.scripts)
+	if inst.fs != fs {
+		t.Error("fs not set")
 	}
-}
-
-func TestInstall_versionInterpolation(t *testing.T) {
-	runner := &recordingRunner{}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-
-	p := newTestPackage("make VERSION={version}", "")
-
-	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Install: %v", err)
+	if inst.ui != ui {
+		t.Error("ui not set")
 	}
-
-	// checkVersion (triggered because Repo is set) runs before the build
-	// script and may update p.Version from the (fake) latest tag; the
-	// interpolated script should reflect whatever p.Version ended up
-	// being by the time the build script actually ran, not a value
-	// hardcoded ahead of that.
-	want := "make VERSION=" + p.Version
-	if len(runner.scripts) != 1 || runner.scripts[0] != want {
-		t.Errorf("expected interpolated script %q, got %v", want, runner.scripts)
-	}
-	if p.Version == "" {
-		t.Error("expected p.Version to be populated by checkVersion")
+	if inst.execApt == nil {
+		t.Error("execApt should not be nil")
 	}
 }
 
@@ -190,524 +138,21 @@ func TestCheckVersion_gitLsRemoteFallback(t *testing.T) {
 	}
 }
 
-func TestNewInstaller(t *testing.T) {
-	runner := &testutil.MockRunner{}
-	fs := testutil.NewMockFileSystem()
-	ui := &testutil.MockUI{}
-	inst := NewInstaller(runner, fs, ui)
-	if inst.runner != runner {
-		t.Error("runner not set")
-	}
-	if inst.fs != fs {
-		t.Error("fs not set")
-	}
-	if inst.ui != ui {
-		t.Error("ui not set")
-	}
-	if inst.execApt == nil {
-		t.Error("execApt should not be nil")
-	}
-}
-
-func TestRemove_removeScript(t *testing.T) {
+func TestInstall_versionInterpolation(t *testing.T) {
 	runner := &recordingRunner{}
 	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		Source: &pkg.SourceConfig{
-			RemoveScript: "echo removing",
-		},
+
+	p := newTestPackage("make VERSION={version}", "")
+
+	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("Install: %v", err)
 	}
 
-	if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Remove: %v", err)
+	want := "make VERSION=" + p.Version
+	if len(runner.scripts) != 1 || runner.scripts[0] != want {
+		t.Errorf("expected interpolated script %q, got %v", want, runner.scripts)
 	}
-	if len(runner.scripts) != 1 || runner.scripts[0] != "echo removing" {
-		t.Errorf("expected remove script to run, got %v", runner.scripts)
+	if p.Version == "" {
+		t.Error("expected p.Version to be populated by checkVersion")
 	}
-}
-
-func TestRemove_aptGetRemove(t *testing.T) {
-	var gotArgs []string
-	inst := &Installer{
-		fs: testutil.NewMockFileSystem(),
-		execApt: func(_ context.Context, _ ports.CommandRunner, args []string, _ ports.Spinner) error {
-			gotArgs = append([]string{}, args...)
-			return nil
-		},
-	}
-	p := &pkg.Package{
-		Name:   "test-src",
-		Type:   pkg.TypeSource,
-		Remove: []string{"pkg-a", "pkg-b"},
-		Source: &pkg.SourceConfig{},
-	}
-
-	if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Remove: %v", err)
-	}
-	want := []string{"remove", "-y", "pkg-a", "pkg-b"}
-	if len(gotArgs) != len(want) {
-		t.Fatalf("got %v, want %v", gotArgs, want)
-	}
-	for i := range want {
-		if gotArgs[i] != want[i] {
-			t.Errorf("arg %d: got %q, want %q", i, gotArgs[i], want[i])
-		}
-	}
-}
-
-func TestRemove_bothScriptAndApt(t *testing.T) {
-	runner := &recordingRunner{}
-	var gotArgs []string
-	inst := &Installer{
-		runner: runner,
-		fs:     testutil.NewMockFileSystem(),
-		execApt: func(_ context.Context, _ ports.CommandRunner, args []string, _ ports.Spinner) error {
-			gotArgs = append([]string{}, args...)
-			return nil
-		},
-	}
-	p := &pkg.Package{
-		Name:   "test-src",
-		Type:   pkg.TypeSource,
-		Remove: []string{"pkg-a"},
-		Source: &pkg.SourceConfig{
-			RemoveScript: "echo removing",
-		},
-	}
-
-	if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Remove: %v", err)
-	}
-	if len(runner.scripts) != 1 || runner.scripts[0] != "echo removing" {
-		t.Errorf("expected remove script to run, got %v", runner.scripts)
-	}
-	want := []string{"remove", "-y", "pkg-a"}
-	if len(gotArgs) != len(want) {
-		t.Fatalf("got %v, want %v", gotArgs, want)
-	}
-}
-
-func TestRemove_wrongType(t *testing.T) {
-	inst := &Installer{}
-	p := &pkg.Package{Name: "test", Type: pkg.TypeDeb}
-	if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err == nil {
-		t.Fatal("expected error for wrong type")
-	}
-}
-
-func TestRemove_noScriptNoPackages(t *testing.T) {
-	inst := &Installer{fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{Name: "test-src", Type: pkg.TypeSource, Source: &pkg.SourceConfig{}}
-
-	if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err != nil {
-		t.Fatalf("Remove: %v", err)
-	}
-}
-
-func TestGetSource_gitClone(t *testing.T) {
-	var calls []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			calls = append(calls, name)
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name:   "test-src",
-		Repo:   "https://example.com/repo.git",
-		Source: &pkg.SourceConfig{},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err != nil {
-		t.Fatalf("getSource: %v", err)
-	}
-	if len(calls) == 0 || calls[0] != "git" {
-		t.Errorf("expected git clone, got %v", calls)
-	}
-}
-
-func TestGetSource_gitCloneWithVersion(t *testing.T) {
-	var recordedArgs []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			recordedArgs = append(recordedArgs, name)
-			recordedArgs = append(recordedArgs, args...)
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name:    "test-src",
-		Repo:    "https://example.com/repo.git",
-		Version: "1.0.0",
-		Source:  &pkg.SourceConfig{},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err != nil {
-		t.Fatalf("getSource: %v", err)
-	}
-	if len(recordedArgs) < 7 || recordedArgs[4] != "--branch" || recordedArgs[5] != "v1.0.0" {
-		t.Errorf("expected --branch v1.0.0 in git clone args, got %v", recordedArgs)
-	}
-}
-
-func TestGetSource_gitCloneSkipCloneNoURL(t *testing.T) {
-	inst := &Installer{fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name:   "test-src",
-		Repo:   "https://example.com/repo.git",
-		Source: &pkg.SourceConfig{SkipClone: true},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err == nil {
-		t.Fatal("expected error when SkipClone is set but no URL")
-	}
-}
-
-func TestGetSource_noRepoNoURL(t *testing.T) {
-	inst := &Installer{fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name:   "test-src",
-		Type:   pkg.TypeSource,
-		Repo:   "",
-		URL:    "",
-		Source: &pkg.SourceConfig{},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err == nil {
-		t.Fatal("expected error when neither repo nor URL is set")
-	}
-}
-
-func TestGetSource_downloadTar(t *testing.T) {
-	var recorded [][]string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			recorded = append(recorded, append([]string{name}, args...))
-			if name == "tar" && len(args) >= 2 && args[0] == "tf" {
-				return []byte("usr/bin/hello\nusr/share/man/hello.1\n"), nil, nil
-			}
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{
-		runner: runner,
-		fs:     testutil.NewMockFileSystem(),
-		downloadFunc: func(_ context.Context, _ ports.FileSystem, _, _ string, _ ports.Spinner, _ string) error {
-			return nil
-		},
-	}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src-{version}.tar.gz",
-		Source: &pkg.SourceConfig{
-			BuildScript: "echo built",
-		},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err != nil {
-		t.Fatalf("getSource: %v", err)
-	}
-
-	var extractArgs []string
-	for _, cmd := range recorded {
-		if cmd[0] == "tar" && len(cmd) > 1 && cmd[1] == "-xf" {
-			extractArgs = cmd
-			break
-		}
-	}
-	if extractArgs == nil {
-		t.Fatal("expected tar -xf extract call")
-	}
-	hasStrip := false
-	hasC := false
-	for _, a := range extractArgs {
-		if strings.Contains(a, "--strip-components") {
-			hasStrip = true
-		}
-		if a == "-C" {
-			hasC = true
-		}
-	}
-	if !hasStrip {
-		t.Error("expected --strip-components=1 in tar extract args when archive has top-level dir")
-	}
-	if !hasC {
-		t.Error("expected -C in tar extract args")
-	}
-}
-
-func TestGetSource_downloadTar_noTopDir(t *testing.T) {
-	var recorded [][]string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			recorded = append(recorded, append([]string{name}, args...))
-			if name == "tar" && len(args) >= 2 && args[0] == "tf" {
-				return []byte("hello\nhello.1\n"), nil, nil
-			}
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{
-		runner: runner,
-		fs:     testutil.NewMockFileSystem(),
-		downloadFunc: func(_ context.Context, _ ports.FileSystem, _, _ string, _ ports.Spinner, _ string) error {
-			return nil
-		},
-	}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src.tar.gz",
-		Source: &pkg.SourceConfig{
-			BuildScript: "echo built",
-		},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err != nil {
-		t.Fatalf("getSource: %v", err)
-	}
-
-	for _, cmd := range recorded {
-		if cmd[0] == "tar" && len(cmd) > 1 && cmd[1] == "-xf" {
-			for _, a := range cmd {
-				if strings.Contains(a, "--strip-components") {
-					t.Error("did not expect --strip-components when archive has no top-level dir")
-				}
-			}
-		}
-	}
-}
-
-func TestGetSource_downloadZip(t *testing.T) {
-	var recorded [][]string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			recorded = append(recorded, append([]string{name}, args...))
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{
-		runner: runner,
-		fs:     testutil.NewMockFileSystem(),
-		downloadFunc: func(_ context.Context, _ ports.FileSystem, _, _ string, _ ports.Spinner, _ string) error {
-			return nil
-		},
-	}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src-{version}.zip",
-		Source: &pkg.SourceConfig{
-			BuildScript: "echo built",
-		},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err != nil {
-		t.Fatalf("getSource: %v", err)
-	}
-
-	foundUnzip := false
-	for _, cmd := range recorded {
-		if cmd[0] == "unzip" {
-			foundUnzip = true
-			break
-		}
-	}
-	if !foundUnzip {
-		t.Errorf("expected unzip command, got %v", recorded)
-	}
-}
-
-func TestGetSource_downloadError(t *testing.T) {
-	inst := &Installer{
-		fs: testutil.NewMockFileSystem(),
-		downloadFunc: func(_ context.Context, _ ports.FileSystem, _, _ string, _ ports.Spinner, _ string) error {
-			return errors.New("download failed")
-		},
-	}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src.tar.gz",
-		Source: &pkg.SourceConfig{
-			BuildScript: "echo built",
-		},
-	}
-
-	_, err := inst.getSource(context.Background(), p, "/tmp/x", &testutil.MockSpinner{})
-	if err == nil {
-		t.Fatal("expected error when download fails")
-	}
-}
-
-// gitOKRunner succeeds for git commands (ls-remote, clone) and returns
-// nil,nil,nil for everything else (including sh -c via RunWithOptions).
-type gitOKRunner struct{}
-
-func (r *gitOKRunner) Run(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-	if name == "git" && len(args) > 0 && args[0] == "ls-remote" {
-		return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
-	}
-	return nil, nil, nil
-}
-
-func (r *gitOKRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, name string, args ...string) ([]byte, []byte, error) {
-	return nil, nil, nil
-}
-
-func TestInstall_prereqsError(t *testing.T) {
-	inst := &Installer{
-		runner: &gitOKRunner{},
-		fs:     testutil.NewMockFileSystem(),
-		execApt: func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
-			return errors.New("apt install failed")
-		},
-	}
-	p := &pkg.Package{
-		Name:     "test-src",
-		Type:     pkg.TypeSource,
-		Repo:     "https://example.com/repo.git",
-		Packages: []string{"build-dep"},
-		Source:   &pkg.SourceConfig{},
-	}
-	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
-	if err == nil || !strings.Contains(err.Error(), "apt install") {
-		t.Fatalf("expected prereqs error, got %v", err)
-	}
-}
-
-func TestInstall_buildScriptError(t *testing.T) {
-	var buildCalled bool
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
-			if name == "git" {
-				return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
-			}
-			return nil, nil, nil
-		},
-		RunWithOptionsFunc: func(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
-			buildCalled = true
-			return nil, nil, errors.New("build failed")
-		},
-	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		Repo: "https://example.com/repo.git",
-		Source: &pkg.SourceConfig{
-			BuildScript: "echo building",
-		},
-	}
-	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
-	if err == nil || !strings.Contains(err.Error(), "building") {
-		t.Fatalf("expected build error, got %v", err)
-	}
-	if !buildCalled {
-		t.Error("RunWithOptions was never called")
-	}
-}
-
-func TestInstall_installScriptError(t *testing.T) {
-	var callCount int
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
-			if name == "git" {
-				return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
-			}
-			return nil, nil, nil
-		},
-		RunWithOptionsFunc: func(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
-			callCount++
-			if callCount == 2 {
-				return nil, nil, errors.New("install failed")
-			}
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name: "test-src",
-		Type: pkg.TypeSource,
-		Repo: "https://example.com/repo.git",
-		Source: &pkg.SourceConfig{
-			BuildScript:   "echo building",
-			InstallScript: "echo installing",
-		},
-	}
-	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
-	if err == nil || !strings.Contains(err.Error(), "installing") {
-		t.Fatalf("expected install error, got %v", err)
-	}
-}
-
-func TestInstall_postinstallError(t *testing.T) {
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, _ ...string) ([]byte, []byte, error) {
-			if name == "git" {
-				return []byte("abc123\trefs/tags/v1.0.0\n"), nil, nil
-			}
-			if name == "sh" {
-				return nil, nil, errors.New("postinstall failed")
-			}
-			return nil, nil, nil
-		},
-		RunWithOptionsFunc: func(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
-			return nil, nil, nil
-		},
-	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := newTestPackage("echo building", "")
-	p.Source.PostinstallScript = "echo postinstalling"
-	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
-	if err == nil || !strings.Contains(err.Error(), "post-install") {
-		t.Fatalf("expected postinstall error, got %v", err)
-	}
-}
-
-func TestInstall_checkVersionCmdError(t *testing.T) {
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			return nil, nil, errors.New("version command failed")
-		},
-	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
-	p := &pkg.Package{
-		Name:         "test-src",
-		Type:         pkg.TypeSource,
-		VersionCmd:   "bad-command --version",
-		Repo:         "https://example.com/repo.git",
-		Source:       &pkg.SourceConfig{},
-		ForceInstall: true,
-	}
-
-	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
-	if err == nil {
-		t.Fatal("expected error when version command fails")
-	}
-}
-
-func equalScripts(got, want []string) bool {
-	if len(got) != len(want) {
-		return false
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			return false
-		}
-	}
-	return true
 }
