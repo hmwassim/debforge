@@ -255,4 +255,3 @@ func (h *commandHandler) info(ctx context.Context, u ports.UI, names []string, v
 	}
 	return displayWithPager(out)
 }
-

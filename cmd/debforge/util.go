@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
-	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
 	"github.com/hmwassim/debforge/internal/definition"
+	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/service"

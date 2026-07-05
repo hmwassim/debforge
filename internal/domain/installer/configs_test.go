@@ -14,7 +14,7 @@ import (
 
 var testSys = &testutil.MockSystem{}
 
-func TestHasHomePrefix(t *testing.T) {
+func TestUserdirHasPrefix(t *testing.T) {
 	tests := []struct {
 		path string
 		want bool
