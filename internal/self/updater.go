@@ -44,7 +44,7 @@ func (u *Updater) update(ctx context.Context) error {
 	spinner := u.logger.Spinner(ctx, "Processing")
 	defer spinner.Done()
 
-	proceed, err := u.ensureSource(ctx, spinner)
+	proceed, freshInstall, err := u.ensureSource(ctx, spinner)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (u *Updater) update(ctx context.Context) error {
 		return err
 	}
 
-	return u.ensureInstalled(ctx, spinner, buildPath)
+	return u.ensureInstalled(ctx, spinner, buildPath, freshInstall)
 }
 
 // ensureSource clones (or pulls) the repository. Returns:
@@ -65,10 +65,10 @@ func (u *Updater) update(ctx context.Context) error {
 //	(true, nil)  — source is ready to build
 //	(false, nil) — caller should stop (cancelled or up-to-date)
 //	(_, err)     — fatal error
-func (u *Updater) ensureSource(ctx context.Context, spinner ports.Spinner) (proceed bool, _ error) {
+func (u *Updater) ensureSource(ctx context.Context, spinner ports.Spinner) (proceed bool, freshInstall bool, _ error) {
 	sourceExists, err := sourceRepoExists(u.fs, u.cfg.SourceDir)
 	if err != nil {
-		return false, fmt.Errorf("check source dir: %w", err)
+		return false, false, fmt.Errorf("check source dir: %w", err)
 	}
 
 	if !sourceExists {
@@ -78,33 +78,33 @@ func (u *Updater) ensureSource(ctx context.Context, spinner ports.Spinner) (proc
 			spinner.Resume()
 			spinner.SetDesc("Cancelled")
 			spinner.DoneInfo()
-			return false, nil
+			return false, false, nil
 		}
 		spinner.Resume()
 		spinner.SetDesc("Cloning repository")
 		if err := u.cloneRepo(ctx); err != nil {
 			spinner.Fail()
-			return false, fmt.Errorf("clone: %w", err)
+			return false, false, fmt.Errorf("clone: %w", err)
 		}
-		return true, nil
+		return true, true, nil
 	}
 
 	spinner.SetDesc("Updating source")
 	if err := u.gitFetch(ctx); err != nil {
 		spinner.Fail()
-		return false, fmt.Errorf("fetch: %w", err)
+		return false, false, fmt.Errorf("fetch: %w", err)
 	}
 
 	if !u.force {
 		local, remote, err := u.compareRevisions(ctx)
 		if err != nil {
 			spinner.Fail()
-			return false, fmt.Errorf("compare revisions: %w", err)
+			return false, false, fmt.Errorf("compare revisions: %w", err)
 		}
 		if local == remote {
 			spinner.SetDesc("Already up to date")
 			spinner.DoneInfo()
-			return false, nil
+			return false, false, nil
 		}
 	}
 
@@ -115,16 +115,16 @@ func (u *Updater) ensureSource(ctx context.Context, spinner ports.Spinner) (proc
 			spinner.Resume()
 			spinner.SetDesc("Cancelled")
 			spinner.DoneInfo()
-			return false, nil
+			return false, false, nil
 		}
 		spinner.Resume()
 	}
 	spinner.SetDesc("Pulling update")
 	if err := u.gitPull(ctx); err != nil {
 		spinner.Fail()
-		return false, fmt.Errorf("pull: %w", err)
+		return false, false, fmt.Errorf("pull: %w", err)
 	}
-	return true, nil
+	return true, false, nil
 }
 
 func (u *Updater) ensureBuilt(ctx context.Context, spinner ports.Spinner, buildPath string) error {
@@ -142,7 +142,7 @@ func (u *Updater) ensureBuilt(ctx context.Context, spinner ports.Spinner, buildP
 	return nil
 }
 
-func (u *Updater) ensureInstalled(ctx context.Context, spinner ports.Spinner, buildPath string) error {
+func (u *Updater) ensureInstalled(ctx context.Context, spinner ports.Spinner, buildPath string, freshInstall bool) error {
 	finalPath := filepath.Join(u.cfg.BinDir, "debforge")
 	if err := u.installBinary(buildPath, finalPath); err != nil {
 		spinner.Fail()
@@ -158,7 +158,11 @@ func (u *Updater) ensureInstalled(ctx context.Context, spinner ports.Spinner, bu
 		spinner.SetDesc("Warning: completions not installed")
 		u.logger.Warn("completions: %s", err)
 	}
-	spinner.SetDesc("Updated to latest version")
+	if freshInstall {
+		spinner.SetDesc("Debforge installed")
+	} else {
+		spinner.SetDesc("Updated to latest version")
+	}
 	return nil
 }
 

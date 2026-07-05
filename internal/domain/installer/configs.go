@@ -165,6 +165,10 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 				return nil, err
 			}
 			if ownerChown {
+				dir := filepath.Dir(absPath)
+				if err := fs.Chown(dir, ownerUID, ownerGID); err != nil {
+					return nil, fmt.Errorf("chown config dir %s: %w", path, err)
+				}
 				if err := fs.Chown(absPath, ownerUID, ownerGID); err != nil {
 					return nil, fmt.Errorf("chown config %s: %w", path, err)
 				}
