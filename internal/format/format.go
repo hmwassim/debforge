@@ -1,4 +1,4 @@
-package main
+package format
 
 import (
 	"bufio"
@@ -28,7 +28,7 @@ func writePackageLine(w *bufio.Writer, name, desc string, installed bool, pad in
 	}
 }
 
-func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
+func FormatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
 	var names []string
 	reg.Range(func(name string, p *pkg.Package) bool {
 		for _, pat := range patterns {
@@ -71,7 +71,7 @@ func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string)
 	return buf.String()
 }
 
-func formatListCategories(reg *pkg.Registry, st *service.State) string {
+func FormatListCategories(reg *pkg.Registry, st *service.State) string {
 	idx := reg.Categories()
 	cats := make([]string, 0, len(idx))
 	for c := range idx {
@@ -111,7 +111,7 @@ func formatListCategories(reg *pkg.Registry, st *service.State) string {
 	return buf.String()
 }
 
-func formatListCategory(reg *pkg.Registry, st *service.State, category string) string {
+func FormatListCategory(reg *pkg.Registry, st *service.State, category string) string {
 	idx := reg.Categories()
 	pkgs, ok := idx[category]
 	if !ok {
@@ -139,7 +139,7 @@ func formatListCategory(reg *pkg.Registry, st *service.State, category string) s
 	return buf.String()
 }
 
-func formatListPackages(reg *pkg.Registry, st *service.State) string {
+func FormatListPackages(reg *pkg.Registry, st *service.State) string {
 	idx := reg.Categories()
 	cats := make([]string, 0, len(idx))
 	for c := range idx {

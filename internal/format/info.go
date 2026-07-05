@@ -1,4 +1,4 @@
-package main
+package format
 
 import (
 	"bufio"
@@ -12,7 +12,12 @@ import (
 	"github.com/hmwassim/debforge/internal/textutil"
 )
 
-func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verbose bool) string {
+type scriptEntry struct {
+	name    string
+	content string
+}
+
+func FormatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verbose bool) string {
 	p, ok := reg.Lookup(pkgName)
 	if !ok {
 		return ""
@@ -194,10 +199,6 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 		}
 	}
 
-	type scriptEntry struct {
-		name    string
-		content string
-	}
 	var scripts []scriptEntry
 	if p.PreInstall != "" {
 		scripts = append(scripts, scriptEntry{"pre_install", p.PreInstall})

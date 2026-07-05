@@ -253,37 +253,6 @@ func TestExpandGlobs_categoryAndGlob(t *testing.T) {
 	}
 }
 
-// ---- sortedMapKeys tests ---------------------------------------------------
-
-func TestSortedMapKeys(t *testing.T) {
-	m := map[string]string{"z": "1", "a": "2", "m": "3"}
-	keys := sortedMapKeys(m)
-	if len(keys) != 3 || keys[0] != "a" || keys[1] != "m" || keys[2] != "z" {
-		t.Errorf("expected [a m z], got %v", keys)
-	}
-}
-
-func TestSortedMapKeys_empty(t *testing.T) {
-	keys := sortedMapKeys(nil)
-	if len(keys) != 0 {
-		t.Errorf("expected empty, got %v", keys)
-	}
-}
-
-// ---- pluralS tests ----------------------------------------------------------
-
-func TestPluralS(t *testing.T) {
-	if pluralS(1) != "" {
-		t.Error("expected '' for 1")
-	}
-	if pluralS(0) != "s" {
-		t.Error("expected 's' for 0")
-	}
-	if pluralS(2) != "s" {
-		t.Error("expected 's' for 2")
-	}
-}
-
 func TestContainsGlob(t *testing.T) {
 	if !containsGlob("foo*") {
 		t.Error("expected true for *")
