@@ -1783,5 +1783,3 @@ func TestDesktopStep_Check_BashrcNotReadable(t *testing.T) {
 		t.Errorf("expected missing for unreadable bashrc, got %v", result.Status)
 	}
 }
-
-

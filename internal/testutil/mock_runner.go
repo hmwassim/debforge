@@ -11,7 +11,7 @@ type RunFunc func(ctx context.Context, name string, args ...string) ([]byte, []b
 type RunWithOptionsFunc func(ctx context.Context, opts ports.RunOptions, name string, args ...string) ([]byte, []byte, error)
 
 type MockRunner struct {
-	RunFunc          RunFunc
+	RunFunc            RunFunc
 	RunWithOptionsFunc RunWithOptionsFunc
 }
 

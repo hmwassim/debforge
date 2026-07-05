@@ -180,12 +180,14 @@ func TestDisplay_ResumeAfterDone(t *testing.T) {
 	d.Resume()
 }
 
-func restoreIsTerminal() { isTerminal = func(w io.Writer) bool {
-	if f, ok := w.(*os.File); ok {
-		return term.IsTerminal(int(f.Fd()))
+func restoreIsTerminal() {
+	isTerminal = func(w io.Writer) bool {
+		if f, ok := w.(*os.File); ok {
+			return term.IsTerminal(int(f.Fd()))
+		}
+		return false
 	}
-	return false
-} }
+}
 
 func TestDisplay_TTY_Done(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }

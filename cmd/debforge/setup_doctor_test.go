@@ -22,9 +22,11 @@ type mockStep struct {
 	apply error
 }
 
-func (s *mockStep) Name() string                                                   { return s.name }
-func (s *mockStep) Check(_ context.Context, _ *setup.Context) setup.CheckResult     { return s.check }
-func (s *mockStep) Apply(_ context.Context, _ *setup.Context, _ setup.CheckResult) error { return s.apply }
+func (s *mockStep) Name() string                                                { return s.name }
+func (s *mockStep) Check(_ context.Context, _ *setup.Context) setup.CheckResult { return s.check }
+func (s *mockStep) Apply(_ context.Context, _ *setup.Context, _ setup.CheckResult) error {
+	return s.apply
+}
 
 func newSetupHandler(t *testing.T, sys ports.System, cfg *self.Config, fsys *testutil.MockFileSystem, runner ports.CommandRunner) *commandHandler {
 	t.Helper()

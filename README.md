@@ -52,14 +52,14 @@ Commands:
     setup                Provision system (repos, firmware, desktop)
         --force          Skip checks, reapply all steps
     doctor               Check system health
-    list                  List available categories
+    list                    List available categories
     list @<category>       List packages in a category
     list --packages        List packages grouped by category
-    search [<pattern>]   Search packages by name or description
-    update --self        Update debforge itself
-    remove --self        Remove debforge from system
-    --help               Show this help
-    --version            Show version
+    search [<pattern>]     Search packages by name or description
+    update --self          Update debforge itself
+    remove --self          Remove debforge from system
+    --help                  Show this help
+    --version              Show version
 ```
 
 Removing a package that other installed packages depend on prints what will
