@@ -40,26 +40,26 @@ debforge - package manager
 Usage: debforge [flags] <command> [<name>...]
 
 Flags:
-    -y, --yes           Skip confirmation prompts
-    -f, --force         Force operation (reinstall)
-    -a, --all           Update all packages (update only)
+    -y, --yes               Skip confirmation prompts
+    -f, --force             Force operation (reinstall)
+    -a, --all               Update all packages (update only)
 
 Commands:
-    install <name>...    Install packages
-    remove <name>...     Remove packages from system
-    update [<name>...]   Reinstall packages (runs apt-get update)
-        --all            Update all packages and run apt-get upgrade
-    setup                Provision system (repos, firmware, desktop)
-        --force          Skip checks, reapply all steps
-    doctor               Check system health
+    install <name>...       Install packages
+    remove <name>...        Remove packages from system
+    update [<name>...]      Reinstall packages (runs apt-get update)
+        --all               Update all packages and run apt-get upgrade
+    setup                   Provision system (repos, firmware, desktop)
+        --force             Skip checks, reapply all steps
+    doctor                  Check system health
     list                    List available categories
-    list @<category>       List packages in a category
-    list --packages        List packages grouped by category
-    search [<pattern>]     Search packages by name or description
-    update --self          Update debforge itself
-    remove --self          Remove debforge from system
+    list @<category>        List packages in a category
+    list --packages         List packages grouped by category
+    search [<pattern>]      Search packages by name or description
+    update --self           Update debforge itself
+    remove --self           Remove debforge from system
     --help                  Show this help
-    --version              Show version
+    --version               Show version
 ```
 
 Removing a package that other installed packages depend on prints what will
