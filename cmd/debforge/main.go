@@ -168,6 +168,17 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	case "doctor":
 		return h.doctor(ctx, ui)
 
+	case "list":
+		showPackages := slices.Contains(args[1:], "--packages")
+		category := ""
+		for _, a := range args[1:] {
+			if strings.HasPrefix(a, "@") {
+				category = a[1:]
+				break
+			}
+		}
+		return h.list(ctx, ui, category, showPackages)
+
 	case "search":
 		patterns := args[1:]
 		return h.search(ctx, ui, patterns)
@@ -196,6 +207,9 @@ func usage() {
 	fmt.Println("    setup                Provision system (repos, firmware, desktop)")
 	fmt.Println("        --force          Skip checks, reapply all steps")
 	fmt.Println("    doctor               Check system health")
+	fmt.Println("    list                  List available categories")
+	fmt.Println("    list @<category>       List packages in a category")
+	fmt.Println("    list --packages        List packages grouped by category")
 	fmt.Println("    search [<pattern>]   Search packages by name or description")
 	fmt.Println("    --self-update        Update debforge itself")
 	fmt.Println("    --self-remove        Remove debforge from system")

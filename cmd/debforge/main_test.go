@@ -260,6 +260,24 @@ func TestRunWith_searchWithPattern(t *testing.T) {
 	}
 }
 
+// ---- list -------------------------------------------------------------------
+
+func TestRunWith_list_empty(t *testing.T) {
+	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	code := runWithArgs(context.Background(), []string{"list"}, fsys, runner, locker, sys, ui, cfg)
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+}
+
+func TestRunWith_listPackages(t *testing.T) {
+	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	code := runWithArgs(context.Background(), []string{"list", "--packages"}, fsys, runner, locker, sys, ui, cfg)
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+}
+
 // ---- flag parsing ----------------------------------------------------------
 
 func TestRunWith_flagParseError(t *testing.T) {

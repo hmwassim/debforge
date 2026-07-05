@@ -1611,6 +1611,198 @@ func TestExpandGlobs_categoryAndGlob(t *testing.T) {
 	}
 }
 
+// ---- list formatting --------------------------------------------------------
+
+func TestFormatListCategories_withCategories(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
+	reg.Register(&pkg.Package{Name: "firefox", Category: "browsers", Description: "Firefox"})
+	reg.Register(&pkg.Package{Name: "lutris", Category: "gaming", Description: "Lutris"})
+
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	out := formatListCategories(reg, st)
+
+	if !strings.Contains(out, "gaming") || !strings.Contains(out, "browsers") {
+		t.Errorf("expected categories in output, got %q", out)
+	}
+	if !strings.Contains(out, "(2)") || !strings.Contains(out, "(1)") {
+		t.Errorf("expected counts in output, got %q", out)
+	}
+	if !strings.HasPrefix(out, "Categories") {
+		t.Errorf("expected header, got %q", out)
+	}
+}
+
+func TestFormatListCategories_empty(t *testing.T) {
+	reg := pkg.NewRegistry()
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	out := formatListCategories(reg, st)
+	if out != "" {
+		t.Errorf("expected empty, got %q", out)
+	}
+}
+
+func TestFormatListCategory_existing(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam platform"})
+	reg.Register(&pkg.Package{Name: "lutris", Category: "gaming", Description: "Lutris"})
+	reg.Register(&pkg.Package{Name: "firefox", Category: "browsers", Description: "Firefox"})
+
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st.Packages["steam"] = service.PkgEntry{}
+
+	out := formatListCategory(reg, st, "gaming")
+	if !strings.Contains(out, "steam") || !strings.Contains(out, "lutris") {
+		t.Errorf("expected gaming packages, got %q", out)
+	}
+	if !strings.Contains(out, "[*]") || !strings.Contains(out, "[-]") {
+		t.Errorf("expected installed markers, got %q", out)
+	}
+	if !strings.HasPrefix(out, "gaming") {
+		t.Errorf("expected category header, got %q", out)
+	}
+}
+
+func TestFormatListCategory_nonExisting(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming"})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	out := formatListCategory(reg, st, "nonexistent")
+	if out != "" {
+		t.Errorf("expected empty, got %q", out)
+	}
+}
+
+func TestFormatListPackages_withCategories(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
+	reg.Register(&pkg.Package{Name: "firefox", Category: "browsers", Description: "Firefox"})
+
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st.Packages["steam"] = service.PkgEntry{}
+
+	out := formatListPackages(reg, st)
+	if !strings.Contains(out, "gaming") || !strings.Contains(out, "browsers") {
+		t.Errorf("expected category headers, got %q", out)
+	}
+	if !strings.Contains(out, "[*]") || !strings.Contains(out, "steam") {
+		t.Errorf("expected installed steam, got %q", out)
+	}
+	if !strings.Contains(out, "[-]") || !strings.Contains(out, "firefox") {
+		t.Errorf("expected available firefox, got %q", out)
+	}
+}
+
+func TestFormatListPackages_empty(t *testing.T) {
+	reg := pkg.NewRegistry()
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	out := formatListPackages(reg, st)
+	if out != "" {
+		t.Errorf("expected empty, got %q", out)
+	}
+}
+
+// ---- list handler -----------------------------------------------------------
+
+func TestList_nonTerminal(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	code := h.list(context.Background(), &testutil.MockUI{}, "", false)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	output := buf.String()
+
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+	if !strings.Contains(output, "gaming") || !strings.Contains(output, "(1)") {
+		t.Errorf("expected categories in output, got %q", output)
+	}
+}
+
+func TestList_category(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	code := h.list(context.Background(), &testutil.MockUI{}, "gaming", false)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	output := buf.String()
+
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+	if !strings.Contains(output, "steam") {
+		t.Errorf("expected steam in output, got %q", output)
+	}
+}
+
+func TestList_loadError(t *testing.T) {
+	reg := pkg.NewRegistry()
+
+	fsys := testutil.NewMockFileSystem()
+	fsys.ExistsFunc = func(_ string) (bool, error) { return false, errors.New("stat failed") }
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	var errorCalled bool
+	u := &testutil.MockUI{
+		ErrorFunc: func(_ string, _ ...any) { errorCalled = true },
+	}
+
+	code := h.list(context.Background(), u, "", false)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected u.Error to be called")
+	}
+}
+
 func TestContainsGlob(t *testing.T) {
 	if !containsGlob("foo*") {
 		t.Error("expected true for *")

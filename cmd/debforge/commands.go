@@ -301,6 +301,48 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 	return 0
 }
 
+func (h *commandHandler) list(ctx context.Context, u ports.UI, category string, showPackages bool) int {
+	st, err := h.stateSvc.Load()
+	if err != nil {
+		u.Error("load state: %s", err)
+		return 1
+	}
+
+	var out string
+	switch {
+	case category != "":
+		out = formatListCategory(h.reg, st, category)
+	case showPackages:
+		out = formatListPackages(h.reg, st)
+	default:
+		out = formatListCategories(h.reg, st)
+	}
+
+	if out == "" {
+		return 0
+	}
+
+	if !isTerminal(int(os.Stdout.Fd())) {
+		fmt.Print(out)
+		return 0
+	}
+
+	pagerCmd, pagerArgs := selectPager()
+	if pagerCmd == "" {
+		fmt.Print(out)
+		return 0
+	}
+
+	cmd := exec.Command(pagerCmd, pagerArgs...)
+	cmd.Stdin = strings.NewReader(out)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Print(out)
+	}
+	return 0
+}
+
 // selectPager returns the pager command and arguments to use for displaying
 // output. It checks the PAGER environment variable first, then falls back to
 // less. Returns ("", nil) when no suitable pager is found.
@@ -320,11 +362,28 @@ func selectPager() (cmd string, args []string) {
 	return "", nil
 }
 
+// writePackageLine writes a single package line with installed-status
+// marker, padded name, and description.
+func writePackageLine(w *bufio.Writer, name, desc string, installed bool, pad int) {
+	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
+	if installed {
+		fmt.Fprintf(w, "%s[*]%s %-*s", green, reset, pad, name)
+		if desc != "" {
+			fmt.Fprintf(w, "%s%s%s", grey, desc, reset)
+		}
+		fmt.Fprintln(w)
+	} else {
+		fmt.Fprintf(w, "%s[-]%s %s%-*s%s", grey, reset, grey, pad, name, reset)
+		if desc != "" {
+			fmt.Fprintf(w, "%s%s%s", grey, desc, reset)
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // formatSearchOutput formats the package listing. When isTerm is true the
 // output includes ANSI colour codes suitable for a terminal.
 func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
-	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
-
 	var names []string
 	reg.Range(func(name string, p *pkg.Package) bool {
 		for _, pat := range patterns {
@@ -361,18 +420,101 @@ func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string)
 	for _, name := range names {
 		p, _ := reg.Lookup(name)
 		_, installed := st.Packages[name]
-		if installed {
-			fmt.Fprintf(w, "%s[*]%s %-*s", green, reset, pad, name)
-			if p.Description != "" {
-				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
-			}
+		writePackageLine(w, name, p.Description, installed, pad)
+	}
+	w.Flush()
+	return buf.String()
+}
+
+// formatListCategories returns a listing of all categories with package counts.
+func formatListCategories(reg *pkg.Registry, st *service.State) string {
+	idx := buildCategoryIndex(reg)
+	cats := make([]string, 0, len(idx))
+	for c := range idx {
+		cats = append(cats, c)
+	}
+	sort.Strings(cats)
+
+	if len(cats) == 0 {
+		return ""
+	}
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+	fmt.Fprintln(w, "Categories")
+	fmt.Fprintln(w)
+	for _, c := range cats {
+		fmt.Fprintf(w, "%-12s (%d)\n", c, len(idx[c]))
+	}
+	w.Flush()
+	return buf.String()
+}
+
+// formatListCategory returns a listing of all packages in the given category.
+func formatListCategory(reg *pkg.Registry, st *service.State, category string) string {
+	idx := buildCategoryIndex(reg)
+	pkgs, ok := idx[category]
+	if !ok {
+		return ""
+	}
+	sort.Strings(pkgs)
+
+	maxLen := 0
+	for _, name := range pkgs {
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+	}
+	pad := maxLen + 2
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+	fmt.Fprintln(w, category)
+	fmt.Fprintln(w)
+	for _, name := range pkgs {
+		p, _ := reg.Lookup(name)
+		_, installed := st.Packages[name]
+		writePackageLine(w, name, p.Description, installed, pad)
+	}
+	w.Flush()
+	return buf.String()
+}
+
+// formatListPackages returns a listing of all packages grouped by category.
+func formatListPackages(reg *pkg.Registry, st *service.State) string {
+	idx := buildCategoryIndex(reg)
+	cats := make([]string, 0, len(idx))
+	for c := range idx {
+		cats = append(cats, c)
+	}
+	sort.Strings(cats)
+
+	if len(cats) == 0 {
+		return ""
+	}
+
+	maxLen := 0
+	reg.Range(func(name string, _ *pkg.Package) bool {
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+		return true
+	})
+	pad := maxLen + 2
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+	for i, c := range cats {
+		if i > 0 {
 			fmt.Fprintln(w)
-		} else {
-			fmt.Fprintf(w, "%s[-]%s %s%-*s%s", grey, reset, grey, pad, name, reset)
-			if p.Description != "" {
-				fmt.Fprintf(w, "%s%s%s", grey, p.Description, reset)
-			}
-			fmt.Fprintln(w)
+		}
+		fmt.Fprintln(w, c)
+		pkgs := idx[c]
+		sort.Strings(pkgs)
+		for _, name := range pkgs {
+			p, _ := reg.Lookup(name)
+			_, installed := st.Packages[name]
+			writePackageLine(w, name, p.Description, installed, pad)
 		}
 	}
 	w.Flush()
@@ -448,6 +590,18 @@ func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) 
 	return 0
 }
 
+// buildCategoryIndex returns a map of category name to package names.
+func buildCategoryIndex(reg *pkg.Registry) map[string][]string {
+	idx := make(map[string][]string)
+	reg.Range(func(key string, p *pkg.Package) bool {
+		if p.Category != "" {
+			idx[p.Category] = append(idx[p.Category], key)
+		}
+		return true
+	})
+	return idx
+}
+
 // expandGlobs expands glob patterns and @category references in names
 // against the registry. Names without glob characters and without a @
 // prefix are kept as-is. Globs with fewer than three literal characters
@@ -468,13 +622,7 @@ func expandGlobs(reg *pkg.Registry, names []string) []string {
 	}
 	var catIndex map[string][]string
 	if hasCat {
-		catIndex = make(map[string][]string)
-		reg.Range(func(key string, p *pkg.Package) bool {
-			if p.Category != "" {
-				catIndex[p.Category] = append(catIndex[p.Category], key)
-			}
-			return true
-		})
+		catIndex = buildCategoryIndex(reg)
 	}
 
 	for _, name := range names {
