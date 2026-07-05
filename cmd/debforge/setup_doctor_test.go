@@ -39,7 +39,9 @@ func newSetupHandler(t *testing.T, sys ports.System, cfg *self.Config, fsys *tes
 	st := store.NewStore[service.State](fsys, "/state.json")
 	stateSvc := service.NewStateManager(st)
 	if _, err := stateSvc.Load(); err != nil {
-		stateSvc.Save(&service.State{Packages: make(map[string]service.PkgEntry)})
+		if err := stateSvc.Save(&service.State{Packages: make(map[string]service.PkgEntry)}); err != nil {
+			t.Fatalf("save state: %v", err)
+		}
 	}
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,

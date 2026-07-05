@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -52,14 +51,11 @@ func processConfigFiles(cx *Context, cfgs []ConfigFile, result CheckResult) erro
 
 		switch action {
 		case installer.ConfigWrite:
-			dir := filepath.Dir(cfg.Path)
-			if err := cx.Fsys.MkdirAll(dir, 0755); err != nil {
-				return fmt.Errorf("create dir %s: %w", dir, err)
+			hash, err := installer.WriteConfigFile(cx.Fsys, cfg.Path, cfg.Content)
+			if err != nil {
+				return err
 			}
-			if err := cx.Fsys.WriteFile(cfg.Path, []byte(cfg.Content), 0644); err != nil {
-				return fmt.Errorf("write %s: %w", cfg.Path, err)
-			}
-			cx.ConfigHashes[cfg.Path] = textutil.Sha256Hex([]byte(cfg.Content))
+			cx.ConfigHashes[cfg.Path] = hash
 
 		case installer.ConfigSkip:
 			diskData, err := cx.Fsys.ReadFile(cfg.Path)
@@ -68,11 +64,10 @@ func processConfigFiles(cx *Context, cfgs []ConfigFile, result CheckResult) erro
 			}
 
 		case installer.ConfigConflict:
-			sidecar := cfg.Path + ".debforge-new"
-			if err := cx.Fsys.WriteFile(sidecar, []byte(cfg.Content), 0644); err != nil {
-				return fmt.Errorf("write sidecar %s: %w", sidecar, err)
+			if err := installer.WriteConfigSidecar(cx.Fsys, cfg.Path, cfg.Content); err != nil {
+				return fmt.Errorf("write sidecar: %w", err)
 			}
-			cx.UI.Warn("%s has local changes; new version saved as %s", cfg.Path, sidecar)
+			cx.UI.Warn("%s has local changes; new version saved as %s", cfg.Path, cfg.Path+".debforge-new")
 		}
 	}
 	return nil

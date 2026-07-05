@@ -100,7 +100,10 @@ func TestGetDownloadSize(t *testing.T) {
 			return []byte("'http://example.com/pkg.deb' _ 123456 0\n"), nil, nil
 		},
 	}
-	total, label := getDownloadSize(context.Background(), runner, "install", []string{"pkg-a"})
+	total, label, err := getDownloadSize(context.Background(), runner, "install", []string{"pkg-a"})
+	if err != nil {
+		t.Fatalf("getDownloadSize: %v", err)
+	}
 	if total != 123456 {
 		t.Errorf("total = %d, want 123456", total)
 	}
@@ -115,7 +118,10 @@ func TestGetDownloadSize_error(t *testing.T) {
 			return nil, nil, errors.New("apt-get failed")
 		},
 	}
-	total, label := getDownloadSize(context.Background(), runner, "install", []string{"pkg-a"})
+	total, label, err := getDownloadSize(context.Background(), runner, "install", []string{"pkg-a"})
+	if err == nil {
+		t.Error("expected error")
+	}
 	if total != 0 || label != "" {
 		t.Errorf("on error: total=%d label=%q, want (0, \"\")", total, label)
 	}
@@ -127,7 +133,10 @@ func TestGetDownloadSize_noMatches(t *testing.T) {
 			return []byte("All packages are up to date.\n"), nil, nil
 		},
 	}
-	total, label := getDownloadSize(context.Background(), runner, "install", []string{})
+	total, label, err := getDownloadSize(context.Background(), runner, "install", []string{})
+	if err != nil {
+		t.Fatalf("getDownloadSize: %v", err)
+	}
 	if total != 0 || label != "" {
 		t.Errorf("when nothing to download: total=%d label=%q, want (0, \"\")", total, label)
 	}
@@ -140,7 +149,10 @@ func TestGetDownloadSize_multipleArchives(t *testing.T) {
 			return out, nil, nil
 		},
 	}
-	total, label := getDownloadSize(context.Background(), runner, "install", []string{"pkg-a", "pkg-b"})
+	total, label, err := getDownloadSize(context.Background(), runner, "install", []string{"pkg-a", "pkg-b"})
+	if err != nil {
+		t.Fatalf("getDownloadSize: %v", err)
+	}
 	if total != 6000 {
 		t.Errorf("total = %d, want 6000", total)
 	}

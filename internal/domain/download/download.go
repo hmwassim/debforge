@@ -81,7 +81,7 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	defer func() {
 		f.Close()
 		if err != nil {
-			fs.RemoveAll(destPath)
+			_ = fs.RemoveAll(destPath) // best-effort cleanup
 		}
 	}()
 

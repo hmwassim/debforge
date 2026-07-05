@@ -63,7 +63,7 @@ func (l *FLock) Acquire(ctx context.Context, path string) (func(), error) {
 	}
 
 	return func() {
-		syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 		f.Close()
 	}, nil
 }

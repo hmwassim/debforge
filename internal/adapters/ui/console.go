@@ -79,7 +79,7 @@ func (u *ConsoleUI) PromptInput(defaultVal, format string, args ...any) string {
 		tty, err := os.Open("/dev/tty")
 		if err != nil {
 			var s string
-			fmt.Scanln(&s)
+			_, _ = fmt.Scanln(&s)
 			result = strings.TrimSpace(s)
 			return
 		}

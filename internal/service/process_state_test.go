@@ -170,7 +170,7 @@ func TestLoad_corruptState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create temp file: %v", err)
 	}
-	tmpFile.Write([]byte("{invalid json"))
+	_, _ = tmpFile.Write([]byte("{invalid json"))
 	tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 

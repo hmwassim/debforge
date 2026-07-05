@@ -44,9 +44,31 @@ func (u *Updater) update(ctx context.Context) error {
 	spinner := u.logger.Spinner(ctx, "Processing")
 	defer spinner.Done()
 
+	proceed, err := u.ensureSource(ctx, spinner)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
+	}
+
+	buildPath := filepath.Join(u.cfg.BinDir, "debforge.new")
+	if err := u.ensureBuilt(ctx, spinner, buildPath); err != nil {
+		return err
+	}
+
+	return u.ensureInstalled(ctx, spinner, buildPath)
+}
+
+// ensureSource clones (or pulls) the repository. Returns:
+//
+//	(true, nil)  — source is ready to build
+//	(false, nil) — caller should stop (cancelled or up-to-date)
+//	(_, err)     — fatal error
+func (u *Updater) ensureSource(ctx context.Context, spinner ports.Spinner) (proceed bool, _ error) {
 	sourceExists, err := sourceRepoExists(u.fs, u.cfg.SourceDir)
 	if err != nil {
-		return fmt.Errorf("check source dir: %w", err)
+		return false, fmt.Errorf("check source dir: %w", err)
 	}
 
 	if !sourceExists {
@@ -56,55 +78,56 @@ func (u *Updater) update(ctx context.Context) error {
 			spinner.Resume()
 			spinner.SetDesc("Cancelled")
 			spinner.DoneInfo()
-			return nil
+			return false, nil
 		}
 		spinner.Resume()
 		spinner.SetDesc("Cloning repository")
 		if err := u.cloneRepo(ctx); err != nil {
 			spinner.Fail()
-			return fmt.Errorf("clone: %w", err)
+			return false, fmt.Errorf("clone: %w", err)
 		}
+		return true, nil
+	}
 
-	} else {
-		spinner.SetDesc("Updating source")
-		if err := u.gitFetch(ctx); err != nil {
+	spinner.SetDesc("Updating source")
+	if err := u.gitFetch(ctx); err != nil {
+		spinner.Fail()
+		return false, fmt.Errorf("fetch: %w", err)
+	}
+
+	if !u.force {
+		local, remote, err := u.compareRevisions(ctx)
+		if err != nil {
 			spinner.Fail()
-			return fmt.Errorf("fetch: %w", err)
+			return false, fmt.Errorf("compare revisions: %w", err)
 		}
-
-		if !u.force {
-			local, remote, err := u.compareRevisions(ctx)
-			if err != nil {
-				spinner.Fail()
-				return fmt.Errorf("compare revisions: %w", err)
-			}
-			if local == remote {
-				spinner.SetDesc("Already up to date")
-				spinner.DoneInfo()
-				return nil
-			}
-		}
-
-		if !u.force {
-			spinner.Pause()
-			u.logger.Info("Update available")
-			if !u.logger.Prompt("Update debforge?") {
-				spinner.Resume()
-				spinner.SetDesc("Cancelled")
-				spinner.DoneInfo()
-				return nil
-			}
-			spinner.Resume()
-		}
-		spinner.SetDesc("Pulling update")
-		if err := u.gitPull(ctx); err != nil {
-			spinner.Fail()
-			return fmt.Errorf("pull: %w", err)
+		if local == remote {
+			spinner.SetDesc("Already up to date")
+			spinner.DoneInfo()
+			return false, nil
 		}
 	}
 
-	buildPath := filepath.Join(u.cfg.BinDir, "debforge.new")
+	if !u.force {
+		spinner.Pause()
+		u.logger.Info("Update available")
+		if !u.logger.Prompt("Update debforge?") {
+			spinner.Resume()
+			spinner.SetDesc("Cancelled")
+			spinner.DoneInfo()
+			return false, nil
+		}
+		spinner.Resume()
+	}
+	spinner.SetDesc("Pulling update")
+	if err := u.gitPull(ctx); err != nil {
+		spinner.Fail()
+		return false, fmt.Errorf("pull: %w", err)
+	}
+	return true, nil
+}
 
+func (u *Updater) ensureBuilt(ctx context.Context, spinner ports.Spinner, buildPath string) error {
 	spinner.SetDesc("Building debforge")
 	if err := u.build(ctx, buildPath); err != nil {
 		spinner.Fail()
@@ -116,7 +139,10 @@ func (u *Updater) update(ctx context.Context) error {
 		spinner.Fail()
 		return fmt.Errorf("verify: %w", err)
 	}
+	return nil
+}
 
+func (u *Updater) ensureInstalled(ctx context.Context, spinner ports.Spinner, buildPath string) error {
 	finalPath := filepath.Join(u.cfg.BinDir, "debforge")
 	if err := u.installBinary(buildPath, finalPath); err != nil {
 		spinner.Fail()
@@ -131,12 +157,6 @@ func (u *Updater) update(ctx context.Context) error {
 	if err := u.installCompletions(ctx); err != nil {
 		spinner.SetDesc("Warning: completions not installed")
 		u.logger.Warn("completions: %s", err)
-	}
-
-	if sourceExists {
-		spinner.SetDesc("Updated to latest version")
-	} else {
-		spinner.SetDesc("Debforge installed")
 	}
 	return nil
 }

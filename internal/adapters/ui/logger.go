@@ -87,7 +87,7 @@ func (l *ConsoleLogger) Prompt(format string, args ...any) bool {
 	l.mu.Unlock()
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes"
 }

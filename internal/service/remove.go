@@ -89,7 +89,9 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return fmt.Errorf("remove %s: %w", p.Name, err)
 	}
 
-	s.disableOrphanedExtrepos(ctx, p, st, spinner)
+	if err := s.disableOrphanedExtrepos(ctx, p, st, spinner); err != nil {
+		return fmt.Errorf("disable orphaned extrepos: %w", err)
+	}
 
 	s.state.Remove(st, name)
 	s.removeDependents(ctx, st, spinner)
@@ -226,9 +228,9 @@ func pkgIsOrphaned(p *pkg.Package, installed map[string]bool) bool {
 
 // disableOrphanedExtrepos disables any extrepo that was exclusively used by
 // the removed package and is not needed by any other installed package.
-func (s *RemoveService) disableOrphanedExtrepos(ctx context.Context, p *pkg.Package, st *State, spinner ports.Spinner) {
+func (s *RemoveService) disableOrphanedExtrepos(ctx context.Context, p *pkg.Package, st *State, spinner ports.Spinner) error {
 	if p.Apt == nil {
-		return
+		return nil
 	}
 	for _, repo := range p.Apt.Extrepo {
 		if s.extrepoNeeded(ctx, repo, p.Name, st) {
@@ -236,9 +238,10 @@ func (s *RemoveService) disableOrphanedExtrepos(ctx context.Context, p *pkg.Pack
 		}
 		spinner.SetDesc("disabling extrepo " + repo)
 		if _, _, err := s.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
-			spinner.SetDesc(fmt.Sprintf("failed to disable extrepo %s: %v", repo, err))
+			return fmt.Errorf("disable extrepo %s: %w", repo, err)
 		}
 	}
+	return nil
 }
 
 // extrepoNeeded checks whether any installed package other than except needs

@@ -622,7 +622,9 @@ func TestDisableOrphanedExtrepos(t *testing.T) {
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1", "repo-2"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
 
-	svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{})
+	if err := svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{}); err != nil {
+		t.Fatalf("disableOrphanedExtrepos: %v", err)
+	}
 
 	if len(disabled) != 1 || disabled[0] != "repo-2" {
 		t.Errorf("expected only repo-2 to be disabled, got %v", disabled)
@@ -632,7 +634,9 @@ func TestDisableOrphanedExtrepos(t *testing.T) {
 func TestDisableOrphanedExtrepos_noApt(t *testing.T) {
 	svc := &RemoveService{}
 	p := &pkg.Package{Name: "test", Type: pkg.TypeDeb}
-	svc.disableOrphanedExtrepos(context.Background(), p, nil, &mockSpinner{})
+	if err := svc.disableOrphanedExtrepos(context.Background(), p, nil, &mockSpinner{}); err != nil {
+		t.Fatalf("disableOrphanedExtrepos: %v", err)
+	}
 }
 
 func TestDisableOrphanedExtrepos_error(t *testing.T) {
@@ -652,7 +656,9 @@ func TestDisableOrphanedExtrepos_error(t *testing.T) {
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}}}
 
-	svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{})
+	if err := svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{}); err != nil {
+		t.Fatalf("disableOrphanedExtrepos: %v", err)
+	}
 }
 
 func TestRemoveOne_saveStateError(t *testing.T) {
@@ -845,8 +851,10 @@ func TestDisableOrphanedExtrepos_runnerError(t *testing.T) {
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}}}
 
-	// Should log error to spinner but not return it
-	svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{})
+	err := svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
 	if !ranExtrepo {
 		t.Error("expected extrepo disable to be attempted")
 	}

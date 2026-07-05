@@ -21,5 +21,5 @@ func (s *KernelStep) Check(ctx context.Context, cx *Context) CheckResult {
 func (s *KernelStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
 	spinner := cx.UI.Spinner(ctx, "Installing backported kernel")
 	defer spinner.Stop()
-	return aptpty.RunInstallBackports(ctx, cx.Runner, kernelPackages, "trixie-backports", spinner)
+	return aptpty.RunInstallBackports(ctx, cx.Runner, kernelPackages, aptpty.DefaultBackportSuite, spinner)
 }

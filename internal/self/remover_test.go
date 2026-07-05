@@ -3,7 +3,6 @@ package self
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/adapters/store"
@@ -124,9 +123,6 @@ func TestRemoverRemove_linkRemoveNoError(t *testing.T) {
 
 	if err := rm.remove(ctx); err != nil {
 		t.Fatalf("remove() = %v", err)
-	}
-
-	if _, err := deps.fs.ReadFile(filepath.Join(deps.cfg.RootDir, "var", "lock")); err == nil {
 	}
 }
 

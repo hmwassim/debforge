@@ -9,7 +9,6 @@ import (
 
 	"github.com/hmwassim/debforge/internal/adapters/fs"
 	"github.com/hmwassim/debforge/internal/adapters/store"
-	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -109,22 +108,6 @@ func (r *failOnDpkgRunner) Run(_ context.Context, name string, args ...string) (
 
 func (r *failOnDpkgRunner) RunWithOptions(_ context.Context, _ ports.RunOptions, _ string, _ ...string) ([]byte, []byte, error) {
 	return nil, nil, nil
-}
-
-// setupInstallTest creates the common scaffolding needed by most InstallService
-// tests: a registry, an installer registry with a variantRecorder for apt, a
-// state manager, and a resolver. Callers register packages via svc.reg.Register.
-func setupInstallTest(t *testing.T) (*InstallService, func()) {
-	t.Helper()
-	reg := pkg.NewRegistry()
-	instReg := installer.NewRegistry()
-	instReg.Register(pkg.TypeApt, &variantRecorder{})
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
-		resolver:    NewResolver(reg),
-	}
-	return svc, cleanup
 }
 
 func newStateManagerForTest(t *testing.T) (*StateManager, string, func()) {

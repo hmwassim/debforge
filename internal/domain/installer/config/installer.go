@@ -67,10 +67,10 @@ func hashMap(h io.Writer, m map[string]string) {
 	}
 	slices.Sort(paths)
 	for _, path := range paths {
-		h.Write([]byte(path))
-		h.Write([]byte{0})
-		h.Write([]byte(m[path]))
-		h.Write([]byte{0})
+		_, _ = h.Write([]byte(path))
+		_, _ = h.Write([]byte{0})
+		_, _ = h.Write([]byte(m[path]))
+		_, _ = h.Write([]byte{0})
 	}
 }
 

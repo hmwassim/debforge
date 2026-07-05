@@ -87,9 +87,10 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 
 	state := &runState{phase: phaseDownload}
 
-	if total, label := getDownloadSize(ctx, runner, mode, pkgArgs); total > 0 {
-		state.overallTotal = total
-		state.overallLabel = label
+	dlTotal, dlLabel, err := getDownloadSize(ctx, runner, mode, pkgArgs)
+	if err == nil && dlTotal > 0 {
+		state.overallTotal = dlTotal
+		state.overallLabel = dlLabel
 	}
 
 	cmdLine := []string{"apt-get"}
@@ -123,7 +124,7 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 		_ = sess.SetSize(uint16(h), uint16(w))
 	}
 
-	go func() { io.Copy(sess, os.Stdin) }()
+	go func() { _, _ = io.Copy(sess, os.Stdin) }()
 
 	type readResult struct {
 		data []byte

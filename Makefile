@@ -1,17 +1,39 @@
-BINARY   := debforge
-VERSION  := $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
-LDFLAGS  := -ldflags="-X main.version=$(VERSION)"
+BINARY    := debforge
+VERSION   := $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
+LDFLAGS   := -ldflags="-X main.version=$(VERSION)"
+GO        := go
+GOPATH    := /opt/debforge/var/gopath
+GOMODCACHE := $(GOPATH)/mod
+GOCACHE   := $(GOPATH)/buildcache
+export GOPATH GOMODCACHE GOCACHE
 
-.PHONY: build clean test install
+.PHONY: build clean test install lint vet fmt race cover
 
 build:
-	go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/debforge/
+	$(GO) build $(LDFLAGS) -o bin/$(BINARY) ./cmd/debforge/
 
 clean:
 	rm -rf bin/
 
 test:
-	go test ./...
+	$(GO) test ./...
+
+vet:
+	$(GO) vet ./...
+
+fmt:
+	gofmt -l -w .
+
+race:
+	$(GO) test -race ./...
+
+cover:
+	$(GO) test -coverprofile=coverage.out ./...
+	$(GO) tool cover -func=coverage.out | grep total
+
+lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
+	golangci-lint run ./...
 
 # NOTE: /opt/debforge and /usr/local/bin/debforge below must match
 # DefaultRootDir / DefaultLinkPath in internal/self/config.go and the

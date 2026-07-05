@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -23,6 +24,11 @@ type AptExecFunc func(ctx context.Context, runner ports.CommandRunner, aptArgs [
 // It is exported so each installer's NewInstaller can assign it as the
 // default; tests can override per-installer.
 var AptExec AptExecFunc = run
+
+// DefaultBackportSuite is the default suite used for backport installations
+// when the package definition does not specify one. Exported so that other
+// packages (installer, setup) can reference the same constant.
+const DefaultBackportSuite = "trixie-backports"
 
 const (
 	phaseDownload = 0
@@ -55,7 +61,7 @@ func RunInstallBackports(ctx context.Context, runner ports.CommandRunner, packag
 		return nil
 	}
 	if suite == "" {
-		suite = "trixie-backports"
+		suite = DefaultBackportSuite
 	}
 	args := append([]string{"install", "-y", "-t", suite}, packages...)
 	return run(ctx, runner, args, spinner)
@@ -105,14 +111,14 @@ func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, nam
 
 // ---- pre-run: --print-uris ------------------------------------------------
 
-func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode string, args []string) (int64, string) {
+func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode string, args []string) (int64, string, error) {
 	cmdLine := []string{mode, "--print-uris", "-y"}
 	cmdLine = append(cmdLine, args...)
 
 	opts := ports.RunOptions{Env: []string{"LC_ALL=C", "LANG=C", "LANGUAGE=C"}}
 	out, _, err := runner.RunWithOptions(ctx, opts, "apt-get", cmdLine...)
 	if err != nil {
-		return 0, ""
+		return 0, "", fmt.Errorf("get download size: %w", err)
 	}
 
 	var total int64
@@ -132,7 +138,7 @@ func getDownloadSize(ctx context.Context, runner ports.CommandRunner, mode strin
 	}
 
 	if total > 0 {
-		return total, textutil.FormatSize(total)
+		return total, textutil.FormatSize(total), nil
 	}
-	return 0, ""
+	return 0, "", nil
 }

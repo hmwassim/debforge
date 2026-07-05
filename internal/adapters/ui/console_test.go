@@ -116,7 +116,7 @@ func TestConsoleUI_PromptInput_nonYes(t *testing.T) {
 	}
 	os.Stdin = r
 
-	w.WriteString("user_input\n")
+	_, _ = w.WriteString("user_input\n")
 	w.Close()
 
 	u := NewConsoleUI()
@@ -135,7 +135,7 @@ func TestConsoleUI_Prompt_nonYes(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	os.Stdin = r
-	w.WriteString("y\n")
+	_, _ = w.WriteString("y\n")
 	w.Close()
 
 	out := captureStderr(t, func() {
@@ -158,7 +158,7 @@ func TestConsoleUI_Prompt_nonYesWithSpinner(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	os.Stdin = r
-	w.WriteString("n\n")
+	_, _ = w.WriteString("n\n")
 	w.Close()
 
 	out := captureStderr(t, func() {

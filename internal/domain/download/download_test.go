@@ -62,7 +62,7 @@ func TestDownload(t *testing.T) {
 	hashHex := hex.EncodeToString(hash[:])
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	defer ts.Close()
 
@@ -94,7 +94,7 @@ func TestDownload_sha256Mismatch(t *testing.T) {
 	body := []byte("hello debforge")
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	defer ts.Close()
 
@@ -121,7 +121,7 @@ func TestDownload_sha256Mismatch(t *testing.T) {
 
 func TestDownload_emptyFile(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(nil)
+		_, _ = w.Write(nil)
 	}))
 	defer ts.Close()
 
@@ -213,7 +213,7 @@ func TestDownload_rejectsHTTP(t *testing.T) {
 	hashHex := hex.EncodeToString(hash[:])
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	defer ts.Close()
 

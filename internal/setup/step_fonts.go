@@ -187,6 +187,6 @@ func (s *FontsStep) Apply(ctx context.Context, cx *Context, result CheckResult) 
 		return err
 	}
 
-	cx.Runner.Run(ctx, "fc-cache", "-f")
+	_, _, _ = cx.Runner.Run(ctx, "fc-cache", "-f")
 	return nil
 }

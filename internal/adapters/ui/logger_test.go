@@ -22,7 +22,7 @@ func captureStderr(t *testing.T, fn func()) string {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		wg.Done()
 	}()
 
@@ -116,7 +116,7 @@ func captureStderrAndStdin(t *testing.T, stdinInput string, fn func()) string {
 			t.Fatalf("stdin pipe: %v", err)
 		}
 		os.Stdin = sin
-		sw.WriteString(stdinInput)
+		_, _ = sw.WriteString(stdinInput)
 		sw.Close()
 		defer func() { os.Stdin = oldStdin }()
 	}
@@ -125,7 +125,7 @@ func captureStderrAndStdin(t *testing.T, stdinInput string, fn func()) string {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		wg.Done()
 	}()
 
@@ -221,7 +221,7 @@ func TestConsoleLogger_TTY_Prompt(t *testing.T) {
 		t.Fatalf("pipe: %v", err)
 	}
 	os.Stdin = r
-	w.WriteString("y\n")
+	_, _ = w.WriteString("y\n")
 	w.Close()
 
 	out := captureStderr(t, func() {

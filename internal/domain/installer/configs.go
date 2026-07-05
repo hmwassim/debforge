@@ -61,6 +61,25 @@ func DecideConfigAction(fs ports.FileSystem, path, newContent, baselineHash stri
 	}
 }
 
+// WriteConfigFile writes content to path, creates parent directories, and
+// returns the SHA-256 hash of the content.
+func WriteConfigFile(fs ports.FileSystem, path, content string) (string, error) {
+	dir := filepath.Dir(path)
+	if err := fs.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("create config dir %s: %w", dir, err)
+	}
+	if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("write config %s: %w", path, err)
+	}
+	return textutil.Sha256Hex([]byte(content)), nil
+}
+
+// WriteConfigSidecar writes content to path.debforge-new for conflict resolution.
+func WriteConfigSidecar(fs ports.FileSystem, path, content string) error {
+	sidecar := path + ".debforge-new"
+	return fs.WriteFile(sidecar, []byte(content), 0644)
+}
+
 // WriteConfigs writes all config files defined in p.Configs.
 // Backwards-compatible variant that does not track per-file hashes.
 func WriteConfigs(fs ports.FileSystem, spinner ports.Spinner, p *pkg.Package) error {
@@ -84,14 +103,11 @@ func WriteConfigsWithHashes(fs ports.FileSystem, spinner ports.Spinner, p *pkg.P
 
 		switch action {
 		case ConfigWrite:
-			dir := filepath.Dir(path)
-			if err := fs.MkdirAll(dir, 0755); err != nil {
-				return nil, fmt.Errorf("create config dir %s: %w", dir, err)
+			hash, err := WriteConfigFile(fs, path, content)
+			if err != nil {
+				return nil, err
 			}
-			if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
-				return nil, fmt.Errorf("write config %s: %w", path, err)
-			}
-			configHashes[path] = textutil.Sha256Hex([]byte(content))
+			configHashes[path] = hash
 
 		case ConfigSkip:
 			if configHashes[path] == "" {
@@ -102,11 +118,10 @@ func WriteConfigsWithHashes(fs ports.FileSystem, spinner ports.Spinner, p *pkg.P
 			}
 
 		case ConfigConflict:
-			sidecar := path + ".debforge-new"
-			if err := fs.WriteFile(sidecar, []byte(content), 0644); err != nil {
-				return nil, fmt.Errorf("write sidecar %s: %w", sidecar, err)
+			if err := WriteConfigSidecar(fs, path, content); err != nil {
+				return nil, fmt.Errorf("write sidecar: %w", err)
 			}
-			spinner.SetDesc(fmt.Sprintf("%s has local changes; new version saved as %s — review and merge manually", path, sidecar))
+			spinner.SetDesc(fmt.Sprintf("%s has local changes; new version saved as %s — review and merge manually", path, path+".debforge-new"))
 		}
 	}
 	return configHashes, nil
@@ -145,24 +160,16 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 
 		switch action {
 		case ConfigWrite:
-			dir := filepath.Dir(absPath)
-			if err := fs.MkdirAll(dir, 0755); err != nil {
-				return nil, fmt.Errorf("create user config dir %s: %w", dir, err)
-			}
-			if ownerChown {
-				if err := fs.Chown(dir, ownerUID, ownerGID); err != nil {
-					return nil, fmt.Errorf("chown config dir %s: %w", dir, err)
-				}
-			}
-			if err := fs.WriteFile(absPath, []byte(content), 0644); err != nil {
-				return nil, fmt.Errorf("write user config %s: %w", path, err)
+			hash, err := WriteConfigFile(fs, absPath, content)
+			if err != nil {
+				return nil, err
 			}
 			if ownerChown {
 				if err := fs.Chown(absPath, ownerUID, ownerGID); err != nil {
 					return nil, fmt.Errorf("chown config %s: %w", path, err)
 				}
 			}
-			configHashes[absPath] = textutil.Sha256Hex([]byte(content))
+			configHashes[absPath] = hash
 
 		case ConfigSkip:
 			if configHashes[absPath] == "" {
@@ -173,16 +180,15 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 			}
 
 		case ConfigConflict:
-			sidecar := absPath + ".debforge-new"
-			if err := fs.WriteFile(sidecar, []byte(content), 0644); err != nil {
-				return nil, fmt.Errorf("write sidecar %s: %w", sidecar, err)
+			if err := WriteConfigSidecar(fs, absPath, content); err != nil {
+				return nil, fmt.Errorf("write sidecar: %w", err)
 			}
 			if ownerChown {
-				if err := fs.Chown(sidecar, ownerUID, ownerGID); err != nil {
-					return nil, fmt.Errorf("chown sidecar %s: %w", sidecar, err)
+				if err := fs.Chown(absPath+".debforge-new", ownerUID, ownerGID); err != nil {
+					return nil, fmt.Errorf("chown sidecar %s: %w", path, err)
 				}
 			}
-			spinner.SetDesc(fmt.Sprintf("%s has local changes; new version saved as %s — review and merge manually", absPath, sidecar))
+			spinner.SetDesc(fmt.Sprintf("%s has local changes; new version saved as %s — review and merge manually", absPath, absPath+".debforge-new"))
 		}
 	}
 	return configHashes, nil

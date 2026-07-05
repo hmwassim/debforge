@@ -213,7 +213,11 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	for _, repo := range p.Apt.Extrepo {
-		if i.extrepoEnabled(ctx, repo) {
+		enabled, err := i.extrepoEnabled(ctx, repo)
+		if err != nil {
+			return fmt.Errorf("check extrepo %s: %w", repo, err)
+		}
+		if enabled {
 			continue
 		}
 		spinner.SetDesc("enabling extrepo " + repo)
@@ -229,32 +233,40 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 	return nil
 }
 
-func (i *Installer) extrepoEnabled(ctx context.Context, repo string) bool {
+func (i *Installer) extrepoEnabled(ctx context.Context, repo string) (bool, error) {
 	if strings.Contains(repo, "/") || strings.Contains(repo, "..") {
-		return false
+		return false, nil
 	}
 	path := "/etc/apt/sources.list.d/extrepo_" + repo + ".sources"
+	exists, err := i.fs.Exists(path)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
 	data, err := i.fs.ReadFile(path)
 	if err != nil {
-		return false
+		return false, err
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "Enabled:") {
 			val := strings.TrimSpace(line[8:])
-			return val != "no"
+			return val != "no", nil
 		}
 	}
-	return true
+	return true, nil
 }
 
-func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) {
+func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	for _, repo := range p.Apt.Extrepo {
 		spinner.SetDesc("disabling extrepo " + repo)
 		if _, _, err := i.runner.Run(ctx, "extrepo", "disable", repo); err != nil {
-			spinner.SetDesc(fmt.Sprintf("failed to disable extrepo %s: %v", repo, err))
+			return fmt.Errorf("disable extrepo %s: %w", repo, err)
 		}
 	}
+	return nil
 }
 
 // ---- variant selection ----------------------------------------------------
@@ -321,7 +333,7 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 	spinner.SetDesc("installing backports for " + p.Name)
 	suite := p.Apt.BackportSuite
 	if suite == "" {
-		suite = "trixie-backports"
+		suite = aptpty.DefaultBackportSuite
 	}
 	args := append([]string{"install", "-y", "-t", suite}, p.Apt.Backports...)
 	return i.execApt(ctx, i.runner, args, spinner)

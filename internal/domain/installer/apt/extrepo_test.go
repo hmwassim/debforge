@@ -79,7 +79,9 @@ func TestDisableExtrepos_disablesEachRepo(t *testing.T) {
 	inst := &Installer{runner: runner}
 	p := &pkg.Package{Name: "test", Apt: &pkg.AptConfig{Extrepo: []string{"repo-a"}}}
 
-	inst.disableExtrepos(context.Background(), p, &testutil.MockSpinner{})
+	if err := inst.disableExtrepos(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("disableExtrepos: %v", err)
+	}
 
 	want := []string{"extrepo disable repo-a"}
 	for i, c := range want {
@@ -100,7 +102,9 @@ func TestDisableExtrepos_multipleRepos(t *testing.T) {
 	inst := &Installer{runner: runner}
 	p := &pkg.Package{Name: "test", Apt: &pkg.AptConfig{Extrepo: []string{"repo-a", "repo-b"}}}
 
-	inst.disableExtrepos(context.Background(), p, &testutil.MockSpinner{})
+	if err := inst.disableExtrepos(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("disableExtrepos: %v", err)
+	}
 
 	want := []string{"extrepo disable repo-a", "extrepo disable repo-b"}
 	if len(calls) != len(want) {
@@ -123,5 +127,7 @@ func TestDisableExtrepos_noRepos(t *testing.T) {
 	inst := &Installer{runner: runner}
 	p := &pkg.Package{Name: "test", Apt: &pkg.AptConfig{}}
 
-	inst.disableExtrepos(context.Background(), p, &testutil.MockSpinner{})
+	if err := inst.disableExtrepos(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("disableExtrepos: %v", err)
+	}
 }

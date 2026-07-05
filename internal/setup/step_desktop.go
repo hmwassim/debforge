@@ -131,7 +131,7 @@ func (s *DesktopStep) Apply(ctx context.Context, cx *Context, result CheckResult
 		updated = append(updated, bashrcDBlock...)
 	}
 
-	cx.Runner.Run(ctx, "flatpak", "remote-add", "--if-not-exists",
+	_, _, _ = cx.Runner.Run(ctx, "flatpak", "remote-add", "--if-not-exists",
 		"flathub", "https://flathub.org/repo/flathub.flatpakrepo")
 
 	if err := cx.Fsys.WriteFile(bashrc, updated, 0644); err != nil {
