@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 )
@@ -28,12 +27,8 @@ func (s *ExtrepoStep) Name() string {
 }
 
 func (s *ExtrepoStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, []string{"extrepo"})
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "extrepo not installed"}
+	if r := checkStepPackages(ctx, cx, []string{"extrepo"}, "extrepo not installed"); r.Status != StatusSatisfied {
+		return r
 	}
 	return checkConfigFiles(cx, extrepoConfigFiles)
 }

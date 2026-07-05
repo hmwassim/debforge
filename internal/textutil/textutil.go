@@ -3,6 +3,8 @@
 package textutil
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strconv"
 	"strings"
 	"unicode"
@@ -35,6 +37,12 @@ func UcFirst(s string) string {
 // ExpandVersion replaces "{version}" in template with version.
 func ExpandVersion(template, version string) string {
 	return strings.ReplaceAll(template, "{version}", version)
+}
+
+// Sha256Hex returns the hex-encoded SHA-256 hash of data.
+func Sha256Hex(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
 }
 
 // SplitLines splits s into lines, stripping a trailing newline if present

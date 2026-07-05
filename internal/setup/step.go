@@ -36,8 +36,3 @@ type Step interface {
 	Check(ctx context.Context, cx *Context) CheckResult
 	Apply(ctx context.Context, cx *Context, result CheckResult) error
 }
-
-type RollbackStep interface {
-	Step
-	Rollback(ctx context.Context, cx *Context) error
-}

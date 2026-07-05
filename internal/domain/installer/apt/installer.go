@@ -89,13 +89,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 	}
 
 	if p.Version == "" {
-		name := p.PrimarySystemPackage()
-		if p.Apt != nil && p.Apt.Variant != "" {
-			if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
-				name = v[0]
-			}
-		}
-		if c, err := i.candidateVersion(ctx, name); err == nil && c != "" {
+		if c, err := i.candidateVersion(ctx, primarySystemPackage(p)); err == nil && c != "" {
 			p.Version = c
 		}
 	}
@@ -117,13 +111,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 // newer candidate is available it returns false so the install proceeds
 // and records the candidate version.
 func (i *Installer) isUpToDate(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
-	name := p.PrimarySystemPackage()
-	if p.Apt != nil && p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok && len(v) > 0 {
-			name = v[0]
-		}
-	}
-	candidate, err := i.candidateVersion(ctx, name)
+	candidate, err := i.candidateVersion(ctx, primarySystemPackage(p))
 	if err != nil {
 		return false, err
 	}
@@ -170,15 +158,7 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 		return err
 	}
 
-	pkgs := p.Packages
-	if len(p.Remove) > 0 {
-		pkgs = p.Remove
-	}
-	if p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			pkgs = append(pkgs, v...)
-		}
-	}
+	pkgs := removePackages(p)
 
 	if len(pkgs) == 0 {
 		return nil
@@ -350,12 +330,7 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 // ---- main packages --------------------------------------------------------
 
 func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	pkgs := append([]string(nil), p.Packages...)
-	if p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			pkgs = append(pkgs, v...)
-		}
-	}
+	pkgs := installPackages(p)
 	if len(pkgs) == 0 {
 		return nil
 	}
@@ -366,21 +341,5 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 // ---- config files ---------------------------------------------------------
 
 func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
-	hashes := p.ConfigHashes
-	if hashes == nil {
-		hashes = make(map[string]string)
-	}
-
-	updated, err := installer.WriteConfigsWithHashes(i.fs, spinner, p, hashes)
-	if err != nil {
-		return err
-	}
-	hashes = updated
-
-	updated, err = installer.WriteUserConfigsWithHashes(i.fs, i.sys, spinner, p, hashes)
-	if err != nil {
-		return err
-	}
-	p.ConfigHashes = updated
-	return nil
+	return installer.WriteAllConfigs(i.fs, i.sys, spinner, p)
 }

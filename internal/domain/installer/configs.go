@@ -1,14 +1,13 @@
 package installer
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
+	"github.com/hmwassim/debforge/internal/userdir"
 )
 
 // ConfigAction represents the decision from a three-way config file merge.
@@ -19,11 +18,6 @@ const (
 	ConfigSkip
 	ConfigConflict
 )
-
-func Sha256Hex(data []byte) string {
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}
 
 // DecideConfigAction performs a three-way comparison between the on-disk
 // file, the package definition's new content, and the stored baseline
@@ -52,8 +46,8 @@ func DecideConfigAction(fs ports.FileSystem, path, newContent, baselineHash stri
 	if err != nil {
 		return ConfigWrite
 	}
-	diskHash := Sha256Hex(diskData)
-	newHash := Sha256Hex([]byte(newContent))
+	diskHash := textutil.Sha256Hex(diskData)
+	newHash := textutil.Sha256Hex([]byte(newContent))
 
 	switch {
 	case diskHash == baselineHash && newHash == baselineHash:
@@ -97,13 +91,13 @@ func WriteConfigsWithHashes(fs ports.FileSystem, spinner ports.Spinner, p *pkg.P
 			if err := fs.WriteFile(path, []byte(content), 0644); err != nil {
 				return nil, fmt.Errorf("write config %s: %w", path, err)
 			}
-			configHashes[path] = Sha256Hex([]byte(content))
+			configHashes[path] = textutil.Sha256Hex([]byte(content))
 
 		case ConfigSkip:
 			if configHashes[path] == "" {
 				diskData, err := fs.ReadFile(path)
 				if err == nil && diskData != nil {
-					configHashes[path] = Sha256Hex(diskData)
+					configHashes[path] = textutil.Sha256Hex(diskData)
 				}
 			}
 
@@ -136,7 +130,7 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 		configHashes = make(map[string]string)
 	}
 
-	homeDir, err := UserHomeDir(sys)
+	homeDir, err := userdir.Home(sys)
 	if err != nil {
 		return nil, fmt.Errorf("get home directory: %w", err)
 	}
@@ -145,7 +139,7 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 
 	spinner.SetDesc("writing user configs for " + p.Name)
 	for path, content := range p.UserConfigs {
-		absPath := ExpandHome(path, homeDir)
+		absPath := userdir.ExpandHome(path, homeDir)
 
 		action := DecideConfigAction(fs, absPath, content, configHashes[absPath], p.ForceInstall)
 
@@ -168,13 +162,13 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 					return nil, fmt.Errorf("chown config %s: %w", path, err)
 				}
 			}
-			configHashes[absPath] = Sha256Hex([]byte(content))
+			configHashes[absPath] = textutil.Sha256Hex([]byte(content))
 
 		case ConfigSkip:
 			if configHashes[absPath] == "" {
 				diskData, err := fs.ReadFile(absPath)
 				if err == nil && diskData != nil {
-					configHashes[absPath] = Sha256Hex(diskData)
+					configHashes[absPath] = textutil.Sha256Hex(diskData)
 				}
 			}
 
@@ -194,31 +188,6 @@ func WriteUserConfigsWithHashes(fs ports.FileSystem, sys ports.System, spinner p
 	return configHashes, nil
 }
 
-// UserHomeDir returns the home directory appropriate for the invoking user.
-// When running under sudo (root with SUDO_USER set), it returns the original
-// user's home directory so that ~ expansion in user_configs paths resolves
-// to the real user's home (e.g. /home/wassim) rather than /root.
-func UserHomeDir(sys ports.System) (string, error) {
-	if sudoUser := sys.Getenv("SUDO_USER"); sudoUser != "" && sys.IsPrivileged() {
-		u, err := sys.LookupUser(sudoUser)
-		if err == nil {
-			return u.HomeDir, nil
-		}
-	}
-	return sys.UserHomeDir()
-}
-
-// ExpandHome replaces a leading ~/ with homeDir, or returns homeDir for ~.
-func ExpandHome(path, homeDir string) string {
-	if strings.HasPrefix(path, "~/") {
-		return filepath.Join(homeDir, path[2:])
-	}
-	if path == "~" {
-		return homeDir
-	}
-	return path
-}
-
 // resolveSudoOwner returns the uid/gid of the original user when running
 // under sudo (root with SUDO_USER set), so that user config files written
 // by debforge are owned by the invoking user rather than root.
@@ -233,9 +202,25 @@ func resolveSudoOwner(sys ports.System) (uid, gid int, ok bool) {
 	return 0, 0, false
 }
 
-// HasHomePrefix reports whether path starts with ~/ or is exactly ~.
-func HasHomePrefix(path string) bool {
-	return strings.HasPrefix(path, "~/") || path == "~"
+// WriteAllConfigs writes system configs and user configs with three-way
+// merge protection, then updates p.ConfigHashes. This is the shared helper
+// used by both the apt and config installer implementations.
+func WriteAllConfigs(fs ports.FileSystem, sys ports.System, spinner ports.Spinner, p *pkg.Package) error {
+	hashes := p.ConfigHashes
+	if hashes == nil {
+		hashes = make(map[string]string)
+	}
+	updated, err := WriteConfigsWithHashes(fs, spinner, p, hashes)
+	if err != nil {
+		return err
+	}
+	hashes = updated
+	updated, err = WriteUserConfigsWithHashes(fs, sys, spinner, p, hashes)
+	if err != nil {
+		return err
+	}
+	p.ConfigHashes = updated
+	return nil
 }
 
 // FileIsModified reports whether the file at path exists and its content

@@ -227,7 +227,7 @@ func TestSave_fails(t *testing.T) {
 	st := store.NewStore[State](fs.NewFileSystem(), statePath)
 	stateSvc := NewStateManager(st)
 
-	err = saveState(stateSvc, &State{Packages: map[string]PkgEntry{"pkg-a": {}}}, "test")
+	err = stateSvc.Save(&State{Packages: map[string]PkgEntry{"pkg-a": {}}})
 	if err == nil {
 		t.Fatal("expected error when saving to read-only directory")
 	}

@@ -115,12 +115,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 			ui.SetYes(true)
 		}
 		if selfMode {
-			remover := self.NewRemover(cfg, runner, fsys, ui, locker, sys, h.reg, h.instReg, h.stateSvc)
-			if err := remover.Remove(ctx); err != nil {
-				ui.Error("%s", err)
-				return 1
-			}
-			return 0
+			return h.selfRemove(ctx, ui)
 		}
 		if len(names) == 0 {
 			usage()
@@ -137,12 +132,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 			ui.SetYes(true)
 		}
 		if selfMode {
-			updater := self.NewUpdater(cfg, runner, fsys, ui, locker, sys, forceMode)
-			if err := updater.Update(ctx); err != nil {
-				ui.Error("%s", err)
-				return 1
-			}
-			return 0
+			return h.selfUpdate(ctx, ui, forceMode)
 		}
 		if len(names) == 0 && !allMode {
 			usage()

@@ -1,123 +1,48 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"errors"
-	"fmt"
-	"os"
-	"os/exec"
-	"path"
-	"sort"
 	"strings"
 
-	"golang.org/x/term"
-
-	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/aptpty"
-	"github.com/hmwassim/debforge/internal/definition"
-	"github.com/hmwassim/debforge/internal/domain/installer"
-	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
-	configInst "github.com/hmwassim/debforge/internal/domain/installer/config"
-	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
-	sourceInst "github.com/hmwassim/debforge/internal/domain/installer/source"
-	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
 	"github.com/hmwassim/debforge/internal/service"
 	"github.com/hmwassim/debforge/internal/setup"
-	"github.com/hmwassim/debforge/internal/textutil"
 )
 
-// Package-level test hooks (overridable in tests).
-var isTerminal = term.IsTerminal
-var lookPath = exec.LookPath
-
-// commandHandler bundles the dependencies shared by install/remove/update
-// so they are wired once instead of repeated in every handler.
-type commandHandler struct {
-	reg      *pkg.Registry
-	instReg  *installer.Registry
-	stateSvc *service.StateManager
-	locker   ports.Locker
-	cfg      *self.Config
-	runner   ports.CommandRunner
-	fsys     ports.FileSystem
-	sys      ports.System
+func (h *commandHandler) selfRemove(ctx context.Context, u ports.UI) int {
+	remover := self.NewRemover(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, h.reg, h.instReg, h.stateSvc)
+	if err := remover.Remove(ctx); err != nil {
+		u.Error("%s", err)
+		return 1
+	}
+	return 0
 }
 
-func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, ui ports.UI, sys ports.System) (*commandHandler, error) {
-	reg := pkg.NewRegistry()
-	instReg := installer.NewRegistry()
-
-	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui, sys))
-	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui, sys))
-	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
-	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui, sys))
-
-	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
-		return nil, fmt.Errorf("load definitions: %w", err)
+func (h *commandHandler) selfUpdate(ctx context.Context, u ports.UI, forceMode bool) int {
+	updater := self.NewUpdater(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, forceMode)
+	if err := updater.Update(ctx); err != nil {
+		u.Error("%s", err)
+		return 1
 	}
-
-	st := store.NewStore[service.State](fsys, cfg.StatePath)
-	stateSvc := service.NewStateManager(st)
-	if _, err := stateSvc.Load(); err != nil {
-		return nil, fmt.Errorf("load state: %w", err)
-	}
-
-	return &commandHandler{
-		reg: reg, instReg: instReg, stateSvc: stateSvc,
-		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
-	}, nil
+	return 0
 }
 
 func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string, forceMode bool) int {
-	names = expandGlobs(h.reg, names)
-	if cat := firstUnknownCategory(names); cat != "" {
-		u.Error("unknown category: %s", cat)
+	var ok bool
+	names, ok = h.resolveNames(names, u)
+	if !ok {
 		return 1
 	}
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
-
-	resolver := service.NewResolver(h.reg)
-	for _, name := range names {
-		p, ok := h.reg.Lookup(name)
-		if !ok {
-			continue
-		}
-		deps, err := resolver.Resolve(p)
-		if err != nil {
-			u.Error("resolve deps: %s", err)
-			return 1
-		}
-		for _, dep := range deps {
-			if strings.ToLower(dep.Name) == "nvidia" {
-				spinner := u.Spinner(ctx, "checking gpu...")
-				if err := aptInst.CheckGPU(ctx, h.runner, dep.Name); err != nil {
-					spinner.DoneWarn()
-					u.Warn("%s", err)
-					return 1
-				}
-				spinner.Done()
-			}
-		}
+	if !h.checkGPUPreconditions(ctx, u, names) {
+		return 1
 	}
-
-	var conflicts []string
-	for _, name := range names {
-		p, ok := h.reg.Lookup(name)
-		if !ok {
-			continue
-		}
-		if p.Apt != nil {
-			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, h.runner, p.Apt.Conflicts)...)
-		}
-	}
-	if len(conflicts) > 0 {
+	if conflicts := h.checkConflicts(ctx, u, names); len(conflicts) > 0 {
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	if err := svc.SelectVariants(ctx, names, forceMode); err != nil {
 		u.Error("%s", err)
 		return 1
@@ -129,9 +54,8 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 }
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
-	names = expandGlobs(h.reg, names)
-	if cat := firstUnknownCategory(names); cat != "" {
-		u.Error("unknown category: %s", cat)
+	names, ok := h.resolveNames(names, u)
+	if !ok {
 		return 1
 	}
 	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
@@ -149,9 +73,8 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
-	names = expandGlobs(h.reg, names)
-	if cat := firstUnknownCategory(names); cat != "" {
-		u.Error("unknown category: %s", cat)
+	names, ok := h.resolveNames(names, u)
+	if !ok {
 		return 1
 	}
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
@@ -281,25 +204,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 0
 	}
 
-	if !isTerminal(int(os.Stdout.Fd())) {
-		fmt.Print(out)
-		return 0
-	}
-
-	pagerCmd, pagerArgs := selectPager()
-	if pagerCmd == "" {
-		fmt.Print(out)
-		return 0
-	}
-
-	cmd := exec.Command(pagerCmd, pagerArgs...)
-	cmd.Stdin = strings.NewReader(out)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Print(out)
-	}
-	return 0
+	return displayWithPager(out)
 }
 
 func (h *commandHandler) list(ctx context.Context, u ports.UI, category string, showPackages bool) int {
@@ -323,209 +228,7 @@ func (h *commandHandler) list(ctx context.Context, u ports.UI, category string, 
 		return 0
 	}
 
-	if !isTerminal(int(os.Stdout.Fd())) {
-		fmt.Print(out)
-		return 0
-	}
-
-	pagerCmd, pagerArgs := selectPager()
-	if pagerCmd == "" {
-		fmt.Print(out)
-		return 0
-	}
-
-	cmd := exec.Command(pagerCmd, pagerArgs...)
-	cmd.Stdin = strings.NewReader(out)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Print(out)
-	}
-	return 0
-}
-
-// selectPager returns the pager command and arguments to use for displaying
-// output. It checks the PAGER environment variable first, then falls back to
-// less. Returns ("", nil) when no suitable pager is found.
-func selectPager() (cmd string, args []string) {
-	envPager := os.Getenv("PAGER")
-	if envPager != "" {
-		parts := strings.Fields(envPager)
-		cmd = parts[0]
-		if len(parts) > 1 {
-			args = parts[1:]
-		}
-		return
-	}
-	if p, err := lookPath("less"); err == nil {
-		return p, []string{"-FRSX"}
-	}
-	return "", nil
-}
-
-// writePackageLine writes a single package line with installed-status
-// marker, padded name, and description.
-func writePackageLine(w *bufio.Writer, name, desc string, installed bool, pad int) {
-	green, grey, reset := "\033[32m", "\033[90m", "\033[0m"
-	if installed {
-		fmt.Fprintf(w, "%s[*]%s %-*s", green, reset, pad, name)
-		if desc != "" {
-			fmt.Fprintf(w, "%s%s%s", grey, desc, reset)
-		}
-		fmt.Fprintln(w)
-	} else {
-		fmt.Fprintf(w, "%s[-]%s %s%-*s%s", grey, reset, grey, pad, name, reset)
-		if desc != "" {
-			fmt.Fprintf(w, "%s%s%s", grey, desc, reset)
-		}
-		fmt.Fprintln(w)
-	}
-}
-
-// formatSearchOutput formats the package listing. When isTerm is true the
-// output includes ANSI colour codes suitable for a terminal.
-func formatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
-	var names []string
-	reg.Range(func(name string, p *pkg.Package) bool {
-		for _, pat := range patterns {
-			if strings.HasPrefix(pat, "@") {
-				cat := pat[1:]
-				if p.Category != cat {
-					return true
-				}
-			} else {
-				patLower := strings.ToLower(pat)
-				n := strings.ToLower(name)
-				d := strings.ToLower(p.Description)
-				if !strings.Contains(n, patLower) && !strings.Contains(d, patLower) {
-					return true
-				}
-			}
-		}
-		names = append(names, name)
-		return true
-	})
-	sort.Strings(names)
-
-	maxLen := 0
-	for _, name := range names {
-		if len(name) > maxLen {
-			maxLen = len(name)
-		}
-	}
-	pad := maxLen + 2
-
-	var buf bytes.Buffer
-	w := bufio.NewWriter(&buf)
-
-	for _, name := range names {
-		p, _ := reg.Lookup(name)
-		_, installed := st.Packages[name]
-		writePackageLine(w, name, p.Description, installed, pad)
-	}
-	w.Flush()
-	return buf.String()
-}
-
-// formatListCategories returns a listing of all categories with package counts.
-func formatListCategories(reg *pkg.Registry, st *service.State) string {
-	idx := buildCategoryIndex(reg)
-	cats := make([]string, 0, len(idx))
-	for c := range idx {
-		cats = append(cats, c)
-	}
-	sort.Strings(cats)
-
-	if len(cats) == 0 {
-		return ""
-	}
-
-	maxLen := 0
-	for _, c := range cats {
-		if len(c) > maxLen {
-			maxLen = len(c)
-		}
-	}
-
-	blue, bold, reset := "\033[34m", "\033[1m", "\033[0m"
-	var buf bytes.Buffer
-	w := bufio.NewWriter(&buf)
-	for _, c := range cats {
-		fmt.Fprintf(w, "%s[%s]%s %-*s (%d)\n", bold+blue, "i", reset, maxLen, c, len(idx[c]))
-	}
-	w.Flush()
-	return buf.String()
-}
-
-// formatListCategory returns a listing of all packages in the given category.
-func formatListCategory(reg *pkg.Registry, st *service.State, category string) string {
-	idx := buildCategoryIndex(reg)
-	pkgs, ok := idx[category]
-	if !ok {
-		return ""
-	}
-	sort.Strings(pkgs)
-
-	maxLen := 0
-	for _, name := range pkgs {
-		if len(name) > maxLen {
-			maxLen = len(name)
-		}
-	}
-	pad := maxLen + 2
-
-	var buf bytes.Buffer
-	w := bufio.NewWriter(&buf)
-	fmt.Fprintln(w, category)
-	fmt.Fprintln(w)
-	for _, name := range pkgs {
-		p, _ := reg.Lookup(name)
-		_, installed := st.Packages[name]
-		writePackageLine(w, name, p.Description, installed, pad)
-	}
-	w.Flush()
-	return buf.String()
-}
-
-// formatListPackages returns a listing of all packages grouped by category.
-func formatListPackages(reg *pkg.Registry, st *service.State) string {
-	idx := buildCategoryIndex(reg)
-	cats := make([]string, 0, len(idx))
-	for c := range idx {
-		cats = append(cats, c)
-	}
-	sort.Strings(cats)
-
-	if len(cats) == 0 {
-		return ""
-	}
-
-	maxLen := 0
-	reg.Range(func(name string, _ *pkg.Package) bool {
-		if len(name) > maxLen {
-			maxLen = len(name)
-		}
-		return true
-	})
-	pad := maxLen + 2
-
-	var buf bytes.Buffer
-	w := bufio.NewWriter(&buf)
-	for i, c := range cats {
-		if i > 0 {
-			fmt.Fprintln(w)
-		}
-		fmt.Fprintln(w, c)
-		pkgs := idx[c]
-		sort.Strings(pkgs)
-		for _, name := range pkgs {
-			p, _ := reg.Lookup(name)
-			_, installed := st.Packages[name]
-			writePackageLine(w, name, p.Description, installed, pad)
-		}
-	}
-	w.Flush()
-	return buf.String()
+	return displayWithPager(out)
 }
 
 func (h *commandHandler) info(ctx context.Context, u ports.UI, names []string, verbose bool) int {
@@ -550,477 +253,6 @@ func (h *commandHandler) info(ctx context.Context, u ports.UI, names []string, v
 	if out == "" {
 		return 0
 	}
-	if !isTerminal(int(os.Stdout.Fd())) {
-		fmt.Print(out)
-		return 0
-	}
-	pagerCmd, pagerArgs := selectPager()
-	if pagerCmd == "" {
-		fmt.Print(out)
-		return 0
-	}
-	cmd := exec.Command(pagerCmd, pagerArgs...)
-	cmd.Stdin = strings.NewReader(out)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Print(out)
-	}
-	return 0
+	return displayWithPager(out)
 }
 
-func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verbose bool) string {
-	p, ok := reg.Lookup(pkgName)
-	if !ok {
-		return ""
-	}
-
-	green, grey, blue, bold, reset := "\033[32m", "\033[90m", "\033[34m", "\033[1m", "\033[0m"
-	_, installed := st.Packages[pkgName]
-
-	var buf bytes.Buffer
-	w := bufio.NewWriter(&buf)
-
-	// Header line
-	if installed {
-		fmt.Fprintf(w, "%s[*]%s %s%s", green, reset, bold, pkgName)
-	} else {
-		fmt.Fprintf(w, "%s[-]%s %s%s%s", grey, reset, grey, pkgName, reset)
-	}
-	if p.Description != "" {
-		if installed {
-			fmt.Fprintf(w, "%s — %s%s", grey, p.Description, reset)
-		} else {
-			fmt.Fprintf(w, "%s — %s%s%s", grey, p.Description, reset, grey)
-		}
-	}
-	fmt.Fprintln(w)
-
-	// Common fields
-	fmt.Fprintf(w, "    %-18s %s\n", "type:", p.Type)
-	fmt.Fprintf(w, "    %-18s %s\n", "category:", p.Category)
-	if installed {
-		ver := st.Packages[pkgName].Version
-		if ver == "" {
-			ver = "unknown"
-		}
-		fmt.Fprintf(w, "    %-18s %s%s (v%s)%s\n", "status:", green, "installed", ver, reset)
-	} else {
-		fmt.Fprintf(w, "    %-18s %s%s%s\n", "status:", grey, "not installed", reset)
-	}
-	if len(p.Depends) > 0 {
-		fmt.Fprintf(w, "    %-18s %s\n", "depends:", strings.Join(p.Depends, ", "))
-	}
-
-	// Type-specific section
-	switch p.Type {
-	case pkg.TypeApt:
-		apt := p.Apt
-		hasAptInfo := apt != nil && (len(apt.Extrepo) > 0 || len(apt.Backports) > 0 || apt.BackportSuite != "" || len(apt.Conflicts) > 0 || len(apt.Variants) > 0)
-		if hasAptInfo || len(p.Packages) > 0 {
-			fmt.Fprintf(w, "\n%s[%s]%s apt\n", bold+blue, "i", reset)
-			if apt != nil {
-				if len(apt.Extrepo) > 0 {
-					fmt.Fprintf(w, "    %-18s %s\n", "extrepo:", strings.Join(apt.Extrepo, ", "))
-				}
-				if len(apt.Backports) > 0 {
-					fmt.Fprintf(w, "    %-18s %s\n", "backports:", strings.Join(apt.Backports, ", "))
-				}
-				if apt.BackportSuite != "" {
-					fmt.Fprintf(w, "    %-18s %s\n", "backport_suite:", apt.BackportSuite)
-				}
-				if len(apt.Conflicts) > 0 {
-					fmt.Fprintf(w, "    %-18s %s\n", "conflicts:", strings.Join(apt.Conflicts, ", "))
-				}
-				if len(apt.Variants) > 0 {
-					names := make([]string, 0, len(apt.Variants))
-					for n := range apt.Variants {
-						names = append(names, n)
-					}
-					sort.Strings(names)
-					fmt.Fprintf(w, "    %-18s %s\n", "variants:", strings.Join(names, ", "))
-					if verbose && apt.Variant != "" {
-						fmt.Fprintf(w, "    %-18s %s\n", "selected variant:", apt.Variant)
-					}
-				}
-			}
-			if len(p.Packages) > 0 {
-				fmt.Fprintf(w, "    %-18s %s\n", "packages:", strings.Join(p.Packages, ", "))
-			}
-		}
-
-	case pkg.TypeDeb:
-		if p.Deb != nil {
-			fmt.Fprintf(w, "\n%s[%s]%s deb\n", bold+blue, "i", reset)
-			if p.Deb.Package != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "package:", p.Deb.Package)
-			}
-			if p.URL != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "url:", p.URL)
-			}
-			if verbose && p.SHA256 != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "sha256:", p.SHA256)
-			}
-			if p.Repo != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "repo:", p.Repo)
-			}
-			if verbose && p.VersionCmd != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "version_cmd:", p.VersionCmd)
-			}
-			if verbose && p.TagPrefix != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "tag_prefix:", p.TagPrefix)
-			}
-		}
-
-	case pkg.TypeSource:
-		if p.Source != nil {
-			fmt.Fprintf(w, "\n%s[%s]%s source\n", bold+blue, "i", reset)
-			src := p.Source
-			if p.Repo != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "repo:", p.Repo)
-			}
-			if p.URL != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "url:", p.URL)
-			}
-			if verbose && p.SHA256 != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "sha256:", p.SHA256)
-			}
-			if verbose && p.VersionCmd != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "version_cmd:", p.VersionCmd)
-			}
-			if verbose && p.TagPrefix != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "tag_prefix:", p.TagPrefix)
-			}
-			if verbose && src.SourceSubdir != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "source_subdir:", src.SourceSubdir)
-			}
-			if verbose && src.SkipClone {
-				fmt.Fprintf(w, "    %-18s true\n", "skip_clone:")
-			}
-			if len(p.Packages) > 0 {
-				fmt.Fprintf(w, "    %-18s %s\n", "packages:", strings.Join(p.Packages, ", "))
-			}
-		}
-
-	case pkg.TypeConfig:
-		if len(p.Configs) > 0 || len(p.UserConfigs) > 0 {
-			fmt.Fprintf(w, "\n%s[%s]%s config\n", bold+blue, "i", reset)
-			if len(p.Configs) > 0 {
-				paths := sortedMapKeys(p.Configs)
-				if verbose {
-					for _, path := range paths {
-						fmt.Fprintf(w, "    %-18s %s\n", "config:", path)
-						for _, line := range textutil.SplitLines(p.Configs[path]) {
-							fmt.Fprintf(w, "      %s\n", line)
-						}
-					}
-				} else {
-					fmt.Fprintf(w, "    %-18s %s\n", "configs:", strings.Join(paths, ", "))
-				}
-			}
-			if len(p.UserConfigs) > 0 {
-				paths := sortedMapKeys(p.UserConfigs)
-				if verbose {
-					for _, path := range paths {
-						fmt.Fprintf(w, "    %-18s %s\n", "user_config:", path)
-						for _, line := range textutil.SplitLines(p.UserConfigs[path]) {
-							fmt.Fprintf(w, "      %s\n", line)
-						}
-					}
-				} else {
-					fmt.Fprintf(w, "    %-18s %s\n", "user_configs:", strings.Join(paths, ", "))
-				}
-			}
-		}
-	}
-
-	// Remove section
-	if len(p.Remove) > 0 || len(p.RemoveConfigs) > 0 {
-		fmt.Fprintf(w, "\n%s[%s]%s remove\n", bold+blue, "i", reset)
-		if len(p.Remove) > 0 {
-			fmt.Fprintf(w, "    %-18s %s\n", "packages:", strings.Join(p.Remove, ", "))
-		}
-		if len(p.RemoveConfigs) > 0 {
-			paths := sortedMapKeys(p.RemoveConfigs)
-			if verbose {
-				for _, path := range paths {
-					fmt.Fprintf(w, "    %-18s %s\n", "config:", path)
-					for _, line := range textutil.SplitLines(p.RemoveConfigs[path]) {
-						fmt.Fprintf(w, "      %s\n", line)
-					}
-				}
-			} else {
-				fmt.Fprintf(w, "    %-18s %s\n", "configs:", strings.Join(paths, ", "))
-			}
-		}
-	}
-
-	// Scripts section
-	type scriptEntry struct {
-		name    string
-		content string
-	}
-	var scripts []scriptEntry
-	if p.PreInstall != "" {
-		scripts = append(scripts, scriptEntry{"pre_install", p.PreInstall})
-	}
-	if p.PostInstall != "" {
-		scripts = append(scripts, scriptEntry{"post_install", p.PostInstall})
-	}
-	if p.PostRemove != "" {
-		scripts = append(scripts, scriptEntry{"post_remove", p.PostRemove})
-	}
-	if p.Source != nil {
-		if p.Source.BuildScript != "" {
-			scripts = append(scripts, scriptEntry{"build", p.Source.BuildScript})
-		}
-		if p.Source.InstallScript != "" {
-			scripts = append(scripts, scriptEntry{"install", p.Source.InstallScript})
-		}
-		if p.Source.RemoveScript != "" {
-			scripts = append(scripts, scriptEntry{"remove", p.Source.RemoveScript})
-		}
-		if p.Source.PostinstallScript != "" {
-			scripts = append(scripts, scriptEntry{"postinstall", p.Source.PostinstallScript})
-		}
-	}
-	if len(scripts) > 0 {
-		fmt.Fprintf(w, "\n%s[%s]%s scripts\n", bold+blue, "i", reset)
-		for _, s := range scripts {
-			lines := strings.Count(s.content, "\n")
-			if len(s.content) > 0 && !strings.HasSuffix(s.content, "\n") {
-				lines++
-			}
-			if verbose {
-				fmt.Fprintf(w, "    %s\n", s.name)
-				for _, line := range textutil.SplitLines(s.content) {
-					fmt.Fprintf(w, "      %s\n", line)
-				}
-			} else {
-				if lines == 0 {
-					fmt.Fprintf(w, "    %s\t(empty)\n", s.name)
-				} else {
-					fmt.Fprintf(w, "    %s\t(%d line%s)\n", s.name, lines, pluralS(lines))
-				}
-			}
-		}
-	}
-
-	// Configs section (non-config types)
-	if p.Type != pkg.TypeConfig && (len(p.Configs) > 0 || len(p.UserConfigs) > 0) {
-		fmt.Fprintf(w, "\n%s[%s]%s configs\n", bold+blue, "i", reset)
-		if len(p.Configs) > 0 {
-			paths := sortedMapKeys(p.Configs)
-			if verbose {
-				for _, path := range paths {
-					fmt.Fprintf(w, "    %s\n", path)
-					for _, line := range textutil.SplitLines(p.Configs[path]) {
-						fmt.Fprintf(w, "      %s\n", line)
-					}
-				}
-			} else {
-				for _, path := range paths {
-					fmt.Fprintf(w, "    %s\n", path)
-				}
-			}
-		}
-		if len(p.UserConfigs) > 0 {
-			paths := sortedMapKeys(p.UserConfigs)
-			if verbose {
-				for _, path := range paths {
-					fmt.Fprintf(w, "    %s\n", path)
-					for _, line := range textutil.SplitLines(p.UserConfigs[path]) {
-						fmt.Fprintf(w, "      %s\n", line)
-					}
-				}
-			} else {
-				for _, path := range paths {
-					fmt.Fprintf(w, "    %s\n", path)
-				}
-			}
-		}
-	}
-
-	w.Flush()
-	return buf.String()
-}
-
-func sortedMapKeys(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func pluralS(n int) string {
-	if n == 1 {
-		return ""
-	}
-	return "s"
-}
-
-func extractFlags(ss []string, yes, force, all, self *bool) []string {
-	out := make([]string, 0, len(ss))
-	for _, s := range ss {
-		switch {
-		case s == "--yes":
-			*yes = true
-		case s == "--force":
-			*force = true
-		case s == "--all":
-			*all = true
-		case s == "--self":
-			*self = true
-		case strings.HasPrefix(s, "-") && len(s) > 1 && s[1] != '-':
-			for _, c := range s[1:] {
-				switch c {
-				case 'y':
-					*yes = true
-				case 'f':
-					*force = true
-				case 'a':
-					*all = true
-				default:
-					out = append(out, "-"+string(c))
-				}
-			}
-		default:
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-func loadYAMLDefinitions(reg *pkg.Registry, names []string, fsys ports.FileSystem) error {
-	for i, n := range names {
-		if !strings.HasSuffix(n, ".yaml") {
-			continue
-		}
-		p, err := definition.Parse(n, fsys)
-		if err != nil {
-			return fmt.Errorf("load %s: %w", n, err)
-		}
-		reg.Register(p)
-		names[i] = p.Name
-	}
-	return nil
-}
-
-func loadDefs(reg *pkg.Registry, names []string, fsys ports.FileSystem, u ports.UI) bool {
-	if err := loadYAMLDefinitions(reg, names, fsys); err != nil {
-		u.Error("%s", err)
-		return false
-	}
-	return true
-}
-
-func withConfirm(ctx context.Context, u ports.UI, fn func(ports.Spinner) error) int {
-	if !u.Prompt("Continue?") {
-		u.Info("Cancelled")
-		return 0
-	}
-	spinner := u.Spinner(ctx, "Processing")
-	defer spinner.Stop()
-	if err := fn(spinner); err != nil {
-		if !errors.Is(err, service.ErrNotInstalled) {
-			u.Error("%s", err)
-		}
-		return 1
-	}
-	return 0
-}
-
-// buildCategoryIndex returns a map of category name to package names.
-func buildCategoryIndex(reg *pkg.Registry) map[string][]string {
-	idx := make(map[string][]string)
-	reg.Range(func(key string, p *pkg.Package) bool {
-		if p.Category != "" {
-			idx[p.Category] = append(idx[p.Category], key)
-		}
-		return true
-	})
-	return idx
-}
-
-// expandGlobs expands glob patterns and @category references in names
-// against the registry. Names without glob characters and without a @
-// prefix are kept as-is. Globs with fewer than three literal characters
-// before the first wildcard are treated as literals. Duplicates are
-// removed. Unknown @category names are kept in the output so callers
-// can report an error.
-func expandGlobs(reg *pkg.Registry, names []string) []string {
-	var out []string
-	seen := make(map[string]bool)
-
-	// Build a category→packages index once, on first @ encountered.
-	hasCat := false
-	for _, n := range names {
-		if strings.HasPrefix(n, "@") {
-			hasCat = true
-			break
-		}
-	}
-	var catIndex map[string][]string
-	if hasCat {
-		catIndex = buildCategoryIndex(reg)
-	}
-
-	for _, name := range names {
-		if strings.HasPrefix(name, "@") {
-			cat := name[1:]
-			pkgs, ok := catIndex[cat]
-			if !ok {
-				out = append(out, name)
-				continue
-			}
-			for _, key := range pkgs {
-				if !seen[key] {
-					out = append(out, key)
-					seen[key] = true
-				}
-			}
-			continue
-		}
-		if !containsGlob(name) || globPrefixLen(name) < 3 {
-			if !seen[name] {
-				out = append(out, name)
-				seen[name] = true
-			}
-			continue
-		}
-		reg.Range(func(key string, _ *pkg.Package) bool {
-			if ok, _ := path.Match(name, key); ok && !seen[key] {
-				out = append(out, key)
-				seen[key] = true
-			}
-			return true
-		})
-	}
-	return out
-}
-
-// firstUnknownCategory returns the first @-prefixed name in names
-// with the prefix stripped, or "" if none.
-func firstUnknownCategory(names []string) string {
-	for _, n := range names {
-		if strings.HasPrefix(n, "@") {
-			return n[1:]
-		}
-	}
-	return ""
-}
-
-func containsGlob(s string) bool {
-	return strings.ContainsAny(s, "*?[")
-}
-
-func globPrefixLen(s string) int {
-	for i, r := range s {
-		if r == '*' || r == '?' || r == '[' {
-			return i
-		}
-	}
-	return len(s)
-}

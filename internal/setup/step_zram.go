@@ -28,12 +28,8 @@ func (s *ZramStep) Name() string {
 }
 
 func (s *ZramStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, zramPackages)
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "zram-generator not installed"}
+	if r := checkStepPackages(ctx, cx, zramPackages, "zram-generator not installed"); r.Status != StatusSatisfied {
+		return r
 	}
 	return checkConfigFiles(cx, zramConfigFiles)
 }

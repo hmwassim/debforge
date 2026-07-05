@@ -129,8 +129,8 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 				entry.Variant = dep.Apt.Variant
 			}
 			s.state.Add(st, dep.Name, entry)
-			if err := saveState(s.state, st, dep.Name); err != nil {
-				return false, err
+			if err := s.state.Save(st); err != nil {
+				return false, fmt.Errorf("save state after %s: %w", dep.Name, err)
 			}
 			spinner.SetDesc(dep.Name + " " + pastTense)
 			didWork = true

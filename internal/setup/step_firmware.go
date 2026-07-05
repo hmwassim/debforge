@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 )
@@ -24,14 +23,7 @@ func (s *FirmwareStep) Name() string {
 }
 
 func (s *FirmwareStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, firmwarePackages)
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "firmware packages not installed"}
-	}
-	return CheckResult{Status: StatusSatisfied}
+	return checkStepPackages(ctx, cx, firmwarePackages, "firmware packages not installed")
 }
 
 func (s *FirmwareStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {

@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
+	"github.com/hmwassim/debforge/internal/userdir"
 )
 
 var testSys = &testutil.MockSystem{}
@@ -300,7 +300,7 @@ func TestInstall_withUserConfigs(t *testing.T) {
 		t.Errorf("system config not written correctly, got %q", string(fs.files["/etc/foo.conf"]))
 	}
 
-	homeDir, err := installer.UserHomeDir(testSys)
+	homeDir, err := userdir.Home(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestRemove_configs(t *testing.T) {
 		return nil
 	}
 
-	homeDir, err := installer.UserHomeDir(testSys)
+	homeDir, err := userdir.Home(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +373,7 @@ func TestRemove_skipModifiedUserConfig(t *testing.T) {
 		return nil
 	}
 
-	homeDir, err := installer.UserHomeDir(testSys)
+	homeDir, err := userdir.Home(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}

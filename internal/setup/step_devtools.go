@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 )
@@ -23,14 +22,7 @@ func (s *DevtoolsStep) Name() string {
 }
 
 func (s *DevtoolsStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, devtoolsPackages)
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "dev tools not installed"}
-	}
-	return CheckResult{Status: StatusSatisfied}
+	return checkStepPackages(ctx, cx, devtoolsPackages, "dev tools not installed")
 }
 
 func (s *DevtoolsStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {

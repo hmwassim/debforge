@@ -1,15 +1,11 @@
 package service
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/hmwassim/debforge/internal/adapters/store"
-	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
-	"github.com/hmwassim/debforge/internal/ports"
 )
 
 // PkgEntry is the persisted metadata for a single installed package.
@@ -91,30 +87,6 @@ func (m *StateManager) Add(st *State, name string, entry PkgEntry) {
 // Remove deletes name from the state.
 func (m *StateManager) Remove(st *State, name string) {
 	delete(st.Packages, name)
-}
-
-func saveState(state *StateManager, st *State, label string) error {
-	if err := state.Save(st); err != nil {
-		return fmt.Errorf("save state after %s: %w", label, err)
-	}
-	return nil
-}
-
-func checkInstalled(ctx context.Context, state *StateManager, st *State, name string, runner ports.CommandRunner, fs ports.FileSystem, sys ports.System, p *pkg.Package, spinner ports.Spinner) (cleanedUp bool, err error) {
-	if !state.IsInstalled(st, name) {
-		spinner.SetDesc(name + " not installed")
-		return false, fmt.Errorf("%w: %s", ErrNotInstalled, name)
-	}
-	ok, err := installer.CheckInstalled(ctx, runner, fs, sys, p)
-	if err != nil {
-		return false, err
-	}
-	if !ok {
-		state.Remove(st, name)
-		spinner.SetDesc(name + " not installed")
-		return true, fmt.Errorf("%w: %s", ErrNotInstalled, name)
-	}
-	return false, nil
 }
 
 // lookupVariant returns the variant saved in state for name, or "".

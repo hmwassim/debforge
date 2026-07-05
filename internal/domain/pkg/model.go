@@ -1,7 +1,11 @@
 // Package pkg defines the Package model and package type constants.
 package pkg
 
-import "github.com/hmwassim/debforge/internal/registry"
+import (
+	"sort"
+
+	"github.com/hmwassim/debforge/internal/registry"
+)
 
 // Type identifies the kind of package (apt, deb, source, or config).
 type Type string
@@ -169,4 +173,19 @@ func NewRegistry() *Registry {
 // Register indexes p under its own name.
 func (r *Registry) Register(p *Package) {
 	r.Registry.Register(p.Name, p)
+}
+
+// Categories returns a map of category name to sorted package names.
+func (r *Registry) Categories() map[string][]string {
+	idx := map[string][]string{}
+	r.Range(func(name string, p *Package) bool {
+		if p.Category != "" {
+			idx[p.Category] = append(idx[p.Category], name)
+		}
+		return true
+	})
+	for _, names := range idx {
+		sort.Strings(names)
+	}
+	return idx
 }

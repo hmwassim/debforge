@@ -13,6 +13,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/userdir"
 )
 
 // Installer installs and removes config files defined by a Package.
@@ -90,11 +91,11 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	for path, content := range p.UserConfigs {
 		spinner.SetDesc("removing user config " + path)
-		homeDir, err := installer.UserHomeDir(i.sys)
+		homeDir, err := userdir.Home(i.sys)
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
 		}
-		absPath := installer.ExpandHome(path, homeDir)
+		absPath := userdir.ExpandHome(path, homeDir)
 
 		action := installer.DecideConfigAction(i.fs, absPath, content, p.ConfigHashes[absPath], p.ForceInstall)
 		if action == installer.ConfigSkip || action == installer.ConfigConflict {
@@ -110,12 +111,12 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 	for path := range p.RemoveConfigs {
 		spinner.SetDesc("removing config " + path)
 		absPath := path
-		if installer.HasHomePrefix(path) {
-			homeDir, err := installer.UserHomeDir(i.sys)
+		if userdir.HasPrefix(path) {
+			homeDir, err := userdir.Home(i.sys)
 			if err != nil {
 				return fmt.Errorf("get home directory: %w", err)
 			}
-			absPath = installer.ExpandHome(path, homeDir)
+			absPath = userdir.ExpandHome(path, homeDir)
 		}
 		if err := i.fs.RemoveAll(absPath); err != nil {
 			return fmt.Errorf("remove config %s: %w", path, err)
@@ -139,21 +140,5 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 }
 
 func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
-	hashes := p.ConfigHashes
-	if hashes == nil {
-		hashes = make(map[string]string)
-	}
-
-	updated, err := installer.WriteConfigsWithHashes(i.fs, spinner, p, hashes)
-	if err != nil {
-		return err
-	}
-	hashes = updated
-
-	updated, err = installer.WriteUserConfigsWithHashes(i.fs, i.sys, spinner, p, hashes)
-	if err != nil {
-		return err
-	}
-	p.ConfigHashes = updated
-	return nil
+	return installer.WriteAllConfigs(i.fs, i.sys, spinner, p)
 }

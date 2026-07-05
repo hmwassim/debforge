@@ -8,6 +8,8 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/testutil"
+	"github.com/hmwassim/debforge/internal/textutil"
+	"github.com/hmwassim/debforge/internal/userdir"
 )
 
 var testSys = &testutil.MockSystem{}
@@ -24,9 +26,9 @@ func TestHasHomePrefix(t *testing.T) {
 		{"/~/foo", false},
 	}
 	for _, tc := range tests {
-		got := HasHomePrefix(tc.path)
+		got := userdir.HasPrefix(tc.path)
 		if got != tc.want {
-			t.Errorf("HasHomePrefix(%q) = %v, want %v", tc.path, got, tc.want)
+			t.Errorf("HasPrefix(%q) = %v, want %v", tc.path, got, tc.want)
 		}
 	}
 }
@@ -43,7 +45,7 @@ func TestExpandHome(t *testing.T) {
 		{"", "/home/user", ""},
 	}
 	for _, tc := range tests {
-		got := ExpandHome(tc.path, tc.homeDir)
+		got := userdir.ExpandHome(tc.path, tc.homeDir)
 		if got != tc.want {
 			t.Errorf("ExpandHome(%q, %q) = %q, want %q", tc.path, tc.homeDir, got, tc.want)
 		}
@@ -148,7 +150,7 @@ func TestDecideConfigAction_readError(t *testing.T) {
 }
 
 func hashContent(content string) string {
-	return Sha256Hex([]byte(content))
+	return textutil.Sha256Hex([]byte(content))
 }
 
 func TestWriteConfigs(t *testing.T) {
@@ -196,7 +198,7 @@ func TestWriteConfigs_mkdirError(t *testing.T) {
 
 func TestWriteUserConfigs(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
-	homeDir, err := UserHomeDir(testSys)
+	homeDir, err := userdir.Home(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +230,7 @@ func TestWriteUserConfigs_empty(t *testing.T) {
 
 func TestWriteUserConfigs_existingWithBaseline(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
-	homeDir, err := UserHomeDir(testSys)
+	homeDir, err := userdir.Home(testSys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,9 +329,9 @@ func TestWriteUserConfigsWithHashes_chownDirError(t *testing.T) {
 }
 
 func TestUserHomeDir_default(t *testing.T) {
-	dir, err := UserHomeDir(testSys)
+	dir, err := userdir.Home(testSys)
 	if err != nil {
-		t.Fatalf("UserHomeDir: %v", err)
+		t.Fatalf("userdir.Home: %v", err)
 	}
 	if dir != "/home/test" {
 		t.Errorf("expected /home/test, got %q", dir)

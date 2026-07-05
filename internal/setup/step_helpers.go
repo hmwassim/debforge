@@ -9,6 +9,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 // ConfigFile represents a config file to write during setup.
@@ -58,12 +59,12 @@ func processConfigFiles(cx *Context, cfgs []ConfigFile, result CheckResult) erro
 			if err := cx.Fsys.WriteFile(cfg.Path, []byte(cfg.Content), 0644); err != nil {
 				return fmt.Errorf("write %s: %w", cfg.Path, err)
 			}
-			cx.ConfigHashes[cfg.Path] = installer.Sha256Hex([]byte(cfg.Content))
+			cx.ConfigHashes[cfg.Path] = textutil.Sha256Hex([]byte(cfg.Content))
 
 		case installer.ConfigSkip:
 			diskData, err := cx.Fsys.ReadFile(cfg.Path)
 			if err == nil && diskData != nil {
-				cx.ConfigHashes[cfg.Path] = installer.Sha256Hex(diskData)
+				cx.ConfigHashes[cfg.Path] = textutil.Sha256Hex(diskData)
 			}
 
 		case installer.ConfigConflict:
@@ -75,6 +76,19 @@ func processConfigFiles(cx *Context, cfgs []ConfigFile, result CheckResult) erro
 		}
 	}
 	return nil
+}
+
+// checkStepPackages is a shared Check helper for steps that install packages.
+// It wraps allInstalled with consistent error handling.
+func checkStepPackages(ctx context.Context, cx *Context, pkgs []string, summary string) CheckResult {
+	ok, err := allInstalled(ctx, cx.Runner, pkgs)
+	if err != nil {
+		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
+	}
+	if !ok {
+		return CheckResult{Status: StatusMissing, Summary: summary}
+	}
+	return CheckResult{Status: StatusSatisfied}
 }
 
 func allInstalled(ctx context.Context, runner ports.CommandRunner, names []string) (bool, error) {

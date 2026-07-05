@@ -39,12 +39,8 @@ func (s *ResolvedStep) Name() string {
 }
 
 func (s *ResolvedStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, resolvedPackages)
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "systemd-resolved not installed"}
+	if r := checkStepPackages(ctx, cx, resolvedPackages, "systemd-resolved not installed"); r.Status != StatusSatisfied {
+		return r
 	}
 	return checkConfigFiles(cx, resolvedConfigFiles)
 }

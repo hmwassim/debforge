@@ -94,8 +94,8 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 	s.state.Remove(st, name)
 	s.removeDependents(ctx, st, spinner)
 	s.removeOrphaned(ctx, st, spinner)
-	if err := saveState(s.state, st, p.Name); err != nil {
-		return err
+	if err := s.state.Save(st); err != nil {
+		return fmt.Errorf("save state after %s: %w", p.Name, err)
 	}
 
 	spinner.SetDesc(name + " removed")

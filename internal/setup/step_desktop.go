@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
-	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/userdir"
 )
 
 const (
@@ -58,7 +58,7 @@ func (s *DesktopStep) Check(ctx context.Context, cx *Context) CheckResult {
 		return CheckResult{Status: StatusMissing, Summary: "desktop packages not installed"}
 	}
 
-	homeDir, err := installer.UserHomeDir(cx.Sys)
+	homeDir, err := userdir.Home(cx.Sys)
 	if err != nil {
 		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("home dir: %s", err)}
 	}
@@ -98,7 +98,7 @@ func (s *DesktopStep) Apply(ctx context.Context, cx *Context, result CheckResult
 		spinner.SetDesc("Configuring desktop")
 	}
 
-	homeDir, err := installer.UserHomeDir(cx.Sys)
+	homeDir, err := userdir.Home(cx.Sys)
 	if err != nil {
 		return fmt.Errorf("home dir: %w", err)
 	}

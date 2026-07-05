@@ -9,6 +9,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/userdir"
 )
 
 // CheckInstalled verifies that p is installed on the system.
@@ -68,12 +69,12 @@ func configsInstalled(fs ports.FileSystem, sys ports.System, p *pkg.Package) boo
 			return false
 		}
 	}
-	homeDir, homeErr := UserHomeDir(sys)
+	homeDir, homeErr := userdir.Home(sys)
 	for path := range p.UserConfigs {
 		if homeErr != nil {
 			return false
 		}
-		absPath := ExpandHome(path, homeDir)
+		absPath := userdir.ExpandHome(path, homeDir)
 		ok, err := fs.Exists(absPath)
 		if err != nil || !ok {
 			return false

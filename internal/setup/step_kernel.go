@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 )
@@ -16,14 +15,7 @@ func (s *KernelStep) Name() string {
 }
 
 func (s *KernelStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, kernelPackages)
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "backported kernel not installed"}
-	}
-	return CheckResult{Status: StatusSatisfied}
+	return checkStepPackages(ctx, cx, kernelPackages, "backported kernel not installed")
 }
 
 func (s *KernelStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {

@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 )
@@ -23,14 +22,7 @@ func (s *MesaStep) Name() string {
 }
 
 func (s *MesaStep) Check(ctx context.Context, cx *Context) CheckResult {
-	ok, err := allInstalled(ctx, cx.Runner, mesaPackages)
-	if err != nil {
-		return CheckResult{Status: StatusError, Summary: fmt.Sprintf("dpkg query failed: %s", err)}
-	}
-	if !ok {
-		return CheckResult{Status: StatusMissing, Summary: "Mesa packages not installed"}
-	}
-	return CheckResult{Status: StatusSatisfied}
+	return checkStepPackages(ctx, cx, mesaPackages, "Mesa packages not installed")
 }
 
 func (s *MesaStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
