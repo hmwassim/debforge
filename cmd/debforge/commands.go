@@ -617,7 +617,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 		apt := p.Apt
 		hasAptInfo := apt != nil && (len(apt.Extrepo) > 0 || len(apt.Backports) > 0 || apt.BackportSuite != "" || len(apt.Conflicts) > 0 || len(apt.Variants) > 0)
 		if hasAptInfo || len(p.Packages) > 0 {
-			fmt.Fprintf(w, "\n  %s[%s]%s apt\n", bold+blue, "i", reset)
+			fmt.Fprintf(w, "\n%s[%s]%s apt\n", bold+blue, "i", reset)
 			if apt != nil {
 				if len(apt.Extrepo) > 0 {
 					fmt.Fprintf(w, "    %-18s %s\n", "extrepo:", strings.Join(apt.Extrepo, ", "))
@@ -650,7 +650,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 
 	case pkg.TypeDeb:
 		if p.Deb != nil {
-			fmt.Fprintf(w, "\n  %s[%s]%s deb\n", bold+blue, "i", reset)
+			fmt.Fprintf(w, "\n%s[%s]%s deb\n", bold+blue, "i", reset)
 			if p.Deb.Package != "" {
 				fmt.Fprintf(w, "    %-18s %s\n", "package:", p.Deb.Package)
 			}
@@ -673,7 +673,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 
 	case pkg.TypeSource:
 		if p.Source != nil {
-			fmt.Fprintf(w, "\n  %s[%s]%s source\n", bold+blue, "i", reset)
+			fmt.Fprintf(w, "\n%s[%s]%s source\n", bold+blue, "i", reset)
 			src := p.Source
 			if p.Repo != "" {
 				fmt.Fprintf(w, "    %-18s %s\n", "repo:", p.Repo)
@@ -703,7 +703,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 
 	case pkg.TypeConfig:
 		if len(p.Configs) > 0 || len(p.UserConfigs) > 0 {
-			fmt.Fprintf(w, "\n  %s[%s]%s config\n", bold+blue, "i", reset)
+			fmt.Fprintf(w, "\n%s[%s]%s config\n", bold+blue, "i", reset)
 			if len(p.Configs) > 0 {
 				paths := sortedMapKeys(p.Configs)
 				if verbose {
@@ -735,7 +735,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 
 	// Remove section
 	if len(p.Remove) > 0 || len(p.RemoveConfigs) > 0 {
-		fmt.Fprintf(w, "\n  %s[%s]%s remove\n", bold+blue, "i", reset)
+		fmt.Fprintf(w, "\n%s[%s]%s remove\n", bold+blue, "i", reset)
 		if len(p.Remove) > 0 {
 			fmt.Fprintf(w, "    %-18s %s\n", "packages:", strings.Join(p.Remove, ", "))
 		}
@@ -784,7 +784,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 		}
 	}
 	if len(scripts) > 0 {
-		fmt.Fprintf(w, "\n  %s[%s]%s scripts\n", bold+blue, "i", reset)
+		fmt.Fprintf(w, "\n%s[%s]%s scripts\n", bold+blue, "i", reset)
 		for _, s := range scripts {
 			lines := strings.Count(s.content, "\n")
 			if len(s.content) > 0 && !strings.HasSuffix(s.content, "\n") {
@@ -807,7 +807,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 
 	// Configs section (non-config types)
 	if p.Type != pkg.TypeConfig && (len(p.Configs) > 0 || len(p.UserConfigs) > 0) {
-		fmt.Fprintf(w, "\n  %s[%s]%s configs\n", bold+blue, "i", reset)
+		fmt.Fprintf(w, "\n%s[%s]%s configs\n", bold+blue, "i", reset)
 		if len(p.Configs) > 0 {
 			paths := sortedMapKeys(p.Configs)
 			if verbose {
