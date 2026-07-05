@@ -1,0 +1,9 @@
+name: google-chrome
+description: Google Chrome web browser
+type: apt
+category: browsers
+install:
+  extrepo:
+    - google-chrome
+  packages:
+    - google-chrome-stable
