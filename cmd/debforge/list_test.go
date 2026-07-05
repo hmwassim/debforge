@@ -50,7 +50,7 @@ func TestList_nonTerminal(t *testing.T) {
 	if code != 0 {
 		t.Errorf("expected 0, got %d", code)
 	}
-	if !strings.Contains(output, "gaming") || !strings.Contains(output, "(1)") {
+	if !strings.Contains(output, "gaming") || !strings.Contains(output, "(0/1)") {
 		t.Errorf("expected categories in output, got %q", output)
 	}
 }

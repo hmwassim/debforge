@@ -90,11 +90,22 @@ func formatListCategories(reg *pkg.Registry, st *service.State) string {
 		}
 	}
 
-	blue, bold, reset := "\033[34m", "\033[1m", "\033[0m"
+	green, blue, bold, reset := "\033[32m", "\033[34m", "\033[1m", "\033[0m"
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 	for _, c := range cats {
-		fmt.Fprintf(w, "%s[%s]%s %-*s (%d)\n", bold+blue, "i", reset, maxLen, c, len(idx[c]))
+		pkgs := idx[c]
+		inst := 0
+		for _, name := range pkgs {
+			if _, ok := st.Packages[name]; ok {
+				inst++
+			}
+		}
+		marker, color := "i", bold+blue
+		if inst == len(pkgs) {
+			marker, color = "*", bold+green
+		}
+		fmt.Fprintf(w, "%s[%s]%s %-*s (%d/%d)\n", color, marker, reset, maxLen, c, inst, len(pkgs))
 	}
 	w.Flush()
 	return buf.String()

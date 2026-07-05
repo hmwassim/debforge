@@ -138,11 +138,30 @@ func TestFormatListCategories_withCategories(t *testing.T) {
 	if !strings.Contains(out, "gaming") || !strings.Contains(out, "browsers") {
 		t.Errorf("expected categories in output, got %q", out)
 	}
-	if !strings.Contains(out, "(2)") || !strings.Contains(out, "(1)") {
+	if !strings.Contains(out, "(0/2)") || !strings.Contains(out, "(0/1)") {
 		t.Errorf("expected counts in output, got %q", out)
 	}
 	if !strings.Contains(out, "[i]") || !strings.Contains(out, "gaming") {
 		t.Errorf("expected marker and categories, got %q", out)
+	}
+}
+
+func TestFormatListCategories_fullyInstalled(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
+	reg.Register(&pkg.Package{Name: "lutris", Category: "gaming", Description: "Lutris"})
+
+	st := &service.State{Packages: map[string]service.PkgEntry{
+		"steam":  {},
+		"lutris": {},
+	}}
+	out := formatListCategories(reg, st)
+
+	if !strings.Contains(out, "[*]") {
+		t.Errorf("expected [*] for fully installed category, got %q", out)
+	}
+	if !strings.Contains(out, "(2/2)") {
+		t.Errorf("expected (2/2) count, got %q", out)
 	}
 }
 
