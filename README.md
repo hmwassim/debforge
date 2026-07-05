@@ -56,6 +56,7 @@ Commands:
     list @<category>        List packages in a category
     list --packages         List packages grouped by category
     search [<pattern>]      Search packages by name or description
+    diff [<path>...]        Show config diff vs sidecar
     info <name>...          Show detailed package information
         -v, --verbose       Show full config and script contents
     update --self           Update debforge itself
@@ -98,7 +99,9 @@ write time. On the next install or update:
 - If you edited the file and the package's content for it didn't change,
   your edit is left alone.
 - If both changed, your file is left untouched and the new version is
-  written next to it as `<file>.debforge-new` — review and merge manually.
+   written next to it as `<file>.debforge-new` — review and merge manually.
+   Run `debforge diff` to show all pending sidecar diffs, or
+   `debforge diff <file>` for a specific path.
 
 ## Package schema
 
