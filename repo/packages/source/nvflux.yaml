@@ -14,6 +14,8 @@ install:
     make install
 remove:
   script: |
+    /usr/local/bin/nvflux auto 2>/dev/null
     rm -f /usr/local/bin/nvflux
     rm -rf /var/lib/nvflux
     rm -f /etc/xdg/autostart/nvflux-restore.desktop
+    rm -f /usr/local/bin/nvflux.bak
