@@ -18,6 +18,7 @@ import (
 	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
 	sourceInst "github.com/hmwassim/debforge/internal/domain/installer/source"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
 	"github.com/hmwassim/debforge/internal/service"
@@ -38,6 +39,7 @@ type commandHandler struct {
 }
 
 func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, ui ports.UI, sys ports.System) (*commandHandler, error) {
+	runner = dpkg.NewCachedRunner(runner)
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 

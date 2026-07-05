@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
@@ -175,6 +176,65 @@ func (h *commandHandler) doctor(ctx context.Context, u ports.UI) int {
 		return 0
 	}
 	return 1
+}
+
+func (h *commandHandler) diff(ctx context.Context, u ports.UI, args []string) int {
+	var targets []string
+
+	if len(args) > 0 {
+		for _, arg := range args {
+			sidecar := arg + ".debforge-new"
+			exists, err := h.fsys.Exists(sidecar)
+			if err != nil {
+				u.Error("check %s: %s", sidecar, err)
+				return 1
+			}
+			if !exists {
+				u.Warn("no sidecar found for %s", arg)
+				continue
+			}
+			targets = append(targets, arg)
+		}
+	} else {
+		if err := h.fsys.Walk("/", func(path string, info ports.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if strings.HasSuffix(path, ".debforge-new") {
+				targets = append(targets, strings.TrimSuffix(path, ".debforge-new"))
+			}
+			return nil
+		}); err != nil {
+			u.Error("scan: %s", err)
+			return 1
+		}
+		if len(targets) == 0 {
+			u.Info("no config sidecars found")
+			return 0
+		}
+	}
+
+	if len(targets) == 0 {
+		return 0
+	}
+
+	for i, orig := range targets {
+		if i > 0 {
+			fmt.Println()
+		}
+		sidecar := orig + ".debforge-new"
+		stdout, stderr, err := h.runner.Run(ctx, "diff", "-u", orig, sidecar)
+		if len(stderr) > 0 {
+			u.Error("diff: %s", string(stderr))
+			return 1
+		}
+		if err != nil && len(stdout) == 0 {
+			u.Error("diff: %s", err)
+			return 1
+		}
+		fmt.Print(string(stdout))
+	}
+	return 0
 }
 
 func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []string) int {

@@ -173,6 +173,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	case "search":
 		return h.search(ctx, ui, names)
 
+	case "diff":
+		return h.diff(ctx, ui, names)
+
 	case "info":
 		if len(names) == 0 {
 			usage()
@@ -213,6 +216,7 @@ func usage() {
 	fmt.Println("    list @<category>        List packages in a category")
 	fmt.Println("    list --packages         List packages grouped by category")
 	fmt.Println("    search [<pattern>]      Search packages by name or description")
+	fmt.Println("    diff [<path>...]         Show config diff vs sidecar")
 	fmt.Println("    info <name>...          Show detailed package information")
 	fmt.Println("        -v, --verbose       Show full config and script contents")
 	fmt.Println("    update --self           Update debforge itself")
