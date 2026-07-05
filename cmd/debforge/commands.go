@@ -439,11 +439,18 @@ func formatListCategories(reg *pkg.Registry, st *service.State) string {
 		return ""
 	}
 
+	maxLen := 0
+	for _, c := range cats {
+		if len(c) > maxLen {
+			maxLen = len(c)
+		}
+	}
+
 	blue, bold, reset := "\033[34m", "\033[1m", "\033[0m"
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 	for _, c := range cats {
-		fmt.Fprintf(w, "%s[%s]%s %-12s (%d)\n", bold+blue, "i", reset, c, len(idx[c]))
+		fmt.Fprintf(w, "%s[%s]%s %-*s (%d)\n", bold+blue, "i", reset, maxLen, c, len(idx[c]))
 	}
 	w.Flush()
 	return buf.String()
