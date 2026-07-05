@@ -191,6 +191,10 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 			usage()
 			return 1
 		}
+		names, ok := h.resolveNames(names, ui)
+		if !ok {
+			return 1
+		}
 		return h.info(ctx, ui, names, verbose)
 
 	default:
