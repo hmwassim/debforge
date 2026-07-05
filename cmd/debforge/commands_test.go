@@ -1628,8 +1628,8 @@ func TestFormatListCategories_withCategories(t *testing.T) {
 	if !strings.Contains(out, "(2)") || !strings.Contains(out, "(1)") {
 		t.Errorf("expected counts in output, got %q", out)
 	}
-	if !strings.HasPrefix(out, "[i] Categories") {
-		t.Errorf("expected header, got %q", out)
+	if !strings.Contains(out, "[i]") || !strings.Contains(out, "gaming") {
+		t.Errorf("expected marker and categories, got %q", out)
 	}
 }
 

@@ -1,6 +1,6 @@
 _debforge() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local commands="install remove update setup doctor search"
+    local commands="install remove update setup doctor search list"
 
     local idx
     for ((idx=0; idx<COMP_CWORD; idx++)); do
@@ -32,6 +32,9 @@ _debforge() {
             ;;
         setup|doctor)
             COMPREPLY=()
+            ;;
+        list)
+            COMPREPLY=($(compgen -W "--packages" -- "$cur"))
             ;;
     esac
 }

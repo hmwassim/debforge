@@ -8,6 +8,7 @@ _debforge() {
         'setup:Provision system'
         'doctor:Check system health'
         'search:Search packages'
+        'list:List packages'
     )
 
     local idx
@@ -32,6 +33,9 @@ _debforge() {
             done
             packages=(${packages:|used})
             _describe 'package' packages
+            ;;
+        list)
+            _arguments '--packages[List packages grouped by category]'
             ;;
     esac
 }
