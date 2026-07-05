@@ -3,6 +3,7 @@ package pkg
 
 import (
 	"sort"
+	"sync"
 
 	"github.com/hmwassim/debforge/internal/registry"
 )
@@ -163,6 +164,9 @@ func copyMapSlice(m map[string][]string) map[string][]string {
 // package stay implemented identically.
 type Registry struct {
 	*registry.Registry[string, *Package]
+
+	categoriesMu sync.RWMutex
+	categories   map[string][]string
 }
 
 // NewRegistry returns an empty package registry.
@@ -170,13 +174,26 @@ func NewRegistry() *Registry {
 	return &Registry{Registry: registry.New[string, *Package]()}
 }
 
-// Register indexes p under its own name.
+// Register indexes p under its own name and invalidates the
+// Categories cache.
 func (r *Registry) Register(p *Package) {
 	r.Registry.Register(p.Name, p)
+	r.categoriesMu.Lock()
+	r.categories = nil
+	r.categoriesMu.Unlock()
 }
 
 // Categories returns a map of category name to sorted package names.
+// The result is memoized and invalidated on the next call to Register.
 func (r *Registry) Categories() map[string][]string {
+	r.categoriesMu.RLock()
+	if r.categories != nil {
+		cached := r.categories
+		r.categoriesMu.RUnlock()
+		return cached
+	}
+	r.categoriesMu.RUnlock()
+
 	idx := map[string][]string{}
 	r.Range(func(name string, p *Package) bool {
 		if p.Category != "" {
@@ -187,5 +204,12 @@ func (r *Registry) Categories() map[string][]string {
 	for _, names := range idx {
 		sort.Strings(names)
 	}
-	return idx
+
+	r.categoriesMu.Lock()
+	if r.categories == nil {
+		r.categories = idx
+	}
+	cached := r.categories
+	r.categoriesMu.Unlock()
+	return cached
 }
