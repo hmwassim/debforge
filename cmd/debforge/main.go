@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/adapters/exec"
@@ -74,6 +73,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	allMode := *a || *all
 	selfMode := false
 	verboseMode := false
+	packagesMode := false
 	args := fs.Args()
 
 	if len(args) == 0 {
@@ -87,7 +87,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return 1
 	}
 
-	names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode, &verboseMode)
+	names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode, &verboseMode, &packagesMode)
 	if yesMode {
 		ui.SetYes(true)
 	}
@@ -160,7 +160,6 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.doctor(ctx, ui)
 
 	case "list":
-		showPackages := slices.Contains(names, "--packages")
 		category := ""
 		for _, a := range names {
 			if strings.HasPrefix(a, "@") {
@@ -168,7 +167,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 				break
 			}
 		}
-		return h.list(ctx, ui, category, showPackages)
+		return h.list(ctx, ui, category, packagesMode)
 
 	case "search":
 		return h.search(ctx, ui, names)
