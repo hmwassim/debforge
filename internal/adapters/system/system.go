@@ -43,7 +43,7 @@ func (s *System) LookupUser(name string) (*ports.UserInfo, error) {
 	uid, errAtoi1 := strconv.Atoi(u.Uid)
 	gid, errAtoi2 := strconv.Atoi(u.Gid)
 	if errAtoi1 != nil || errAtoi2 != nil {
-		return nil, fmt.Errorf("parse uid/gid for %s: %v / %v", name, errAtoi1, errAtoi2)
+		return nil, fmt.Errorf("parse uid/gid for %s: %w / %w", name, errAtoi1, errAtoi2)
 	}
 	return &ports.UserInfo{HomeDir: u.HomeDir, Uid: uid, Gid: gid}, nil
 }

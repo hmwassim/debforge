@@ -50,7 +50,7 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui))
+	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui, sys))
 	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui, sys))
 	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui, sys))

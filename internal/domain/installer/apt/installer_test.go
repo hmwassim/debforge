@@ -545,7 +545,8 @@ func TestNewInstaller(t *testing.T) {
 	runner := &testutil.MockRunner{}
 	fs := testutil.NewMockFileSystem()
 	ui := &testutil.MockUI{}
-	inst := NewInstaller(runner, fs, ui)
+	sys := &testutil.MockSystem{}
+	inst := NewInstaller(runner, fs, ui, sys)
 	if inst.runner != runner {
 		t.Error("runner not set")
 	}
@@ -554,6 +555,9 @@ func TestNewInstaller(t *testing.T) {
 	}
 	if inst.ui != ui {
 		t.Error("ui not set")
+	}
+	if inst.sys != sys {
+		t.Error("sys not set")
 	}
 	if inst.execApt == nil {
 		t.Error("execApt should not be nil")

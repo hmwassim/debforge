@@ -20,12 +20,13 @@ type Installer struct {
 	runner  ports.CommandRunner
 	fs      ports.FileSystem
 	ui      ports.UI
+	sys     ports.System
 	execApt aptpty.AptExecFunc
 }
 
 // NewInstaller returns a new apt Installer.
-func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec}
+func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System) *Installer {
+	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec}
 }
 
 // Install installs the apt packages described by p, including extrepo
@@ -60,8 +61,7 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		return err
 	}
 	if p.PreInstall != "" {
-		spinner.SetDesc("refreshing package list...")
-		if _, _, err := i.runner.Run(ctx, "apt-get", "update"); err != nil {
+		if err := aptpty.RunUpdate(ctx, i.runner, spinner); err != nil {
 			return fmt.Errorf("apt-get update: %w", err)
 		}
 	}
@@ -242,8 +242,7 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 		}
 	}
 	if len(p.Apt.Extrepo) > 0 {
-		spinner.SetDesc("refreshing package list...")
-		if _, _, err := i.runner.Run(ctx, "apt-get", "update"); err != nil {
+		if err := aptpty.RunUpdate(ctx, i.runner, spinner); err != nil {
 			return fmt.Errorf("apt-get update: %w", err)
 		}
 	}
@@ -367,5 +366,21 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 // ---- config files ---------------------------------------------------------
 
 func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
-	return installer.WriteConfigs(i.fs, spinner, p)
+	hashes := p.ConfigHashes
+	if hashes == nil {
+		hashes = make(map[string]string)
+	}
+
+	updated, err := installer.WriteConfigsWithHashes(i.fs, spinner, p, hashes)
+	if err != nil {
+		return err
+	}
+	hashes = updated
+
+	updated, err = installer.WriteUserConfigsWithHashes(i.fs, i.sys, spinner, p, hashes)
+	if err != nil {
+		return err
+	}
+	p.ConfigHashes = updated
+	return nil
 }
