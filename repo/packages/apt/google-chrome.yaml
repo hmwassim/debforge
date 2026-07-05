@@ -4,6 +4,6 @@ type: apt
 category: browsers
 install:
   extrepo:
-    - google-chrome
+    - google_chrome
   packages:
     - google-chrome-stable
