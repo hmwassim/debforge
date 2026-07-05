@@ -158,6 +158,7 @@ func (u *Updater) ensureInstalled(ctx context.Context, spinner ports.Spinner, bu
 		spinner.SetDesc("Warning: completions not installed")
 		u.logger.Warn("completions: %s", err)
 	}
+	spinner.SetDesc("Updated to latest version")
 	return nil
 }
 
