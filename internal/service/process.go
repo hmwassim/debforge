@@ -152,8 +152,8 @@ func (s *InstallService) restoreDepState(dep *pkg.Package, st *State) (exists bo
 		dep.Version = entry.Version
 		dep.ConfigHashes = entry.ConfigHashes
 		oldVersion = entry.Version
-		if dep.Apt != nil && entry.Variant != "" && dep.Apt.Variant == "" {
-			dep.Apt.Variant = entry.Variant
+		if v := lookupVariant(st, dep.Name); v != "" && dep.Apt != nil && dep.Apt.Variant == "" {
+			dep.Apt.Variant = v
 		}
 	}
 	return

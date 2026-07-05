@@ -31,8 +31,8 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, 
 // Install writes the config files and user config files defined by p,
 // skipping install when the version hash matches (unless ForceInstall).
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeConfig {
-		return fmt.Errorf("config installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeConfig, "config"); err != nil {
+		return err
 	}
 
 	newHash := computeConfigHash(p)
@@ -76,8 +76,8 @@ func hashMap(h io.Writer, m map[string]string) {
 // Remove deletes the user configs, remove configs, and system configs
 // defined by p, skipping modified files unless ForceInstall is set.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeConfig {
-		return fmt.Errorf("config installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeConfig, "config"); err != nil {
+		return err
 	}
 
 	if err := installer.RunPostRemove(ctx, i.runner, spinner, p.Name, p.PostRemove); err != nil {

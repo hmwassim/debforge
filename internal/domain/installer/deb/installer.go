@@ -32,8 +32,8 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, 
 // Install downloads the .deb file from p.URL, installs it via apt-get,
 // and runs the post-install script.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeDeb {
-		return fmt.Errorf("deb installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeDeb, "deb"); err != nil {
+		return err
 	}
 	if p.URL == "" {
 		return fmt.Errorf("deb definition %s: no install url", p.Name)
@@ -84,8 +84,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 
 // Remove removes the system packages tracked by p via apt-get remove.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeDeb {
-		return fmt.Errorf("deb installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeDeb, "deb"); err != nil {
+		return err
 	}
 
 	pkgs := p.Packages

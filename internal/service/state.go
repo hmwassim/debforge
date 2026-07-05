@@ -117,13 +117,23 @@ func checkInstalled(ctx context.Context, state *StateManager, st *State, name st
 	return false, nil
 }
 
+// lookupVariant returns the variant saved in state for name, or "".
+func lookupVariant(st *State, name string) string {
+	if entry, ok := st.Packages[name]; ok {
+		return entry.Variant
+	}
+	return ""
+}
+
 // applyVariant clones p and applies the variant recorded in st so that
 // subsequent install/remove/update operations target the right system
 // packages. Returns p unchanged when no variant is stored.
 func applyVariant(p *pkg.Package, st *State, name string) *pkg.Package {
-	if entry, ok := st.Packages[name]; ok && p.Apt != nil && entry.Variant != "" {
-		p = p.Clone()
-		p.Apt.Variant = entry.Variant
+	if p.Apt != nil {
+		if v := lookupVariant(st, name); v != "" {
+			p = p.Clone()
+			p.Apt.Variant = v
+		}
 	}
 	return p
 }

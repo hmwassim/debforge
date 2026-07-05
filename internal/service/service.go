@@ -88,10 +88,8 @@ func (s *InstallService) SelectVariants(ctx context.Context, names []string, for
 			if dep.Apt == nil || len(dep.Apt.Variants) == 0 {
 				continue
 			}
-			if !force {
-				if entry, ok := st.Packages[dep.Name]; ok && entry.Variant != "" {
-					continue
-				}
+			if !force && lookupVariant(st, dep.Name) != "" {
+				continue
 			}
 			inst, err := LookupInstaller(s.instReg, dep.Type)
 			if err != nil {

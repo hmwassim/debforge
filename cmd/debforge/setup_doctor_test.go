@@ -129,7 +129,7 @@ func TestDoctor_allMissing(t *testing.T) {
 func restoreDefaults() {
 	setup.DefaultSteps = func() []setup.Step {
 		return []setup.Step{
-			&setup.ReposStep{Sources: []setup.RepoSource{{Path: "/etc/apt/sources.list", Content: setup.DebianSourcesList}}},
+			&setup.ReposStep{Sources: []setup.ConfigFile{{Path: "/etc/apt/sources.list", Content: setup.DebianSourcesList}}},
 			&setup.I386Step{},
 			&setup.UpgradeStep{},
 			&setup.FirmwareStep{},

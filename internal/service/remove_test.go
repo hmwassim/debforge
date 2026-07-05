@@ -80,7 +80,7 @@ func TestRemoveOne_successPersistsState(t *testing.T) {
 	}
 }
 
-func TestRemoveOne_staleEntryPersistsCleanup(t *testing.T) {
+func TestRemoveOne_cleansUpStaleEntryInMemory(t *testing.T) {
 	svc, statePath, cleanup := setupRemoveTest(t, &nopRunner{})
 	defer cleanup()
 
@@ -103,13 +103,14 @@ func TestRemoveOne_staleEntryPersistsCleanup(t *testing.T) {
 		t.Error("expected test-pkg removed from in-memory state")
 	}
 
+	// Stale cleanup is not persisted to disk.
 	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
 	loaded, err := diskStore.Load()
 	if err != nil {
 		t.Fatalf("load persisted state: %v", err)
 	}
-	if _, ok := loaded.Packages["test-pkg"]; ok {
-		t.Error("expected test-pkg removed from persisted state after stale cleanup")
+	if _, ok := loaded.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg to remain on disk (cleanup is transient)")
 	}
 }
 

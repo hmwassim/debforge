@@ -3,21 +3,14 @@ package setup
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
-	"github.com/hmwassim/debforge/internal/domain/installer"
 )
-
-type resolvedConfig struct {
-	Path    string
-	Content string
-}
 
 var resolvedPackages = []string{"systemd-resolved"}
 
-var resolvedConfigFiles = []resolvedConfig{
+var resolvedConfigFiles = []ConfigFile{
 	{
 		Path: "/etc/systemd/resolved.conf.d/99-dot.conf",
 		Content: `[Resolve]
@@ -53,23 +46,7 @@ func (s *ResolvedStep) Check(ctx context.Context, cx *Context) CheckResult {
 	if !ok {
 		return CheckResult{Status: StatusMissing, Summary: "systemd-resolved not installed"}
 	}
-
-	for _, cfg := range resolvedConfigFiles {
-		action := installer.DecideConfigAction(cx.Fsys, cfg.Path, cfg.Content, cx.ConfigHashes[cfg.Path], false)
-		exists, _ := cx.Fsys.Exists(cfg.Path)
-		switch {
-		case action == installer.ConfigWrite && !exists:
-			return CheckResult{Status: StatusMissing, Summary: fmt.Sprintf("%s does not exist", cfg.Path)}
-		case action == installer.ConfigWrite && exists:
-			continue
-		case action == installer.ConfigSkip:
-			return CheckResult{Status: StatusDrifted, Summary: fmt.Sprintf("%s modified by user", cfg.Path)}
-		case action == installer.ConfigConflict:
-			return CheckResult{Status: StatusConflict, Summary: fmt.Sprintf("%s: local changes conflict with new defaults", cfg.Path)}
-		}
-	}
-
-	return CheckResult{Status: StatusSatisfied}
+	return checkConfigFiles(cx, resolvedConfigFiles)
 }
 
 func (s *ResolvedStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
@@ -87,38 +64,8 @@ func (s *ResolvedStep) Apply(ctx context.Context, cx *Context, result CheckResul
 		spinner.SetDesc("Configuring systemd-resolved")
 	}
 
-	for _, cfg := range resolvedConfigFiles {
-		force := cx.Force
-		if result.Status == StatusDrifted {
-			force = false
-		}
-
-		action := installer.DecideConfigAction(cx.Fsys, cfg.Path, cfg.Content, cx.ConfigHashes[cfg.Path], force)
-
-		switch action {
-		case installer.ConfigWrite:
-			dir := filepath.Dir(cfg.Path)
-			if err := cx.Fsys.MkdirAll(dir, 0755); err != nil {
-				return fmt.Errorf("create dir %s: %w", dir, err)
-			}
-			if err := cx.Fsys.WriteFile(cfg.Path, []byte(cfg.Content), 0644); err != nil {
-				return fmt.Errorf("write %s: %w", cfg.Path, err)
-			}
-			cx.ConfigHashes[cfg.Path] = installer.Sha256Hex([]byte(cfg.Content))
-
-		case installer.ConfigSkip:
-			diskData, err := cx.Fsys.ReadFile(cfg.Path)
-			if err == nil && diskData != nil {
-				cx.ConfigHashes[cfg.Path] = installer.Sha256Hex(diskData)
-			}
-
-		case installer.ConfigConflict:
-			sidecar := cfg.Path + ".debforge-new"
-			if err := cx.Fsys.WriteFile(sidecar, []byte(cfg.Content), 0644); err != nil {
-				return fmt.Errorf("write sidecar %s: %w", sidecar, err)
-			}
-			cx.UI.Warn("%s has local changes; new version saved as %s", cfg.Path, sidecar)
-		}
+	if err := processConfigFiles(cx, resolvedConfigFiles, result); err != nil {
+		return err
 	}
 
 	if _, _, err := cx.Runner.Run(ctx, "ln", "-sf", "/run/systemd/resolve/stub-resolv.conf", "/etc/resolv.conf"); err != nil {

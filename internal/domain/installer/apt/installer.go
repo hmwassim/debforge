@@ -32,8 +32,8 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, 
 // Install installs the apt packages described by p, including extrepo
 // setup, conflict resolution, variant selection, and backports.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeApt {
-		return fmt.Errorf("apt installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeApt, "apt"); err != nil {
+		return err
 	}
 	if len(p.Packages) == 0 && len(p.Apt.Variants) == 0 {
 		return fmt.Errorf("no packages or variants defined for apt type")
@@ -166,8 +166,8 @@ func (i *Installer) candidateVersion(ctx context.Context, pkgName string) (strin
 // Remove removes the apt packages described by p, including extrepo
 // cleanup and variant handling.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeApt {
-		return fmt.Errorf("apt installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeApt, "apt"); err != nil {
+		return err
 	}
 
 	pkgs := p.Packages

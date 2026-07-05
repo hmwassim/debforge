@@ -50,8 +50,8 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) 
 // Install fetches the source code (git clone or download+extract), runs
 // the build and install scripts, then runs the post-install script.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeSource {
-		return fmt.Errorf("source installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeSource, "source"); err != nil {
+		return err
 	}
 
 	if p.VersionCmd != "" || version.RepoFromPkg(p) != "" {
@@ -104,8 +104,8 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 // Remove runs the remove script (if defined) and removes system packages
 // listed in p.Remove via apt-get.
 func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if p.Type != pkg.TypeSource {
-		return fmt.Errorf("source installer called for type %s", p.Type)
+	if err := installer.AssertType(p.Type, pkg.TypeSource, "source"); err != nil {
+		return err
 	}
 
 	if p.Source.RemoveScript != "" {

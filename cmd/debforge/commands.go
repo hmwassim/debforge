@@ -27,6 +27,7 @@ import (
 	"github.com/hmwassim/debforge/internal/self"
 	"github.com/hmwassim/debforge/internal/service"
 	"github.com/hmwassim/debforge/internal/setup"
+	"github.com/hmwassim/debforge/internal/textutil"
 )
 
 // Package-level test hooks (overridable in tests).
@@ -709,7 +710,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 				if verbose {
 					for _, path := range paths {
 						fmt.Fprintf(w, "    %-18s %s\n", "config:", path)
-						for _, line := range strings.Split(strings.TrimRight(p.Configs[path], "\n"), "\n") {
+						for _, line := range textutil.SplitLines(p.Configs[path]) {
 							fmt.Fprintf(w, "      %s\n", line)
 						}
 					}
@@ -722,7 +723,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 				if verbose {
 					for _, path := range paths {
 						fmt.Fprintf(w, "    %-18s %s\n", "user_config:", path)
-						for _, line := range strings.Split(strings.TrimRight(p.UserConfigs[path], "\n"), "\n") {
+						for _, line := range textutil.SplitLines(p.UserConfigs[path]) {
 							fmt.Fprintf(w, "      %s\n", line)
 						}
 					}
@@ -744,7 +745,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 			if verbose {
 				for _, path := range paths {
 					fmt.Fprintf(w, "    %-18s %s\n", "config:", path)
-					for _, line := range strings.Split(strings.TrimRight(p.RemoveConfigs[path], "\n"), "\n") {
+					for _, line := range textutil.SplitLines(p.RemoveConfigs[path]) {
 						fmt.Fprintf(w, "      %s\n", line)
 					}
 				}
@@ -792,7 +793,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 			}
 			if verbose {
 				fmt.Fprintf(w, "    %s\n", s.name)
-				for _, line := range strings.Split(strings.TrimRight(s.content, "\n"), "\n") {
+				for _, line := range textutil.SplitLines(s.content) {
 					fmt.Fprintf(w, "      %s\n", line)
 				}
 			} else {
@@ -813,7 +814,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 			if verbose {
 				for _, path := range paths {
 					fmt.Fprintf(w, "    %s\n", path)
-					for _, line := range strings.Split(strings.TrimRight(p.Configs[path], "\n"), "\n") {
+					for _, line := range textutil.SplitLines(p.Configs[path]) {
 						fmt.Fprintf(w, "      %s\n", line)
 					}
 				}
@@ -828,7 +829,7 @@ func formatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 			if verbose {
 				for _, path := range paths {
 					fmt.Fprintf(w, "    %s\n", path)
-					for _, line := range strings.Split(strings.TrimRight(p.UserConfigs[path], "\n"), "\n") {
+					for _, line := range textutil.SplitLines(p.UserConfigs[path]) {
 						fmt.Fprintf(w, "      %s\n", line)
 					}
 				}

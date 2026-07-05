@@ -36,3 +36,9 @@ func UcFirst(s string) string {
 func ExpandVersion(template, version string) string {
 	return strings.ReplaceAll(template, "{version}", version)
 }
+
+// SplitLines splits s into lines, stripping a trailing newline if present
+// so that an empty trailing element is not produced.
+func SplitLines(s string) []string {
+	return strings.Split(strings.TrimRight(s, "\n"), "\n")
+}

@@ -11,7 +11,7 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-func TestUpdate_allCleansUpStaleEntry(t *testing.T) {
+func TestUpdate_allCleansUpStaleEntryInMemory(t *testing.T) {
 	svc, statePath, cleanup := setupPersistenceTest(t)
 	defer cleanup()
 
@@ -36,13 +36,14 @@ func TestUpdate_allCleansUpStaleEntry(t *testing.T) {
 		t.Errorf("expected ErrNotInstalled, got: %v", err)
 	}
 
+	// Stale cleanup is not persisted to disk.
 	diskStore := store.NewStore[State](fs.NewFileSystem(), statePath)
 	loaded, err := diskStore.Load()
 	if err != nil {
 		t.Fatalf("load persisted state: %v", err)
 	}
-	if _, ok := loaded.Packages["test-pkg"]; ok {
-		t.Error("expected test-pkg removed from persisted state")
+	if _, ok := loaded.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg to remain on disk (cleanup is transient)")
 	}
 }
 

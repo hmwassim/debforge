@@ -77,13 +77,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 
 	p = applyVariant(p, st, name)
 
-	cleanedUp, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, s.sys, p, spinner)
-	if err != nil {
-		if cleanedUp {
-			if saveErr := saveState(s.state, st, name); saveErr != nil {
-				return saveErr
-			}
-		}
+	if _, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, s.sys, p, spinner); err != nil {
 		return err
 	}
 

@@ -229,7 +229,7 @@ func newReposCx(fs *testutil.MockFileSystem, force bool) *Context {
 
 func TestReposStep_CheckMissing(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: "deb ..."}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: "deb ..."}}}
 	result := step.Check(context.Background(), newReposCx(fs, false))
 	if result.Status != StatusMissing {
 		t.Errorf("expected missing, got %v", result.Status)
@@ -240,7 +240,7 @@ func TestReposStep_CheckSatisfied(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 	content := "deb ..."
 	fs.Files["/etc/apt/sources.list.d/debian.sources"] = []byte(content)
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: content}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: content}}}
 	cx := newReposCx(fs, false)
 	// Record the hash so DecideConfigAction sees it as matching
 	cx.ConfigHashes["/etc/apt/sources.list.d/debian.sources"] = installer.Sha256Hex([]byte(content))
@@ -255,7 +255,7 @@ func TestReposStep_CheckDrifted(t *testing.T) {
 	original := "deb http://old.example.com"
 	modified := "deb http://modified.example.com"
 	fs.Files["/etc/apt/sources.list.d/debian.sources"] = []byte(modified)
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: original}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: original}}}
 	cx := newReposCx(fs, false)
 	cx.ConfigHashes["/etc/apt/sources.list.d/debian.sources"] = installer.Sha256Hex([]byte(original))
 	result := step.Check(context.Background(), cx)
@@ -269,7 +269,7 @@ func TestReposStep_CheckConflict(t *testing.T) {
 	modified := "deb http://modified.example.com"
 	newContent := "deb http://new.example.com"
 	fs.Files["/etc/apt/sources.list.d/debian.sources"] = []byte(modified)
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: newContent}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: newContent}}}
 	cx := newReposCx(fs, false)
 	cx.ConfigHashes["/etc/apt/sources.list.d/debian.sources"] = installer.Sha256Hex([]byte("deb http://original.example.com"))
 	result := step.Check(context.Background(), cx)
@@ -281,7 +281,7 @@ func TestReposStep_CheckConflict(t *testing.T) {
 func TestReposStep_ApplyMissing(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 	content := "deb http://deb.debian.org/debian trixie main"
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: content}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: content}}}
 	cx := newReposCx(fs, false)
 	if err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing}); err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -302,7 +302,7 @@ func TestReposStep_ApplyForceOverwrites(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 	original := "deb http://old.example.com"
 	fs.Files["/etc/apt/sources.list.d/debian.sources"] = []byte(original)
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: "deb http://new.example.com"}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: "deb http://new.example.com"}}}
 	cx := newReposCx(fs, true)
 	// With force, the hash before doesn't matter — DecideConfigAction always writes
 	if err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing}); err != nil {
@@ -319,7 +319,7 @@ func TestReposStep_ApplyConflictWritesSidecar(t *testing.T) {
 	modified := "deb http://modified.example.com"
 	newContent := "deb http://newdeb.example.com"
 	fs.Files["/etc/apt/sources.list.d/debian.sources"] = []byte(modified)
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: newContent}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: newContent}}}
 	cx := newReposCx(fs, false)
 	cx.ConfigHashes["/etc/apt/sources.list.d/debian.sources"] = installer.Sha256Hex([]byte("deb http://original.example.com"))
 	if err := step.Apply(context.Background(), cx, CheckResult{Status: StatusConflict}); err != nil {
@@ -345,7 +345,7 @@ func TestReposStep_ApplyDriftedSkipsWithoutForce(t *testing.T) {
 	modified := "deb http://modified.example.com"
 	original := "deb http://original.example.com"
 	fs.Files["/etc/apt/sources.list.d/debian.sources"] = []byte(modified)
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list.d/debian.sources", Content: original}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list.d/debian.sources", Content: original}}}
 	cx := newReposCx(fs, false)
 	cx.ConfigHashes["/etc/apt/sources.list.d/debian.sources"] = installer.Sha256Hex([]byte(original))
 	// Drifted result means Apply is called but should not overwrite
@@ -1731,7 +1731,7 @@ func TestReposStep_ApplyWriteError(t *testing.T) {
 	fs.WriteFileFunc = func(_ string, _ []byte, _ int) error {
 		return errors.New("write denied")
 	}
-	step := &ReposStep{Sources: []RepoSource{{Path: "/etc/apt/sources.list", Content: "deb ..."}}}
+	step := &ReposStep{Sources: []ConfigFile{{Path: "/etc/apt/sources.list", Content: "deb ..."}}}
 	cx := newReposCx(fs, false)
 	err := step.Apply(context.Background(), cx, CheckResult{Status: StatusMissing})
 	if err == nil {

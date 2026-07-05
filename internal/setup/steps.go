@@ -3,7 +3,7 @@ package setup
 var DefaultSteps = func() []Step {
 	return []Step{
 		&ReposStep{
-			Sources: []RepoSource{
+			Sources: []ConfigFile{
 				{
 					Path:    "/etc/apt/sources.list",
 					Content: DebianSourcesList,
