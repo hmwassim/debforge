@@ -895,8 +895,8 @@ func TestSelectPager_lessFound(t *testing.T) {
 	if cmd != "/usr/bin/less" {
 		t.Errorf("expected cmd /usr/bin/less, got %q", cmd)
 	}
-	if len(args) != 1 || args[0] != "-FRS" {
-		t.Errorf("expected args [-FRS], got %v", args)
+	if len(args) != 1 || args[0] != "-FRSX" {
+		t.Errorf("expected args [-FRSX], got %v", args)
 	}
 }
 
@@ -1628,7 +1628,7 @@ func TestFormatListCategories_withCategories(t *testing.T) {
 	if !strings.Contains(out, "(2)") || !strings.Contains(out, "(1)") {
 		t.Errorf("expected counts in output, got %q", out)
 	}
-	if !strings.HasPrefix(out, "Categories") {
+	if !strings.HasPrefix(out, "[i] Categories") {
 		t.Errorf("expected header, got %q", out)
 	}
 }

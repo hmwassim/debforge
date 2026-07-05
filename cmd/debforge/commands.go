@@ -357,7 +357,7 @@ func selectPager() (cmd string, args []string) {
 		return
 	}
 	if p, err := lookPath("less"); err == nil {
-		return p, []string{"-FRS"}
+		return p, []string{"-FRSX"}
 	}
 	return "", nil
 }
@@ -441,10 +441,10 @@ func formatListCategories(reg *pkg.Registry, st *service.State) string {
 
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
-	fmt.Fprintln(w, "Categories")
-	fmt.Fprintln(w)
+	fmt.Fprintln(w, "[i] Categories")
+	fmt.Fprintln(w, "[i]")
 	for _, c := range cats {
-		fmt.Fprintf(w, "%-12s (%d)\n", c, len(idx[c]))
+		fmt.Fprintf(w, "[i] %-12s (%d)\n", c, len(idx[c]))
 	}
 	w.Flush()
 	return buf.String()
