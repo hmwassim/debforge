@@ -2,7 +2,7 @@ BINARY    := debforge
 VERSION   := $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-dev")
 LDFLAGS   := -ldflags="-X main.version=$(VERSION)"
 GO        := go
-GOPATH    := /opt/debforge/var/gopath
+GOPATH    := $(CURDIR)/.gopath
 GOMODCACHE := $(GOPATH)/mod
 GOCACHE   := $(GOPATH)/buildcache
 export GOPATH GOMODCACHE GOCACHE

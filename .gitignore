@@ -34,3 +34,4 @@ ref/
 /debforge
 .debforge/
 bin/
+.gopath/
