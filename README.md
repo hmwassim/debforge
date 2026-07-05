@@ -56,6 +56,8 @@ Commands:
     list @<category>        List packages in a category
     list --packages         List packages grouped by category
     search [<pattern>]      Search packages by name or description
+    info <name>...          Show detailed package information
+        -v, --verbose       Show full config and script contents
     update --self           Update debforge itself
     remove --self           Remove debforge from system
     --help                  Show this help

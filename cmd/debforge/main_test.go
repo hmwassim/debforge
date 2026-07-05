@@ -260,6 +260,42 @@ func TestRunWith_searchWithPattern(t *testing.T) {
 	}
 }
 
+// ---- info -------------------------------------------------------------------
+
+func TestRunWith_info_unknownPackage(t *testing.T) {
+	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
+	code := runWithArgs(context.Background(), []string{"info", "nonexistent"}, fsys, runner, locker, sys, ui, cfg)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called")
+	}
+}
+
+func TestRunWith_info_noNames(t *testing.T) {
+	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	code := runWithArgs(context.Background(), []string{"info"}, fsys, runner, locker, sys, ui, cfg)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+}
+
+func TestRunWith_info_verbose(t *testing.T) {
+	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
+	code := runWithArgs(context.Background(), []string{"info", "-v", "nonexistent"}, fsys, runner, locker, sys, ui, cfg)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called for verbose mode with unknown pkg")
+	}
+}
+
 // ---- list -------------------------------------------------------------------
 
 func TestRunWith_list_empty(t *testing.T) {

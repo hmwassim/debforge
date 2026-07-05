@@ -186,6 +186,23 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		patterns := args[1:]
 		return h.search(ctx, ui, patterns)
 
+	case "info":
+		verbose := false
+		names := make([]string, 0, len(args[1:]))
+		for _, a := range args[1:] {
+			switch a {
+			case "-v", "--verbose":
+				verbose = true
+			default:
+				names = append(names, a)
+			}
+		}
+		if len(names) == 0 {
+			usage()
+			return 1
+		}
+		return h.info(ctx, ui, names, verbose)
+
 	default:
 		usage()
 	}
@@ -214,6 +231,8 @@ func usage() {
 	fmt.Println("    list @<category>        List packages in a category")
 	fmt.Println("    list --packages         List packages grouped by category")
 	fmt.Println("    search [<pattern>]      Search packages by name or description")
+	fmt.Println("    info <name>...          Show detailed package information")
+	fmt.Println("        -v, --verbose       Show full config and script contents")
 	fmt.Println("    update --self           Update debforge itself")
 	fmt.Println("    remove --self           Remove debforge from system")
 	fmt.Println("    --help                  Show this help")

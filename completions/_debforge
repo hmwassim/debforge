@@ -9,6 +9,7 @@ _debforge() {
         'doctor:Check system health'
         'search:Search packages'
         'list:List packages'
+        'info:Show package details'
     )
 
     local idx
@@ -23,7 +24,7 @@ _debforge() {
 
     local cmd="${words[idx+1]}"
     case "$cmd" in
-        install|remove|update|search)
+        install|remove|update|search|info)
             local pkgs_dir="${DEBFORGE_PKGS_DIR:-/opt/debforge/src/repo/packages}"
             local -a packages
             packages=(${(f)"$(grep -rh '^name:' $pkgs_dir 2>/dev/null | awk '{print $2}' | sort -u)"})
@@ -36,6 +37,11 @@ _debforge() {
             ;;
         list)
             _arguments '--packages[List packages grouped by category]'
+            ;;
+        info)
+            _arguments \
+                '-v[Verbose output]' \
+                '--verbose[Verbose output]'
             ;;
     esac
 }

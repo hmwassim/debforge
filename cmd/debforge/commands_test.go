@@ -1803,6 +1803,368 @@ func TestList_loadError(t *testing.T) {
 	}
 }
 
+// ---- formatInfoOutput tests ------------------------------------------------
+
+func TestFormatInfoOutput_installed(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "firefox", Description: "Web browser", Type: pkg.TypeApt, Category: "browsers", Apt: &pkg.AptConfig{Extrepo: []string{"mozilla"}, Conflicts: []string{"firefox-esr"}}, Packages: []string{"firefox"}})
+	st := &service.State{Packages: map[string]service.PkgEntry{"firefox": {Version: "150.0.1"}}}
+
+	out := formatInfoOutput(reg, st, "firefox", false)
+	if !strings.Contains(out, "[*]") {
+		t.Error("expected [*] for installed package")
+	}
+	if !strings.Contains(out, "firefox") {
+		t.Error("expected package name")
+	}
+	if !strings.Contains(out, "Web browser") {
+		t.Error("expected description")
+	}
+	if !strings.Contains(out, "installed (v150.0.1)") {
+		t.Error("expected version info")
+	}
+	if !strings.Contains(out, "extrepo:") || !strings.Contains(out, "mozilla") {
+		t.Error("expected extrepo info")
+	}
+	if !strings.Contains(out, "conflicts:") || !strings.Contains(out, "firefox-esr") {
+		t.Error("expected conflicts info")
+	}
+}
+
+func TestFormatInfoOutput_uninstalled(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pfetch", Description: "Pretty fetch", Type: pkg.TypeSource, Category: "utils", Source: &pkg.SourceConfig{InstallScript: "cp pfetch /usr/local/bin\n"}})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+
+	out := formatInfoOutput(reg, st, "pfetch", false)
+	if !strings.Contains(out, "[-]") {
+		t.Error("expected [-] for uninstalled package")
+	}
+	if !strings.Contains(out, "not installed") {
+		t.Error("expected not installed status")
+	}
+	if !strings.Contains(out, "source") {
+		t.Error("expected type section")
+	}
+}
+
+func TestFormatInfoOutput_verboseConfig(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name:        "cfg-test",
+		Description: "Config test",
+		Type:        pkg.TypeConfig,
+		Category:    "config",
+		Configs:     map[string]string{"/etc/test.conf": "setting=true\n"},
+	})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+
+	out := formatInfoOutput(reg, st, "cfg-test", true)
+	if !strings.Contains(out, "[i]") {
+		t.Error("expected [i] marker")
+	}
+	if !strings.Contains(out, "setting=true") {
+		t.Error("expected config content in verbose mode")
+	}
+}
+
+func TestFormatInfoOutput_verboseScripts(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name:        "script-pkg",
+		Type:        pkg.TypeApt,
+		Category:    "dev",
+		Packages:    []string{"hello"},
+		PostInstall: "echo done\n",
+	})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+
+	outDefault := formatInfoOutput(reg, st, "script-pkg", false)
+	if !strings.Contains(outDefault, "(1 line)") {
+		t.Error("expected line count in default mode")
+	}
+
+	outVerbose := formatInfoOutput(reg, st, "script-pkg", true)
+	if !strings.Contains(outVerbose, "echo done") {
+		t.Error("expected script content in verbose mode")
+	}
+}
+
+func TestFormatInfoOutput_debType(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "vscodium", Description: "VS Code without MS branding",
+		Type: pkg.TypeDeb, Category: "dev",
+		Deb: &pkg.DebConfig{Package: "codium"},
+		URL: "https://example.com/codium.deb",
+	})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+
+	out := formatInfoOutput(reg, st, "vscodium", false)
+	if !strings.Contains(out, "package:") || !strings.Contains(out, "codium") {
+		t.Error("expected deb package field")
+	}
+	if !strings.Contains(out, "url:") || !strings.Contains(out, "example.com") {
+		t.Error("expected url field")
+	}
+}
+
+func TestFormatInfoOutput_dependsAndRemove(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "nvidia", Description: "NVIDIA drivers",
+		Type: pkg.TypeApt, Category: "drivers",
+		Depends: []string{"some-dep"},
+		Remove:  []string{"nouveau"},
+		Apt:     &pkg.AptConfig{Extrepo: []string{"nvidia-cuda"}},
+	})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+
+	out := formatInfoOutput(reg, st, "nvidia", false)
+	if !strings.Contains(out, "depends:") || !strings.Contains(out, "some-dep") {
+		t.Error("expected depends info")
+	}
+	if !strings.Contains(out, "remove") || !strings.Contains(out, "nouveau") {
+		t.Error("expected remove section")
+	}
+}
+
+func TestFormatInfoOutput_unknownPackage(t *testing.T) {
+	reg := pkg.NewRegistry()
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	out := formatInfoOutput(reg, st, "nonexistent", false)
+	if out != "" {
+		t.Errorf("expected empty output for unknown package, got %q", out)
+	}
+}
+
+func TestFormatInfoOutput_unknownVersion(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "no-ver", Type: pkg.TypeApt, Category: "misc", Packages: []string{"pkg"}})
+	st := &service.State{Packages: map[string]service.PkgEntry{"no-ver": {}}}
+
+	out := formatInfoOutput(reg, st, "no-ver", false)
+	if !strings.Contains(out, "installed (vunknown)") {
+		t.Error("expected 'unknown' when version is empty")
+	}
+}
+
+func TestFormatInfoOutput_sourceScripts(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "src-pkg", Type: pkg.TypeSource, Category: "utils",
+		Source: &pkg.SourceConfig{
+			BuildScript:   "make\n",
+			InstallScript: "make install\n",
+		},
+	})
+	st := &service.State{Packages: map[string]service.PkgEntry{}}
+
+	out := formatInfoOutput(reg, st, "src-pkg", false)
+	if !strings.Contains(out, "build") || !strings.Contains(out, "install") {
+		t.Error("expected source script names")
+	}
+}
+
+// ---- sortedMapKeys tests ---------------------------------------------------
+
+func TestSortedMapKeys(t *testing.T) {
+	m := map[string]string{"z": "1", "a": "2", "m": "3"}
+	keys := sortedMapKeys(m)
+	if len(keys) != 3 || keys[0] != "a" || keys[1] != "m" || keys[2] != "z" {
+		t.Errorf("expected [a m z], got %v", keys)
+	}
+}
+
+func TestSortedMapKeys_empty(t *testing.T) {
+	keys := sortedMapKeys(nil)
+	if len(keys) != 0 {
+		t.Errorf("expected empty, got %v", keys)
+	}
+}
+
+// ---- pluralS tests ----------------------------------------------------------
+
+func TestPluralS(t *testing.T) {
+	if pluralS(1) != "" {
+		t.Error("expected '' for 1")
+	}
+	if pluralS(0) != "s" {
+		t.Error("expected 's' for 0")
+	}
+	if pluralS(2) != "s" {
+		t.Error("expected 's' for 2")
+	}
+}
+
+// ---- info handler (non-terminal) --------------------------------------------
+
+func TestInfo_nonTerminal(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "firefox", Description: "Web browser", Type: pkg.TypeApt, Category: "browsers", Packages: []string{"firefox"}})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	code := h.info(context.Background(), &testutil.MockUI{}, []string{"firefox"}, false)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	output := buf.String()
+
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+	if !strings.Contains(output, "firefox") {
+		t.Errorf("expected firefox in output, got %q", output)
+	}
+}
+
+func TestInfo_unknownPackage(t *testing.T) {
+	reg := pkg.NewRegistry()
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	var errorCalled bool
+	u := &testutil.MockUI{
+		ErrorFunc: func(_ string, _ ...any) { errorCalled = true },
+	}
+
+	code := h.info(context.Background(), u, []string{"nonexistent"}, false)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected u.Error to be called")
+	}
+}
+
+func TestInfo_loadError(t *testing.T) {
+	reg := pkg.NewRegistry()
+
+	fsys := testutil.NewMockFileSystem()
+	fsys.ExistsFunc = func(_ string) (bool, error) { return false, errors.New("stat failed") }
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	var errorCalled bool
+	u := &testutil.MockUI{
+		ErrorFunc: func(_ string, _ ...any) { errorCalled = true },
+	}
+
+	code := h.info(context.Background(), u, []string{"pkg"}, false)
+	if code != 1 {
+		t.Errorf("expected 1, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected u.Error to be called")
+	}
+}
+
+func TestInfo_multiplePackages(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Category: "cat1", Packages: []string{"a"}})
+	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, Category: "cat2", Packages: []string{"b"}})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	code := h.info(context.Background(), &testutil.MockUI{}, []string{"pkg-a", "pkg-b"}, false)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	output := buf.String()
+
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+	if !strings.Contains(output, "pkg-a") || !strings.Contains(output, "pkg-b") {
+		t.Errorf("expected both packages in output, got %q", output)
+	}
+}
+
+func TestInfo_pagerSuccess(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Category: "cat", Packages: []string{"a"}})
+
+	fsys := testutil.NewMockFileSystem()
+	st := store.NewStore[service.State](fsys, "/state.json")
+	stateSvc := service.NewStateManager(st)
+
+	cfg := &self.Config{LockPath: "/lock"}
+	h := newHandlerForTest(reg, installer.NewRegistry(), stateSvc, &testutil.MockLocker{}, cfg, testutil.RunnerReturning(nil, nil), fsys, &testutil.MockSystem{})
+
+	oldTerm := isTerminal
+	isTerminal = func(_ int) bool { return true }
+	t.Cleanup(func() { isTerminal = oldTerm })
+	t.Setenv("PAGER", "cat")
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	code := h.info(context.Background(), &testutil.MockUI{}, []string{"pkg-a"}, false)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	output := buf.String()
+
+	if code != 0 {
+		t.Errorf("expected 0, got %d", code)
+	}
+	if !strings.Contains(output, "pkg-a") {
+		t.Errorf("expected pkg-a in output, got %q", output)
+	}
+}
+
 func TestContainsGlob(t *testing.T) {
 	if !containsGlob("foo*") {
 		t.Error("expected true for *")

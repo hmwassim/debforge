@@ -19,13 +19,16 @@ function __debforge_list_available_packages
     for pkg in $all_pkgs; echo $pkg; end
 end
 
-complete -c debforge -n "not __fish_seen_subcommand_from install remove update setup doctor search list" \
-    -a "install remove update setup doctor search list"
+complete -c debforge -n "not __fish_seen_subcommand_from install remove update setup doctor search list info" \
+    -a "install remove update setup doctor search list info"
 
-for cmd in install remove update search
+for cmd in install remove update search info
     complete -c debforge -n "__fish_seen_subcommand_from $cmd" \
         -a "(__debforge_list_available_packages)"
 end
 
 complete -c debforge -n "__fish_seen_subcommand_from list" \
     -l packages -d "List packages grouped by category"
+
+complete -c debforge -n "__fish_seen_subcommand_from info" \
+    -s v -l verbose -d "Show full config and script contents"

@@ -1,6 +1,6 @@
 _debforge() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local commands="install remove update setup doctor search list"
+    local commands="install remove update setup doctor search list info"
 
     local idx
     for ((idx=0; idx<COMP_CWORD; idx++)); do
@@ -15,7 +15,7 @@ _debforge() {
     fi
 
     case "$verb" in
-        install|remove|update|search)
+        install|remove|update|search|info)
             local pkgs_dir="${DEBFORGE_PKGS_DIR:-/opt/debforge/src/repo/packages}"
             local all_pkgs
             all_pkgs=$(grep -rh '^name:' "$pkgs_dir" 2>/dev/null | awk '{print $2}' | sort -u)
