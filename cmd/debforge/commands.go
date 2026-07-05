@@ -521,7 +521,7 @@ func formatListPackages(reg *pkg.Registry, st *service.State) string {
 	return buf.String()
 }
 
-func extractFlags(ss []string, yes, force, all *bool) []string {
+func extractFlags(ss []string, yes, force, all, self *bool) []string {
 	out := make([]string, 0, len(ss))
 	for _, s := range ss {
 		switch {
@@ -531,6 +531,8 @@ func extractFlags(ss []string, yes, force, all *bool) []string {
 			*force = true
 		case s == "--all":
 			*all = true
+		case s == "--self":
+			*self = true
 		case strings.HasPrefix(s, "-") && len(s) > 1 && s[1] != '-':
 			for _, c := range s[1:] {
 				switch c {

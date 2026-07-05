@@ -47,30 +47,8 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		fmt.Println("debforge " + version)
 		return 0
 
-	case "--self-update":
-		forceUpdate := slices.Contains(rawArgs[1:], "-f") || slices.Contains(rawArgs[1:], "--force")
-		updater := self.NewUpdater(cfg, runner, fsys, ui, locker, sys, forceUpdate)
-		if err := updater.Update(ctx); err != nil {
-			ui.Error("%s", err)
-			return 1
-		}
-		return 0
-
 	case "--help":
 		usage()
-		return 0
-
-	case "--self-remove":
-		h, err := newHandler(cfg, fsys, runner, locker, ui, sys)
-		if err != nil {
-			ui.Error("bootstrap: %s", err)
-			return 1
-		}
-		remover := self.NewRemover(cfg, runner, fsys, ui, locker, sys, h.reg, h.instReg, h.stateSvc)
-		if err := remover.Remove(ctx); err != nil {
-			ui.Error("%s", err)
-			return 1
-		}
 		return 0
 	}
 
@@ -94,6 +72,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	yesMode := *y || *yes
 	forceMode := *f || *force
 	allMode := *a || *all
+	selfMode := false
 	args := fs.Args()
 
 	if yesMode {
@@ -113,9 +92,13 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 
 	switch args[0] {
 	case "install":
-		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
 		if yesMode {
 			ui.SetYes(true)
+		}
+		if selfMode {
+			ui.Error("--self is not supported for install")
+			return 1
 		}
 		if len(names) == 0 {
 			usage()
@@ -127,9 +110,17 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.install(ctx, ui, names, forceMode)
 
 	case "remove":
-		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
 		if yesMode {
 			ui.SetYes(true)
+		}
+		if selfMode {
+			remover := self.NewRemover(cfg, runner, fsys, ui, locker, sys, h.reg, h.instReg, h.stateSvc)
+			if err := remover.Remove(ctx); err != nil {
+				ui.Error("%s", err)
+				return 1
+			}
+			return 0
 		}
 		if len(names) == 0 {
 			usage()
@@ -141,9 +132,17 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.remove(ctx, ui, names)
 
 	case "update":
-		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		names := extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
 		if yesMode {
 			ui.SetYes(true)
+		}
+		if selfMode {
+			updater := self.NewUpdater(cfg, runner, fsys, ui, locker, sys, forceMode)
+			if err := updater.Update(ctx); err != nil {
+				ui.Error("%s", err)
+				return 1
+			}
+			return 0
 		}
 		if len(names) == 0 && !allMode {
 			usage()
@@ -159,9 +158,13 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.update(ctx, ui, names, forceMode, allMode)
 
 	case "setup":
-		extractFlags(args[1:], &yesMode, &forceMode, &allMode)
+		extractFlags(args[1:], &yesMode, &forceMode, &allMode, &selfMode)
 		if yesMode {
 			ui.SetYes(true)
+		}
+		if selfMode {
+			ui.Error("--self is not supported for setup")
+			return 1
 		}
 		return h.setup(ctx, ui, forceMode)
 
@@ -211,8 +214,8 @@ func usage() {
 	fmt.Println("    list @<category>       List packages in a category")
 	fmt.Println("    list --packages        List packages grouped by category")
 	fmt.Println("    search [<pattern>]   Search packages by name or description")
-	fmt.Println("    --self-update        Update debforge itself")
-	fmt.Println("    --self-remove        Remove debforge from system")
+	fmt.Println("    update --self        Update debforge itself")
+	fmt.Println("    remove --self        Remove debforge from system")
 	fmt.Println("    --help               Show this help")
 	fmt.Println("    --version            Show version")
 }

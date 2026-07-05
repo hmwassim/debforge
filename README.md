@@ -52,9 +52,12 @@ Commands:
     setup                Provision system (repos, firmware, desktop)
         --force          Skip checks, reapply all steps
     doctor               Check system health
+    list                  List available categories
+    list @<category>       List packages in a category
+    list --packages        List packages grouped by category
     search [<pattern>]   Search packages by name or description
-    --self-update        Update debforge itself
-    --self-remove        Remove debforge from system
+    update --self        Update debforge itself
+    remove --self        Remove debforge from system
     --help               Show this help
     --version            Show version
 ```

@@ -101,7 +101,7 @@ func TestRunWith_unknownCommand(t *testing.T) {
 func TestRunWith_selfUpdate_notPrivileged(t *testing.T) {
 	fsys, runner, locker, _, ui, cfg := newRunWithEnv(t)
 	sys := &testutil.MockSystem{}
-	code := runWithArgs(context.Background(), []string{"--self-update"}, fsys, runner, locker, sys, ui, cfg)
+	code := runWithArgs(context.Background(), []string{"update", "--self"}, fsys, runner, locker, sys, ui, cfg)
 	if code != 1 {
 		t.Errorf("expected 1, got %d", code)
 	}
@@ -110,7 +110,7 @@ func TestRunWith_selfUpdate_notPrivileged(t *testing.T) {
 func TestRunWith_selfRemove_notPrivileged(t *testing.T) {
 	fsys, runner, locker, _, ui, cfg := newRunWithEnv(t)
 	sys := &testutil.MockSystem{}
-	code := runWithArgs(context.Background(), []string{"--self-remove"}, fsys, runner, locker, sys, ui, cfg)
+	code := runWithArgs(context.Background(), []string{"remove", "--self"}, fsys, runner, locker, sys, ui, cfg)
 	if code != 1 {
 		t.Errorf("expected 1, got %d", code)
 	}
@@ -355,7 +355,7 @@ func TestRunWith_selfRemove_bootstrapError(t *testing.T) {
 	ui.ErrorFunc = func(fmt string, args ...any) {
 		errorCalled = fmt
 	}
-	code := runWithArgs(context.Background(), []string{"--self-remove"}, fsys, runner, &testutil.MockLocker{}, sys, ui, cfg)
+	code := runWithArgs(context.Background(), []string{"remove", "--self"}, fsys, runner, &testutil.MockLocker{}, sys, ui, cfg)
 	if code != 1 {
 		t.Errorf("expected 1, got %d", code)
 	}

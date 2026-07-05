@@ -112,12 +112,22 @@ func TestExtractFlags(t *testing.T) {
 			input: []string{},
 			want:  []string{},
 		},
+		{
+			name:  "long self",
+			input: []string{"--self", "firefox"},
+			want:  []string{"firefox"},
+		},
+		{
+			name:  "unknown flag --selfish",
+			input: []string{"--selfish", "firefox"},
+			want:  []string{"--selfish", "firefox"},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var yes, force, all bool
-			got := extractFlags(tc.input, &yes, &force, &all)
+			var yes, force, all, self bool
+			got := extractFlags(tc.input, &yes, &force, &all, &self)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("extractFlags(%v) = %v, want %v", tc.input, got, tc.want)
 			}
