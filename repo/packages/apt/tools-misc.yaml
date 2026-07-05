@@ -1,4 +1,4 @@
-name: utilities-meta
+name: tools-misc
 description: System utilities and tools
 type: apt
 category: utils

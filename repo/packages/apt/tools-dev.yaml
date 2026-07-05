@@ -1,4 +1,4 @@
-name: dev-tools
+name: tools-dev
 description: Development tools and utilities bundle
 type: apt
 category: development
