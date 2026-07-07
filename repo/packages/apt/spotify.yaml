@@ -5,19 +5,10 @@ install:
   packages:
     - spotify-client
 preinstall: |
-  mkdir -p /usr/share/keyrings
   curl -fsSL https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc \
-    | gpg --dearmor \
-    | tee /usr/share/keyrings/spotify.gpg > /dev/null
-  chmod 644 /usr/share/keyrings/spotify.gpg
-  tee /etc/apt/sources.list.d/spotify.sources > /dev/null <<EOF
-  Types: deb
-  URIs: https://repository.spotify.com
-  Suites: stable
-  Components: non-free
-  Architectures: amd64
-  Signed-By: /usr/share/keyrings/spotify.gpg
-  EOF
+    | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
+  echo "deb https://repository.spotify.com stable non-free" \
+    | tee /etc/apt/sources.list.d/spotify.list > /dev/null
 post_remove: |
-  rm -f /usr/share/keyrings/spotify.gpg
-  rm -f /etc/apt/sources.list.d/spotify.sources
+  rm -f /etc/apt/trusted.gpg.d/spotify*
+  rm -f /etc/apt/sources.list.d/spotify.list
