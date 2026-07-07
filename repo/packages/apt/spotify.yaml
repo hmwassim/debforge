@@ -11,12 +11,12 @@ preinstall: |
     | tee /usr/share/keyrings/spotify.gpg > /dev/null
   chmod 644 /usr/share/keyrings/spotify.gpg
   tee /etc/apt/sources.list.d/spotify.sources > /dev/null <<EOF
-    Types: deb
-    URIs: https://repository.spotify.com
-    Suites: stable
-    Components: non-free
-    Architectures: amd64
-    Signed-By: /usr/share/keyrings/spotify.gpg
+  Types: deb
+  URIs: https://repository.spotify.com
+  Suites: stable
+  Components: non-free
+  Architectures: amd64
+  Signed-By: /usr/share/keyrings/spotify.gpg
   EOF
 post_remove: |
   rm -f /usr/share/keyrings/spotify.gpg
