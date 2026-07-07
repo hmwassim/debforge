@@ -120,8 +120,8 @@ install:
 	if p.Name != "my-deb" || p.Type != pkg.TypeDeb {
 		t.Errorf("Name/Type: %+v", p)
 	}
-	if p.URL != "https://example.com/pkg.deb" {
-		t.Errorf("URL = %q", p.URL)
+	if len(p.URLs) != 1 || p.URLs[0] != "https://example.com/pkg.deb" {
+		t.Errorf("URLs = %v", p.URLs)
 	}
 	if p.Deb == nil || p.Deb.Package != "my-deb-pkg" {
 		t.Errorf("Deb = %+v", p.Deb)
@@ -176,11 +176,11 @@ post_remove: systemctl stop my-service
 	if p.TagPrefix != "v" {
 		t.Errorf("TagPrefix = %q", p.TagPrefix)
 	}
-	if p.URL != "https://example.com/pkg.deb" {
-		t.Errorf("URL = %q", p.URL)
+	if len(p.URLs) != 1 || p.URLs[0] != "https://example.com/pkg.deb" {
+		t.Errorf("URLs = %v", p.URLs)
 	}
-	if p.SHA256 != "abc123def456" {
-		t.Errorf("SHA256 = %q", p.SHA256)
+	if len(p.SHA256s) != 1 || p.SHA256s[0] != "abc123def456" {
+		t.Errorf("SHA256s = %v", p.SHA256s)
 	}
 	if len(p.Packages) != 1 || p.Packages[0] != "extra-pkg" {
 		t.Errorf("Packages = %v", p.Packages)
@@ -268,11 +268,11 @@ remove:
 	if p.Repo != "https://github.com/example/repo" {
 		t.Errorf("Repo = %q", p.Repo)
 	}
-	if p.URL != "https://example.com/source.tar.gz" {
-		t.Errorf("URL = %q", p.URL)
+	if len(p.URLs) != 1 || p.URLs[0] != "https://example.com/source.tar.gz" {
+		t.Errorf("URLs = %v", p.URLs)
 	}
-	if p.SHA256 != "abc123" {
-		t.Errorf("SHA256 = %q", p.SHA256)
+	if len(p.SHA256s) != 1 || p.SHA256s[0] != "abc123" {
+		t.Errorf("SHA256s = %v", p.SHA256s)
 	}
 	if p.TagPrefix != "v" {
 		t.Errorf("TagPrefix = %q", p.TagPrefix)

@@ -54,8 +54,8 @@ type Package struct {
 	// cross-type
 	Packages []string
 	Remove   []string
-	URL      string
-	SHA256   string
+	URLs     []string
+	SHA256s  []string
 
 	VersionCmd string
 	TagPrefix  string
@@ -104,6 +104,8 @@ func (p *Package) Clone() *Package {
 	cp.Category = p.Category
 	cp.Packages = copySlice(p.Packages)
 	cp.Remove = copySlice(p.Remove)
+	cp.URLs = copySlice(p.URLs)
+	cp.SHA256s = copySlice(p.SHA256s)
 	cp.Configs = copyMap(p.Configs)
 	cp.RemoveConfigs = copyMap(p.RemoveConfigs)
 	cp.UserConfigs = copyMap(p.UserConfigs)

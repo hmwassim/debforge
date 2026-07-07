@@ -132,7 +132,7 @@ func TestInstall_shortCircuitsWhenInstalledAndVersionUnchanged(t *testing.T) {
 	p := &pkg.Package{
 		Name:    "test-deb",
 		Type:    pkg.TypeDeb,
-		URL:     srv.URL + "/{version}.deb",
+		URLs:    []string{srv.URL + "/{version}.deb"},
 		Version: "1.0.0",
 		Repo:    "https://github.com/o/p.git",
 		Deb:     &pkg.DebConfig{Package: "test-deb"},
@@ -146,7 +146,7 @@ func TestInstall_shortCircuitsWhenInstalledAndVersionUnchanged(t *testing.T) {
 
 func TestInstall_noURL(t *testing.T) {
 	inst := &Installer{}
-	p := &pkg.Package{Name: "test-deb", Type: pkg.TypeDeb, URL: ""}
+	p := &pkg.Package{Name: "test-deb", Type: pkg.TypeDeb}
 
 	if err := inst.Install(context.Background(), p, &testutil.MockSpinner{}); err == nil {
 		t.Fatal("expected error when URL is empty")
@@ -255,7 +255,7 @@ func TestInstall_versionlessNoPrereqsFailsAtDownload(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-deb",
 		Type: pkg.TypeDeb,
-		URL:  srv.URL + "/pkg.deb",
+		URLs: []string{srv.URL + "/pkg.deb"},
 		Deb:  &pkg.DebConfig{Package: "test-deb"},
 	}
 
@@ -275,7 +275,7 @@ func TestInstall_prereqsError(t *testing.T) {
 	p := &pkg.Package{
 		Name:     "test-deb",
 		Type:     pkg.TypeDeb,
-		URL:      "http://example.com/pkg.deb",
+		URLs:     []string{"http://example.com/pkg.deb"},
 		Packages: []string{"prereq"},
 	}
 	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
@@ -302,7 +302,7 @@ func TestInstall_proceedsWhenNotInstalledEvenIfVersionUnchanged(t *testing.T) {
 	p := &pkg.Package{
 		Name:    "test-deb",
 		Type:    pkg.TypeDeb,
-		URL:     srv.URL + "/{version}.deb",
+		URLs:    []string{srv.URL + "/{version}.deb"},
 		Version: "1.0.0",
 		Repo:    "https://github.com/o/p.git",
 		Deb:     &pkg.DebConfig{Package: "test-deb"},

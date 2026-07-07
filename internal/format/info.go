@@ -100,11 +100,21 @@ func FormatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 			if p.Deb.Package != "" {
 				fmt.Fprintf(w, "    %-18s %s\n", "package:", p.Deb.Package)
 			}
-			if p.URL != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "url:", p.URL)
+			for i, u := range p.URLs {
+				label := "url:"
+				if i > 0 {
+					label = ""
+				}
+				fmt.Fprintf(w, "    %-18s %s\n", label, u)
 			}
-			if verbose && p.SHA256 != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "sha256:", p.SHA256)
+			if verbose && len(p.SHA256s) > 0 {
+				for i, s := range p.SHA256s {
+					label := "sha256:"
+					if i > 0 {
+						label = ""
+					}
+					fmt.Fprintf(w, "    %-18s %s\n", label, s)
+				}
 			}
 			if p.Repo != "" {
 				fmt.Fprintf(w, "    %-18s %s\n", "repo:", p.Repo)
@@ -124,11 +134,21 @@ func FormatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 			if p.Repo != "" {
 				fmt.Fprintf(w, "    %-18s %s\n", "repo:", p.Repo)
 			}
-			if p.URL != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "url:", p.URL)
+			for i, u := range p.URLs {
+				label := "url:"
+				if i > 0 {
+					label = ""
+				}
+				fmt.Fprintf(w, "    %-18s %s\n", label, u)
 			}
-			if verbose && p.SHA256 != "" {
-				fmt.Fprintf(w, "    %-18s %s\n", "sha256:", p.SHA256)
+			if verbose && len(p.SHA256s) > 0 {
+				for i, s := range p.SHA256s {
+					label := "sha256:"
+					if i > 0 {
+						label = ""
+					}
+					fmt.Fprintf(w, "    %-18s %s\n", label, s)
+				}
 			}
 			if verbose && p.VersionCmd != "" {
 				fmt.Fprintf(w, "    %-18s %s\n", "version_cmd:", p.VersionCmd)

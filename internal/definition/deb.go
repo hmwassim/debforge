@@ -20,9 +20,9 @@ type debDefinition struct {
 	TagPrefix   string   `yaml:"tag_prefix,omitempty"`
 
 	Install struct {
-		URL      string   `yaml:"url,omitempty"`
-		SHA256   string   `yaml:"sha256,omitempty"`
-		Packages []string `yaml:"packages,omitempty"`
+		URL      MultiString `yaml:"url,omitempty"`
+		SHA256   MultiString `yaml:"sha256,omitempty"`
+		Packages []string    `yaml:"packages,omitempty"`
 	} `yaml:"install"`
 
 	Remove struct {
@@ -48,8 +48,8 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		Repo:        def.Repo,
 		VersionCmd:  def.VersionCmd,
 		TagPrefix:   def.TagPrefix,
-		URL:         def.Install.URL,
-		SHA256:      def.Install.SHA256,
+		URLs:        def.Install.URL,
+		SHA256s:     def.Install.SHA256,
 		Packages:    def.Install.Packages,
 		Remove:      def.Remove.Packages,
 		PostInstall: def.PostInstall,

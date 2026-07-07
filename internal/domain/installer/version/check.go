@@ -24,7 +24,11 @@ func GatherVersion(ctx context.Context, runner ports.CommandRunner, p *pkg.Packa
 	}
 
 	if repo := RepoFromPkg(p); repo != "" {
-		return LatestTag(ctx, runner, repo, p.TagPrefix, p.URL)
+		verifyURL := ""
+		if len(p.URLs) > 0 {
+			verifyURL = p.URLs[0]
+		}
+		return LatestTag(ctx, runner, repo, p.TagPrefix, verifyURL)
 	}
 
 	return "", nil

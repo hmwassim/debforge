@@ -41,6 +41,15 @@ func parseSource(name string, data []byte) (*pkg.Package, error) {
 		return nil, fmt.Errorf("parse source definition %s: %w", name, err)
 	}
 
+	urls := []string{}
+	if def.Install.URL != "" {
+		urls = []string{def.Install.URL}
+	}
+	sha256s := []string{}
+	if def.Install.SHA256 != "" {
+		sha256s = []string{def.Install.SHA256}
+	}
+
 	return &pkg.Package{
 		Name:        name,
 		Description: def.Description,
@@ -48,8 +57,8 @@ func parseSource(name string, data []byte) (*pkg.Package, error) {
 		Type:        pkg.TypeSource,
 		Depends:     def.Depends,
 		Repo:        def.Install.Repo,
-		URL:         def.Install.URL,
-		SHA256:      def.Install.SHA256,
+		URLs:        urls,
+		SHA256s:     sha256s,
 		TagPrefix:   def.Install.TagPrefix,
 		VersionCmd:  def.Install.VersionCmd,
 		Packages:    def.Install.Packages,

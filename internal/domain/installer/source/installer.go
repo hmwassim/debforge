@@ -150,11 +150,15 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 		return srcDir, nil
 	}
 
-	if p.URL != "" {
+	if len(p.URLs) > 0 && p.URLs[0] != "" {
 		spinner.SetDesc("downloading " + p.Name)
 		archive := filepath.Join(tmpDir, "archive")
-		url := download.ExpandURL(p.URL, p.Version)
-		if err := i.downloadFunc(ctx, i.fs, url, archive, spinner, p.SHA256); err != nil {
+		url := download.ExpandURL(p.URLs[0], p.Version)
+		sha256 := ""
+		if len(p.SHA256s) > 0 {
+			sha256 = p.SHA256s[0]
+		}
+		if err := i.downloadFunc(ctx, i.fs, url, archive, spinner, sha256); err != nil {
 			return "", fmt.Errorf("download %s: %w", p.Name, err)
 		}
 
@@ -163,7 +167,7 @@ func (i *Installer) getSource(ctx context.Context, p *pkg.Package, tmpDir string
 			return "", fmt.Errorf("create src dir: %w", err)
 		}
 
-		if strings.HasSuffix(p.URL, ".zip") {
+		if strings.HasSuffix(p.URLs[0], ".zip") {
 			if _, _, err := i.runner.Run(ctx, "unzip", "-j", "-o", archive, "-d", srcDir); err != nil {
 				return "", fmt.Errorf("extract %s: %w", p.Name, err)
 			}

@@ -29,13 +29,13 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, 
 	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec}
 }
 
-// Install downloads the .deb file from p.URL, installs it via apt-get,
+// Install downloads the .deb file(s) from p.URLs, installs them via apt-get,
 // and runs the post-install script.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	if err := installer.AssertType(p.Type, pkg.TypeDeb, "deb"); err != nil {
 		return err
 	}
-	if p.URL == "" {
+	if len(p.URLs) == 0 {
 		return fmt.Errorf("deb definition %s: no install url", p.Name)
 	}
 
@@ -62,15 +62,26 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		}
 	}
 
-	url := download.ExpandURL(p.URL, p.Version)
-
 	if err := installer.WithTempDir(i.fs, p.Name, func(tmpDir string) error {
-		tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
-		spinner.SetDesc("downloading " + p.Name)
-		if err := download.Download(ctx, i.fs, url, tmpPath, spinner, p.SHA256); err != nil {
-			return fmt.Errorf("download %s: %w", p.Name, err)
+		var tmpPaths []string
+		for idx, raw := range p.URLs {
+			url := download.ExpandURL(raw, p.Version)
+			tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
+			tmpPaths = append(tmpPaths, tmpPath)
+
+			spinner.SetDesc("downloading " + p.Name)
+			sha256 := ""
+			if idx < len(p.SHA256s) {
+				sha256 = p.SHA256s[idx]
+			}
+			if err := download.Download(ctx, i.fs, url, tmpPath, spinner, sha256); err != nil {
+				return fmt.Errorf("download %s: %w", p.Name, err)
+			}
 		}
-		return i.execApt(ctx, i.runner, []string{"install", "-y", tmpPath}, spinner)
+
+		spinner.SetDesc("installing " + p.Name)
+		args := append([]string{"install", "-y"}, tmpPaths...)
+		return i.execApt(ctx, i.runner, args, spinner)
 	}); err != nil {
 		return err
 	}

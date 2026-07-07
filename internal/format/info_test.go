@@ -98,8 +98,8 @@ func TestFormatInfoOutput_debType(t *testing.T) {
 	reg.Register(&pkg.Package{
 		Name: "vscodium", Description: "VS Code without MS branding",
 		Type: pkg.TypeDeb, Category: "dev",
-		Deb: &pkg.DebConfig{Package: "codium"},
-		URL: "https://example.com/codium.deb",
+		Deb:  &pkg.DebConfig{Package: "codium"},
+		URLs: []string{"https://example.com/codium.deb"},
 	})
 	st := &service.State{Packages: map[string]service.PkgEntry{}}
 

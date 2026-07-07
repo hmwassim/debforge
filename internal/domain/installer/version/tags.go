@@ -139,7 +139,10 @@ func RepoFromPkg(p *pkg.Package) string {
 	if p.Repo != "" {
 		return p.Repo
 	}
-	repo, _ := RepoFromURL(p.URL)
+	if len(p.URLs) == 0 {
+		return ""
+	}
+	repo, _ := RepoFromURL(p.URLs[0])
 	return repo
 }
 

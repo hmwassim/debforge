@@ -2,6 +2,8 @@ name: umu-launcher
 description: UMU Launcher - compatibility tool for running Windows games on Linux
 type: deb
 category: gaming
-package: python3-umu-launcher
+package: umu-launcher
 install:
-  url: https://github.com/Open-Wine-Components/umu-launcher/releases/download/{version}/python3-umu-launcher_{version}-1_amd64_debian-13.deb
+  url:
+    - https://github.com/Open-Wine-Components/umu-launcher/releases/download/{version}/python3-umu-launcher_{version}-1_amd64_debian-13.deb
+    - https://github.com/Open-Wine-Components/umu-launcher/releases/download/{version}/umu-launcher_{version}-1_all_debian-13.deb

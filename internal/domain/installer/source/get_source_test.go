@@ -81,7 +81,7 @@ func TestGetSource_noRepoNoURL(t *testing.T) {
 		Name:   "test-src",
 		Type:   pkg.TypeSource,
 		Repo:   "",
-		URL:    "",
+		URLs:   nil,
 		Source: &pkg.SourceConfig{},
 	}
 
@@ -112,7 +112,7 @@ func TestGetSource_downloadTar(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-src",
 		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src-{version}.tar.gz",
+		URLs: []string{"https://example.com/test-src-{version}.tar.gz"},
 		Source: &pkg.SourceConfig{
 			BuildScript: "echo built",
 		},
@@ -172,7 +172,7 @@ func TestGetSource_downloadTar_noTopDir(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-src",
 		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src.tar.gz",
+		URLs: []string{"https://example.com/test-src.tar.gz"},
 		Source: &pkg.SourceConfig{
 			BuildScript: "echo built",
 		},
@@ -212,7 +212,7 @@ func TestGetSource_downloadZip(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-src",
 		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src-{version}.zip",
+		URLs: []string{"https://example.com/test-src-{version}.zip"},
 		Source: &pkg.SourceConfig{
 			BuildScript: "echo built",
 		},
@@ -245,7 +245,7 @@ func TestGetSource_downloadError(t *testing.T) {
 	p := &pkg.Package{
 		Name: "test-src",
 		Type: pkg.TypeSource,
-		URL:  "https://example.com/test-src.tar.gz",
+		URLs: []string{"https://example.com/test-src.tar.gz"},
 		Source: &pkg.SourceConfig{
 			BuildScript: "echo built",
 		},

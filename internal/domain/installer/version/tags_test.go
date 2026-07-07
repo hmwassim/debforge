@@ -56,7 +56,7 @@ func TestRepoFromURL_empty(t *testing.T) {
 func TestRepoFromPkg_explicitRepoWins(t *testing.T) {
 	p := &pkg.Package{
 		Repo: "https://example.com/explicit.git",
-		URL:  "https://github.com/owner/project/releases/download/v1.0.0/asset.deb",
+		URLs: []string{"https://github.com/owner/project/releases/download/v1.0.0/asset.deb"},
 	}
 	if got := RepoFromPkg(p); got != "https://example.com/explicit.git" {
 		t.Errorf("expected explicit Repo to take priority, got %q", got)
@@ -64,7 +64,7 @@ func TestRepoFromPkg_explicitRepoWins(t *testing.T) {
 }
 
 func TestRepoFromPkg_derivedFromURL(t *testing.T) {
-	p := &pkg.Package{URL: "https://github.com/owner/project/releases/download/v1.0.0/asset.deb"}
+	p := &pkg.Package{URLs: []string{"https://github.com/owner/project/releases/download/v1.0.0/asset.deb"}}
 	if got := RepoFromPkg(p); got != "https://github.com/owner/project.git" {
 		t.Errorf("got %q", got)
 	}
