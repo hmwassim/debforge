@@ -24,6 +24,12 @@ func NewFileLogger(dir string) *FileLogger {
 	return &FileLogger{dir: dir}
 }
 
+// Write logs a timestamped line with the given level. It is safe for
+// concurrent use and a no-op when the logger's directory is unwritable.
+func (f *FileLogger) Write(level, format string, args ...any) {
+	f.log(level, format, args...)
+}
+
 // log writes a single timestamped line to the current day's log file.
 func (f *FileLogger) log(level, format string, args ...any) {
 	f.mu.Lock()

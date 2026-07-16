@@ -125,3 +125,58 @@ func TestRunWithOptions_extraEnvPreservesInherited(t *testing.T) {
 	}
 	_ = original
 }
+
+func TestSetLogFn_calledOnSuccess(t *testing.T) {
+	ctx := context.Background()
+	r := NewRunner()
+	var called bool
+	var gotName string
+	r.SetLogFn(func(name string, args []string, stdout, stderr []byte, err error) {
+		called = true
+		gotName = name
+	})
+	_, _, err := r.Run(ctx, "echo", "hello")
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !called {
+		t.Error("logFn should have been called")
+	}
+	if gotName != "echo" {
+		t.Errorf("logFn name = %q, want %q", gotName, "echo")
+	}
+}
+
+func TestSetLogFn_calledOnError(t *testing.T) {
+	ctx := context.Background()
+	r := NewRunner()
+	var called bool
+	var gotErr error
+	r.SetLogFn(func(name string, args []string, stdout, stderr []byte, err error) {
+		called = true
+		gotErr = err
+	})
+	_, _, _ = r.Run(ctx, "nonexistent-command-12345")
+	if !called {
+		t.Error("logFn should have been called even on error")
+	}
+	if gotErr == nil {
+		t.Error("logFn should receive the error")
+	}
+}
+
+func TestSetLogFn_receivesStderr(t *testing.T) {
+	ctx := context.Background()
+	r := NewRunner()
+	var gotStderr []byte
+	r.SetLogFn(func(name string, args []string, stdout, stderr []byte, err error) {
+		gotStderr = stderr
+	})
+	_, _, err := r.Run(ctx, "sh", "-c", "echo errmsg >&2")
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !strings.Contains(string(gotStderr), "errmsg") {
+		t.Errorf("logFn stderr = %q, want it to contain %q", string(gotStderr), "errmsg")
+	}
+}

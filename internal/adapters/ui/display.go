@@ -55,13 +55,16 @@ func NewDisplay(ctx context.Context, w io.Writer, content string, fileLog *FileL
 	return d
 }
 
-// SetDesc updates the spinner's description text.
+// SetDesc updates the spinner's description text. The new description is
+// logged to the file only when it actually changes.
 func (d *Display) SetDesc(content string) {
+	uc := textutil.UcFirst(content)
 	d.mu.Lock()
-	d.content = textutil.UcFirst(content)
+	changed := d.content != uc
+	d.content = uc
 	d.mu.Unlock()
-	if d.fileLog != nil {
-		d.fileLog.log("INFO", "spinner: %s", content)
+	if changed && d.fileLog != nil {
+		d.fileLog.log("INFO", "spinner: %s", uc)
 	}
 }
 

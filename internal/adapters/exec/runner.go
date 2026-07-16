@@ -12,11 +12,20 @@ import (
 )
 
 // Runner executes external commands via os/exec.
-type Runner struct{}
+type Runner struct {
+	logFn func(name string, args []string, stdout, stderr []byte, err error)
+}
 
 // NewRunner returns a new Runner.
 func NewRunner() *Runner {
 	return &Runner{}
+}
+
+// SetLogFn sets an optional callback invoked after every command execution.
+// When set, it receives the command name, arguments, captured stdout/stderr,
+// and the error (if any). The callback must be safe for concurrent use.
+func (r *Runner) SetLogFn(fn func(string, []string, []byte, []byte, error)) {
+	r.logFn = fn
 }
 
 // Run executes name with args using the current environment and working
@@ -52,6 +61,9 @@ func (r *Runner) RunWithOptions(ctx context.Context, opts ports.RunOptions, name
 	}
 
 	err := cmd.Run()
+	if r.logFn != nil {
+		r.logFn(name, args, stdoutBuf.Bytes(), stderrBuf.Bytes(), err)
+	}
 	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
 }
 

@@ -33,8 +33,19 @@ func run() int {
 	}
 	fileLog := ui.NewFileLogger(filepath.Join(cfgu.RootDir, "var", "logs"))
 	defer fileLog.Close()
+	r := exec.NewRunner()
+	r.SetLogFn(func(name string, args []string, stdout, stderr []byte, err error) {
+		if err != nil {
+			fileLog.Write("CMD", "$ %s %s → %v", name, strings.Join(args, " "), err)
+		} else {
+			fileLog.Write("CMD", "$ %s %s", name, strings.Join(args, " "))
+		}
+		if len(stderr) > 0 {
+			fileLog.Write("CMD", "  stderr: %s", strings.TrimSpace(string(stderr)))
+		}
+	})
 	return runWith(ctx, os.Args[1:], version, cfgu,
-		fs.NewFileSystem(), exec.NewRunner(),
+		fs.NewFileSystem(), r,
 		lock.NewFLock(), system.NewSystem(), ui.NewConsoleUI(fileLog))
 }
 
