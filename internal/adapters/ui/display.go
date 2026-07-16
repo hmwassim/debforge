@@ -49,6 +49,9 @@ type Display struct {
 func NewDisplay(ctx context.Context, w io.Writer, content string, fileLog *FileLogger) *Display {
 	content = textutil.UcFirst(content)
 	d := &Display{w: w, content: content, ctx: ctx, tty: isTerminal(w), fileLog: fileLog}
+	if fileLog != nil {
+		fileLog.log("INFO", "spinner: %s", content)
+	}
 	d.stop = make(chan struct{})
 	d.sdone = make(chan struct{})
 	go d.run()
@@ -109,9 +112,6 @@ func (d *Display) run() {
 	d.mu.Lock()
 	content := d.content
 	d.mu.Unlock()
-	if d.fileLog != nil {
-		d.fileLog.log("INFO", "spinner: %s", content)
-	}
 
 	if !d.tty {
 		// Nothing to animate without a terminal: emit one line up front

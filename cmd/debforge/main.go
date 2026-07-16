@@ -33,6 +33,7 @@ func run() int {
 	}
 	fileLog := ui.NewFileLogger(filepath.Join(cfgu.RootDir, "var", "logs"))
 	defer fileLog.Close()
+	fileLog.Write("INFO", "debforge %s", strings.Join(os.Args[1:], " "))
 	r := exec.NewRunner()
 	r.SetLogFn(func(name string, args []string, stdout, stderr []byte, err error) {
 		if err != nil {
