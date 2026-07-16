@@ -99,7 +99,11 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 				return false, err
 			}
 			if ok {
-				spinner.SetDesc(dep.Name + " already installed")
+				if verb == "update" {
+					spinner.SetDesc(dep.Name + " already up to date")
+				} else {
+					spinner.SetDesc(dep.Name + " already installed")
+				}
 				sessionProcessed[dep.Name] = true
 				continue
 			}
