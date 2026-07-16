@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/download"
@@ -67,6 +68,9 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 		for idx, raw := range p.URLs {
 			url := download.ExpandURL(raw, p.Version)
 			tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
+			if !strings.HasSuffix(tmpPath, ".deb") {
+				tmpPath += ".deb"
+			}
 			tmpPaths = append(tmpPaths, tmpPath)
 
 			spinner.SetDesc("downloading " + p.Name)
