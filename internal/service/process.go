@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
@@ -21,6 +22,11 @@ import (
 //     The installer may still short-circuit unless force is also true.
 func (s *InstallService) processAll(ctx context.Context, names []string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
 	sessionProcessed := make(map[string]bool)
+
+	if err := s.enableAllExtrepos(ctx, names, spinner); err != nil {
+		return err
+	}
+
 	workDone := false
 	for _, name := range names {
 		didWork, err := s.processOne(ctx, name, force, rerun, st, spinner, verb, pastTense, sessionProcessed)
@@ -47,6 +53,53 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 		}
 		spinner.DoneInfo()
 	}
+	return nil
+}
+
+// enableAllExtrepos pre-enables every extrepo referenced by any package in the
+// dependency tree, then runs apt-get update once. This avoids redundant
+// extrepo enable / apt-get update cycles per-package.
+func (s *InstallService) enableAllExtrepos(ctx context.Context, names []string, spinner ports.Spinner) error {
+	seen := make(map[string]bool)
+	var allRepos []string
+
+	for _, name := range names {
+		p, err := LookupPackage(s.reg, name)
+		if err != nil {
+			continue
+		}
+		deps, err := s.resolver.Resolve(p)
+		if err != nil {
+			continue
+		}
+		for _, dep := range deps {
+			if dep.Type != pkg.TypeApt || dep.Apt == nil {
+				continue
+			}
+			for _, repo := range dep.Apt.Extrepo {
+				if !seen[repo] {
+					seen[repo] = true
+					allRepos = append(allRepos, repo)
+				}
+			}
+		}
+	}
+
+	if len(allRepos) == 0 {
+		return nil
+	}
+
+	for _, repo := range allRepos {
+		spinner.SetDesc("enabling extrepo " + repo)
+		if _, _, err := s.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
+			return fmt.Errorf("enable extrepo %s: %w", repo, err)
+		}
+	}
+
+	if err := aptpty.RunUpdate(ctx, s.runner, spinner); err != nil {
+		return fmt.Errorf("apt-get update: %w", err)
+	}
+
 	return nil
 }
 
@@ -78,6 +131,8 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	didWork := false
+	var batch aptBatch
+
 	for _, dep := range ordered {
 		if sessionProcessed[dep.Name] {
 			continue
@@ -131,29 +186,75 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		if err != nil {
 			return false, err
 		}
-		if err := inst.Install(ctx, dep, spinner); err != nil {
-			return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+
+		bi, ok := inst.(installer.BatchInstaller)
+		if !ok {
+			if batch.hasWork() {
+				bw, err := s.flushAptBatch(ctx, &batch, st, spinner, verb, pastTense)
+				if err != nil {
+					return false, err
+				}
+				if bw {
+					didWork = true
+				}
+			}
+			if err := inst.Install(ctx, dep, spinner); err != nil {
+				return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+			}
+			if dep.ForceInstall || !exists || dep.Version != oldVersion {
+				entry := PkgEntry{
+					Type:         string(dep.Type),
+					Version:      dep.Version,
+					ConfigHashes: dep.ConfigHashes,
+				}
+				if dep.Apt != nil {
+					entry.Variant = dep.Apt.Variant
+				}
+				s.state.Add(st, dep.Name, entry)
+				if err := s.state.Save(st); err != nil {
+					return false, fmt.Errorf("save state after %s: %w", dep.Name, err)
+				}
+				spinner.SetDesc(dep.Name + " " + pastTense)
+				didWork = true
+			} else {
+				spinner.SetDesc(dep.Name + " already up to date")
+			}
+			sessionProcessed[dep.Name] = true
+			continue
 		}
 
-		if dep.ForceInstall || !exists || dep.Version != oldVersion {
-			entry := PkgEntry{
-				Type:         string(dep.Type),
-				Version:      dep.Version,
-				ConfigHashes: dep.ConfigHashes,
-			}
-			if dep.Apt != nil {
-				entry.Variant = dep.Apt.Variant
-			}
-			s.state.Add(st, dep.Name, entry)
-			if err := s.state.Save(st); err != nil {
-				return false, fmt.Errorf("save state after %s: %w", dep.Name, err)
-			}
-			spinner.SetDesc(dep.Name + " " + pastTense)
-			didWork = true
-		} else {
-			spinner.SetDesc(dep.Name + " already up to date")
+		args, err := bi.Prepare(ctx, dep, spinner)
+		if err != nil {
+			return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+		}
+		if args.Skipped {
+			sessionProcessed[dep.Name] = true
+			continue
+		}
+
+		entry := batchEntry{
+			pkg:        dep,
+			bi:         bi,
+			exists:     exists,
+			oldVersion: oldVersion,
+		}
+		if len(args.AptPkgs) > 0 {
+			batch.addApt(args.AptPkgs, entry)
+		}
+		if len(args.DebPaths) > 0 {
+			batch.addDeb(args.DebPaths, entry)
 		}
 		sessionProcessed[dep.Name] = true
+	}
+
+	if batch.hasWork() {
+		bw, err := s.flushAptBatch(ctx, &batch, st, spinner, verb, pastTense)
+		if err != nil {
+			return false, err
+		}
+		if bw {
+			didWork = true
+		}
 	}
 
 	return didWork, nil

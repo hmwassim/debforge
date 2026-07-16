@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
@@ -35,6 +36,7 @@ type baseService struct {
 type InstallService struct {
 	baseService
 	resolver *Resolver
+	execApt  aptpty.AptExecFunc
 }
 
 // NewInstallService returns a new InstallService.
@@ -55,5 +57,6 @@ func NewInstallService(
 			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
 		},
 		resolver: resolver,
+		execApt:  aptpty.AptExec,
 	}
 }

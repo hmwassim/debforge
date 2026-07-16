@@ -63,8 +63,8 @@ func TestEnableExtrepos_alreadyEnabled(t *testing.T) {
 	if err := inst.enableExtrepos(context.Background(), p, &testutil.MockSpinner{}); err != nil {
 		t.Fatalf("enableExtrepos: %v", err)
 	}
-	if len(calls) != 1 || calls[0] != "apt-get" {
-		t.Errorf("expected only apt-get update, got %v", calls)
+	if len(calls) != 0 {
+		t.Errorf("expected no calls when all repos already enabled, got %v", calls)
 	}
 }
 

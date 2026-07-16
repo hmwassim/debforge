@@ -18,11 +18,12 @@ import (
 
 // Installer installs and removes .deb packages.
 type Installer struct {
-	runner  ports.CommandRunner
-	fs      ports.FileSystem
-	ui      ports.UI
-	sys     ports.System
-	execApt aptpty.AptExecFunc
+	runner   ports.CommandRunner
+	fs       ports.FileSystem
+	ui       ports.UI
+	sys      ports.System
+	execApt  aptpty.AptExecFunc
+	tempDirs map[string]string // package name → temp dir (batch mode)
 }
 
 // NewInstaller returns a new deb Installer.
@@ -132,4 +133,90 @@ func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner po
 		return false, err
 	}
 	return version.ApplyVersionUpdate(spinner, p, latest)
+}
+
+// ---- batch support --------------------------------------------------------
+
+// Prepare does per-package setup without running the main apt-get install.
+// It handles version check, prerequisite installation, and .deb downloading.
+// Returns BatchArgs with the .deb file paths for the batch apt-get install.
+func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (installer.BatchArgs, error) {
+	if err := installer.AssertType(p.Type, pkg.TypeDeb, "deb"); err != nil {
+		return installer.BatchArgs{}, err
+	}
+	if len(p.URLs) == 0 {
+		return installer.BatchArgs{}, fmt.Errorf("deb definition %s: no install url", p.Name)
+	}
+
+	if p.VersionCmd != "" || version.RepoFromPkg(p) != "" {
+		updated, err := i.checkVersion(ctx, p, spinner)
+		if err != nil {
+			return installer.BatchArgs{}, err
+		}
+		if !updated && !p.ForceInstall {
+			ok, err := installer.CheckInstalled(ctx, i.runner, i.fs, i.sys, p)
+			if err != nil {
+				return installer.BatchArgs{}, err
+			}
+			if ok {
+				return installer.BatchArgs{Skipped: true}, nil
+			}
+		}
+	}
+
+	if len(p.Packages) > 0 {
+		spinner.SetDesc("installing prerequisites for " + p.Name)
+		if err := i.execApt(ctx, i.runner, append([]string{"install", "-y"}, p.Packages...), spinner); err != nil {
+			return installer.BatchArgs{}, fmt.Errorf("install prerequisites %s: %w", p.Name, err)
+		}
+	}
+
+	tmpDir, err := installer.MkdirTemp(i.fs)
+	if err != nil {
+		return installer.BatchArgs{}, err
+	}
+
+	var tmpPaths []string
+	for idx, raw := range p.URLs {
+		url := download.ExpandURL(raw, p.Version)
+		tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
+		if !strings.HasSuffix(tmpPath, ".deb") {
+			tmpPath += ".deb"
+		}
+		tmpPaths = append(tmpPaths, tmpPath)
+
+		spinner.SetDesc("downloading " + p.Name)
+		sha256 := ""
+		if idx < len(p.SHA256s) {
+			sha256 = p.SHA256s[idx]
+		}
+		if err := download.Download(ctx, i.fs, url, tmpPath, spinner, sha256); err != nil {
+			_ = i.fs.RemoveAll(tmpDir)
+			return installer.BatchArgs{}, fmt.Errorf("download %s: %w", p.Name, err)
+		}
+	}
+
+	if i.tempDirs == nil {
+		i.tempDirs = make(map[string]string)
+	}
+	i.tempDirs[p.Name] = tmpDir
+
+	return installer.BatchArgs{DebPaths: tmpPaths}, nil
+}
+
+// Finalize runs post-install work after the batch apt-get install:
+// post-install scripts and temp dir cleanup.
+func (i *Installer) Finalize(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
+		return err
+	}
+
+	if i.tempDirs != nil {
+		if tmpDir, ok := i.tempDirs[p.Name]; ok {
+			delete(i.tempDirs, p.Name)
+			_ = i.fs.RemoveAll(tmpDir)
+		}
+	}
+
+	return nil
 }

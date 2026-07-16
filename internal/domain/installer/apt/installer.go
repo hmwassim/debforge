@@ -212,6 +212,7 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 // ---- extrepo --------------------------------------------------------------
 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	anyEnabled := false
 	for _, repo := range p.Apt.Extrepo {
 		enabled, err := i.extrepoEnabled(ctx, repo)
 		if err != nil {
@@ -224,8 +225,9 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 		if _, _, err := i.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
 			return fmt.Errorf("enable extrepo %s: %w", repo, err)
 		}
+		anyEnabled = true
 	}
-	if len(p.Apt.Extrepo) > 0 {
+	if anyEnabled {
 		if err := aptpty.RunUpdate(ctx, i.runner, spinner); err != nil {
 			return fmt.Errorf("apt-get update: %w", err)
 		}
@@ -354,4 +356,96 @@ func (i *Installer) installMain(ctx context.Context, p *pkg.Package, spinner por
 
 func (i *Installer) writeConfigs(p *pkg.Package, spinner ports.Spinner) error {
 	return installer.WriteAllConfigs(i.fs, i.sys, spinner, p)
+}
+
+// ---- batch support --------------------------------------------------------
+
+// CollectExtrepos returns all extrepo repo names that p needs. Used by the
+// service layer to enable all extrepos up-front before any installs.
+func (i *Installer) CollectExtrepos(p *pkg.Package) []string {
+	if p.Apt == nil {
+		return nil
+	}
+	return p.Apt.Extrepo
+}
+
+// Prepare does per-package setup without running the main apt-get install.
+// It handles GPU check, conflict removal, extrepo setup, pre-install scripts,
+// version check, variant selection, and backports. Returns BatchArgs with the
+// package names for the batch apt-get install call.
+func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (installer.BatchArgs, error) {
+	if err := installer.AssertType(p.Type, pkg.TypeApt, "apt"); err != nil {
+		return installer.BatchArgs{}, err
+	}
+	if len(p.Packages) == 0 && len(p.Apt.Variants) == 0 {
+		return installer.BatchArgs{}, fmt.Errorf("no packages or variants defined for apt type")
+	}
+
+	if p.Apt.Variant == skipVariant {
+		return installer.BatchArgs{Skipped: true}, nil
+	}
+
+	if err := i.checkGPU(ctx, p); err != nil {
+		return installer.BatchArgs{}, err
+	}
+
+	if err := i.checkConflicts(ctx, p, spinner); err != nil {
+		return installer.BatchArgs{}, err
+	}
+
+	if !p.SkipRepoSetup {
+		if err := i.enableExtrepos(ctx, p, spinner); err != nil {
+			return installer.BatchArgs{}, err
+		}
+	}
+
+	if err := installer.RunPreInstall(ctx, i.runner, spinner, p.Name, p.PreInstall); err != nil {
+		return installer.BatchArgs{}, err
+	}
+	if p.PreInstall != "" {
+		if err := aptpty.RunUpdate(ctx, i.runner, spinner); err != nil {
+			return installer.BatchArgs{}, fmt.Errorf("apt-get update: %w", err)
+		}
+	}
+
+	if !p.ForceInstall {
+		upToDate, err := i.isUpToDate(ctx, p, spinner)
+		if err != nil {
+			return installer.BatchArgs{}, err
+		}
+		if upToDate {
+			return installer.BatchArgs{Skipped: true}, nil
+		}
+	}
+
+	if err := i.SelectVariant(ctx, p); err != nil {
+		return installer.BatchArgs{}, err
+	}
+
+	if p.Apt.Variant == skipVariant {
+		return installer.BatchArgs{Skipped: true}, nil
+	}
+
+	if err := i.installBackports(ctx, p, spinner); err != nil {
+		return installer.BatchArgs{}, err
+	}
+
+	pkgs := installPackages(p)
+	return installer.BatchArgs{AptPkgs: pkgs}, nil
+}
+
+// Finalize runs post-install work after the batch apt-get install: version
+// recording, config writing, and post-install scripts.
+func (i *Installer) Finalize(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
+	if p.Version == "" {
+		if c, err := i.candidateVersion(ctx, primarySystemPackage(p)); err == nil && c != "" {
+			p.Version = c
+		}
+	}
+
+	if err := i.writeConfigs(p, spinner); err != nil {
+		return err
+	}
+
+	return installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall)
 }
