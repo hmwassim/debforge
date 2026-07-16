@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,4 +113,70 @@ func TestSymbolToLevel(t *testing.T) {
 			t.Errorf("symbolToLevel(%q) = %q, want %q", tc.symbol, got, tc.want)
 		}
 	}
+}
+
+func TestFileLogger_Retention(t *testing.T) {
+	dir := t.TempDir()
+	for i := 1; i <= 35; i++ {
+		name := filepath.Join(dir, fmt.Sprintf("debforge-2026-01-%02d.log", i))
+		os.WriteFile(name, []byte("seed"), 0640)
+	}
+	fl := NewFileLogger(dir)
+	fl.Write("INFO", "trigger prune")
+	fl.Close()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	// RetentionDays: prune keeps the last 30 files from the sorted list,
+	// which includes today's freshly created file.
+	if len(names) != RetentionDays {
+		t.Errorf("expected %d files, got %d: %v", RetentionDays, len(names), names)
+	}
+	// Oldest seeded file should be gone
+	for _, n := range names {
+		if n == "debforge-2026-01-01.log" {
+			t.Error("debforge-2026-01-01.log should have been pruned")
+		}
+	}
+}
+
+func TestFileLogger_Permissions(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "newlogdir")
+	fl := NewFileLogger(dir)
+	fl.Write("INFO", "test perms")
+	fl.Close()
+
+	di, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("stat dir: %v", err)
+	}
+	if di.Mode().Perm() != 0750 {
+		t.Errorf("dir perm = %o, want 0750", di.Mode().Perm())
+	}
+
+	logs, _ := filepath.Glob(filepath.Join(dir, "debforge-*.log"))
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 log file, got %d", len(logs))
+	}
+	fi, err := os.Stat(logs[0])
+	if err != nil {
+		t.Fatalf("stat log: %v", err)
+	}
+	if fi.Mode().Perm() != 0640 {
+		t.Errorf("file perm = %o, want 0640", fi.Mode().Perm())
+	}
+}
+
+func TestFileLogger_NilSafe(t *testing.T) {
+	var fl *FileLogger
+	fl.Write("INFO", "no panic")
+	fl.Close()
 }

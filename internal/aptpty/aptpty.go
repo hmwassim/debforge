@@ -25,6 +25,18 @@ type AptExecFunc func(ctx context.Context, runner ports.CommandRunner, aptArgs [
 // default; tests can override per-installer.
 var AptExec AptExecFunc = run
 
+// LineLog, if non-nil, receives every meaningful line of apt-get's PTY
+// output (ANSI-stripped, one call per line) as it streams. High-frequency
+// download percentage ticks are filtered out since the spinner already
+// reflects those; everything else - dependency-tree output, unpacking/
+// setting-up lines, conffile prompts, and dpkg/apt errors and warnings -
+// is forwarded. This is a package-level hook rather than a parameter on
+// every Run* function so callers (10+ setup steps, 3 installers) don't
+// need to thread a logger through; set it once at startup before any
+// apt-get call, the same way main() wires up exec.Runner.SetLogFn. Nil by
+// default, so existing callers and tests are unaffected.
+var LineLog func(line string)
+
 // DefaultBackportSuite is the default suite used for backport installations
 // when the package definition does not specify one. Exported so that other
 // packages (installer, setup) can reference the same constant.

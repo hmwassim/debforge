@@ -277,3 +277,73 @@ func TestProgressDesc_installWithInstallPkg(t *testing.T) {
 		t.Errorf("progressDesc = %q, want %q", got, "Installing bash...")
 	}
 }
+
+func TestIsProgressNoise(t *testing.T) {
+	tests := []struct {
+		line string
+		want bool
+	}{
+		{"Reading package lists... 51%", true},
+		{"Building dependency tree... 50%", true},
+		{"Reading state information... 0%", true},
+		{"(Reading database ... 55%", true},
+		{"(Reading database ... ", true},
+		{"Reading package lists... Done", false},
+		{"(Reading database ... 93278 files and directories currently installed.)", false},
+		{"0% [Working]", true},
+		{"65%", true},
+		{"Setting up hello (2.10-3build1) ...", false},
+		{"E: Unable to locate package foo", false},
+		{"", false},
+	}
+	for _, tc := range tests {
+		got := isProgressNoise(tc.line)
+		if got != tc.want {
+			t.Errorf("isProgressNoise(%q) = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
+func TestLogAptLine_nilHook(t *testing.T) {
+	LineLog = nil
+	logAptLine("E: some error")
+}
+
+func TestLogAptLine_forwardsAndFilters(t *testing.T) {
+	var captured []string
+	LineLog = func(line string) { captured = append(captured, line) }
+	defer func() { LineLog = nil }()
+
+	lines := []string{
+		"Reading package lists... 51%",
+		"Reading package lists... Done",
+		" 42% [1 hello 52.0 kB/123 kB 42%]",
+		"0% [Working]",
+		"65%",
+		"Setting up hello (2.36-9) ...",
+		"E: Unable to locate package foo",
+		"dpkg: error processing package hello (--configure):",
+		"(Reading database ... 55%",
+		"(Reading database ... 93278 files and directories currently installed.)",
+		"",
+	}
+	for _, l := range lines {
+		logAptLine(l)
+	}
+
+	want := []string{
+		"Reading package lists... Done",
+		"Setting up hello (2.36-9) ...",
+		"E: Unable to locate package foo",
+		"dpkg: error processing package hello (--configure):",
+		"(Reading database ... 93278 files and directories currently installed.)",
+	}
+	if len(captured) != len(want) {
+		t.Fatalf("logAptLine captured %d lines, want %d\ngot:  %v\nwant: %v", len(captured), len(want), captured, want)
+	}
+	for i, w := range want {
+		if captured[i] != w {
+			t.Errorf("captured[%d] = %q, want %q", i, captured[i], w)
+		}
+	}
+}

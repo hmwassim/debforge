@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,5 +217,54 @@ func TestRunWithSession_tickerFires(t *testing.T) {
 	}
 	if spinner.Desc == "" {
 		t.Error("expected spinner SetDesc to be called")
+	}
+}
+
+func TestRunWithSession_lineLogCapturesTranscript(t *testing.T) {
+	var captured []string
+	LineLog = func(line string) { captured = append(captured, line) }
+	defer func() { LineLog = nil }()
+
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data: []byte("Reading package lists... Done\n" +
+			" 42% [1 hello 52.0 kB/123 kB 42%]\n" +
+			"Setting up hello (2.36-9) ...\n" +
+			"dpkg: error processing package hello (--configure):\n" +
+			" dependency Problem3\n" +
+			"E: Sub-process /usr/bin/dpkg returned an error code (1)\n"),
+		readErr: io.EOF,
+		waitErr: errors.New("exit status 100"),
+	}
+	err := runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+		[]string{"install", "-y", "hello"}, spinner, mockPtyFactory(mock))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	wantContains := []string{
+		"Reading package lists... Done",
+		"Setting up hello",
+		"dpkg: error processing",
+		"dependency Problem3",
+		"E: Sub-process",
+	}
+	for _, w := range wantContains {
+		found := false
+		for _, c := range captured {
+			if strings.Contains(c, w) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("captured lines missing %q\ngot: %v", w, captured)
+		}
+	}
+
+	for _, c := range captured {
+		if strings.Contains(c, "kB/") {
+			t.Errorf("captured line contains download meter %q", c)
+		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/lock"
 	"github.com/hmwassim/debforge/internal/adapters/system"
 	"github.com/hmwassim/debforge/internal/adapters/ui"
+	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/buildmeta"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
@@ -31,8 +32,17 @@ func run() int {
 	if v := os.Getenv("DEBFORGE_PKGS_DIR"); v != "" {
 		cfgu.PkgsDir = v
 	}
-	fileLog := ui.NewFileLogger(filepath.Join(cfgu.RootDir, "var", "logs"))
+
+	logDir := filepath.Join(cfgu.RootDir, "var", "logs")
+	if v := os.Getenv("DEBFORGE_LOG_DIR"); v != "" {
+		logDir = v
+	}
+	var fileLog *ui.FileLogger
+	if os.Getenv("DEBFORGE_NO_LOG") == "" {
+		fileLog = ui.NewFileLogger(logDir)
+	}
 	defer fileLog.Close()
+
 	fileLog.Write("INFO", "debforge %s", strings.Join(os.Args[1:], " "))
 	r := exec.NewRunner()
 	r.SetLogFn(func(name string, args []string, stdout, stderr []byte, err error) {
@@ -45,6 +55,7 @@ func run() int {
 			fileLog.Write("CMD", "  stderr: %s", strings.TrimSpace(string(stderr)))
 		}
 	})
+	aptpty.LineLog = func(line string) { fileLog.Write("APT", "%s", line) }
 	return runWith(ctx, os.Args[1:], version, cfgu,
 		fs.NewFileSystem(), r,
 		lock.NewFLock(), system.NewSystem(), ui.NewConsoleUI(fileLog))

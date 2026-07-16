@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/ports"
@@ -98,14 +99,64 @@ func after(s, prefix string) string {
 	return after
 }
 
+// knownProgressHeader matches intermediate percentage ticks (and bare
+// truncated fragments) from apt/dpkg's own housekeeping progress reporting
+// - "Reading package lists... 51%", "(Reading database ... 55%", or just
+// "(Reading database ... " with the percentage arriving in a later PTY
+// write. It deliberately does NOT match the terminal "...Done" line for
+// these operations, nor unrelated lines that happen to end in "..." (e.g.
+// "Setting up hello (2.10-3build1) ...") - only these four known,
+// high-frequency operation names are treated as noise.
+var knownProgressHeader = regexp.MustCompile(
+	`^\(?(Reading package lists|Building dependency tree|Reading state information|Reading database)\s*\.\.\.\s*(\d{1,3}%)?$`)
+
+// bracketWorking matches apt's generic "NN% [Working]" activity indicator,
+// shown repeatedly while apt is fetching or waiting with nothing more
+// specific to report.
+var bracketWorking = regexp.MustCompile(`^\d{1,3}%\s*\[Working\]$`)
+
+// barePercent matches a lone percentage with no surrounding text - dpkg's
+// database-scan progress ("(Reading database ... ") is sometimes followed
+// by digit-only redraw writes that arrive as separate PTY segments with no
+// prefix attached. These carry no information on their own; the final
+// "(Reading database ... N files and directories currently installed.)"
+// line already covers it.
+var barePercent = regexp.MustCompile(`^\d{1,3}%$`)
+
+func isProgressNoise(line string) bool {
+	return knownProgressHeader.MatchString(line) || bracketWorking.MatchString(line) || barePercent.MatchString(line)
+}
+
 func processSegments(data []byte, state *runState, cur, total *int64, pkg *string, aptErrs *[]string, spinner ports.Spinner) {
 	for _, seg := range bytes.Split(data, []byte{'\r'}) {
 		if len(seg) == 0 {
 			continue
 		}
-		handleLine(string(seg), state, cur, total, pkg, spinner)
-		collectErr(string(seg), aptErrs)
+		line := string(seg)
+		logAptLine(line)
+		handleLine(line, state, cur, total, pkg, spinner)
+		collectErr(line, aptErrs)
 	}
+}
+
+// logAptLine forwards line to LineLog, skipping blank lines, the
+// per-package download meter (already reflected by the spinner - see
+// parseProgress), and apt/dpkg's other high-frequency progress ticks (see
+// isProgressNoise). Reuses stripANSI/parseProgress rather than
+// re-implementing that parsing, so there is one place that knows what a
+// "progress tick" looks like.
+func logAptLine(line string) {
+	if LineLog == nil {
+		return
+	}
+	clean := strings.TrimSpace(stripANSI(line))
+	if clean == "" || isProgressNoise(clean) {
+		return
+	}
+	if _, _, _, ok := parseProgress(clean); ok {
+		return
+	}
+	LineLog(clean)
 }
 
 func collectErr(s string, aptErrs *[]string) {
