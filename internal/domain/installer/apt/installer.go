@@ -33,77 +33,19 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, 
 // Install installs the apt packages described by p, including extrepo
 // setup, conflict resolution, variant selection, and backports.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if err := installer.AssertType(p.Type, pkg.TypeApt, "apt"); err != nil {
+	args, err := i.Prepare(ctx, p, spinner)
+	if err != nil {
 		return err
 	}
-	if len(p.Packages) == 0 && len(p.Apt.Variants) == 0 {
-		return fmt.Errorf("no packages or variants defined for apt type")
-	}
-
-	if p.Apt.Variant == skipVariant {
+	if args.Skipped {
 		return nil
 	}
-
-	if err := i.checkGPU(ctx, p); err != nil {
-		return err
+	installArgs := append([]string{"install", "-y"}, args.AptPkgs...)
+	installArgs = append(installArgs, args.DebPaths...)
+	if err := i.execApt(ctx, i.runner, installArgs, spinner); err != nil {
+		return fmt.Errorf("install %s: %w", p.Name, err)
 	}
-
-	if err := i.checkConflicts(ctx, p, spinner); err != nil {
-		return err
-	}
-
-	if !p.SkipRepoSetup {
-		if err := i.enableExtrepos(ctx, p, spinner); err != nil {
-			return err
-		}
-	}
-
-	if err := installer.RunPreInstall(ctx, i.runner, spinner, p.Name, p.PreInstall); err != nil {
-		return err
-	}
-	if p.PreInstall != "" {
-		if err := aptpty.RunUpdate(ctx, i.runner, spinner); err != nil {
-			return fmt.Errorf("apt-get update: %w", err)
-		}
-	}
-
-	if !p.ForceInstall {
-		upToDate, err := i.isUpToDate(ctx, p, spinner)
-		if err != nil {
-			return err
-		}
-		if upToDate {
-			return nil
-		}
-	}
-
-	if err := i.SelectVariant(ctx, p); err != nil {
-		return err
-	}
-
-	if err := i.installBackports(ctx, p, spinner); err != nil {
-		return err
-	}
-
-	if err := i.installMain(ctx, p, spinner); err != nil {
-		return err
-	}
-
-	if p.Version == "" {
-		if c, err := i.candidateVersion(ctx, primarySystemPackage(p)); err == nil && c != "" {
-			p.Version = c
-		}
-	}
-
-	if err := i.writeConfigs(p, spinner); err != nil {
-		return err
-	}
-
-	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
-		return err
-	}
-
-	return nil
+	return i.Finalize(ctx, p, spinner)
 }
 
 // isUpToDate checks whether all system packages managed by p are already

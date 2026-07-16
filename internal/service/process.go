@@ -23,7 +23,22 @@ import (
 func (s *InstallService) processAll(ctx context.Context, names []string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
 	sessionProcessed := make(map[string]bool)
 
-	if err := s.enableAllExtrepos(ctx, names, spinner); err != nil {
+	var namesNeedingWork []string
+	if rerun {
+		namesNeedingWork = names
+	} else {
+		for _, name := range names {
+			satisfied, err := s.alreadySatisfied(ctx, name, st)
+			if err != nil {
+				return err
+			}
+			if !satisfied {
+				namesNeedingWork = append(namesNeedingWork, name)
+			}
+		}
+	}
+
+	if err := s.enableAllExtrepos(ctx, namesNeedingWork, spinner); err != nil {
 		return err
 	}
 
@@ -103,6 +118,24 @@ func (s *InstallService) enableAllExtrepos(ctx context.Context, names []string, 
 	return nil
 }
 
+// alreadySatisfied checks whether a package is already installed and up to
+// date, making a no-op of the full install pipeline. Returns true when the
+// package can be skipped entirely.
+func (s *InstallService) alreadySatisfied(ctx context.Context, name string, st *State) (bool, error) {
+	if !s.state.IsInstalled(st, name) {
+		return false, nil
+	}
+	p, err := LookupPackage(s.reg, name)
+	if err != nil {
+		return false, err
+	}
+	ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, p)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
 // processOne processes a single named package and its transitive
 // dependencies. See processAll for the semantics of force and rerun.
 func (s *InstallService) processOne(ctx context.Context, name string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string, sessionProcessed map[string]bool) (bool, error) {
@@ -114,12 +147,12 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		return false, err
 	}
 
-	if s.state.IsInstalled(st, name) && !rerun {
-		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, p)
+	if !rerun {
+		satisfied, err := s.alreadySatisfied(ctx, name, st)
 		if err != nil {
 			return false, err
 		}
-		if ok {
+		if satisfied {
 			spinner.SetDesc(name + " already installed")
 			return false, nil
 		}

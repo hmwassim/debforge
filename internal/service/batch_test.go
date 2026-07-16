@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
@@ -57,6 +59,126 @@ func TestAptBatch_hasWork_debOnly(t *testing.T) {
 	b.addDeb([]string{"/tmp/test.deb"}, batchEntry{})
 	if !b.hasWork() {
 		t.Error("expected hasWork=true with deb paths")
+	}
+}
+
+// ---- flushAptBatch abort / finalize-error tests ----------------------------
+
+func TestFlushAptBatch_aptGetFailureCallsAbort(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "pkg-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	reg.Register(&pkg.Package{
+		Name: "pkg-b",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+
+	recA := newBatchRecorder()
+	recB := newBatchRecorder()
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, recA)
+	instReg.Register(pkg.TypeDeb, recB)
+
+	stateSvc, _, cleanup := newStateManagerForTest(t)
+	defer cleanup()
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg:     reg,
+			instReg: instReg,
+			state:   stateSvc,
+			runner:  newTestBatchRunner(),
+			fs:      testutil.NewMockFileSystem(),
+		},
+		resolver: NewResolver(reg),
+		execApt: func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
+			return errors.New("apt-get failed")
+		},
+	}
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	b := &aptBatch{}
+	b.addApt([]string{"pkg-a"}, batchEntry{pkg: &pkg.Package{Name: "pkg-a", Type: pkg.TypeApt}, bi: recA})
+	b.addApt([]string{"pkg-b"}, batchEntry{pkg: &pkg.Package{Name: "pkg-b", Type: pkg.TypeApt}, bi: recA})
+
+	_, err := svc.flushAptBatch(ctx, b, st, spinner, "install", "installed")
+	if err == nil {
+		t.Fatal("expected error from flushAptBatch when apt-get fails")
+	}
+
+	// Abort should have been called for both entries (recA implements BatchAborter)
+	if len(recA.aborted) != 2 {
+		t.Errorf("expected 2 Abort calls, got %d: %v", len(recA.aborted), recA.aborted)
+	}
+	// Finalize should NOT have been called
+	if len(recA.finalized) != 0 {
+		t.Errorf("expected 0 finalizations, got %d: %v", len(recA.finalized), recA.finalized)
+	}
+}
+
+func TestFlushAptBatch_partialFinalizeErrorContinues(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "pkg-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	reg.Register(&pkg.Package{
+		Name: "pkg-b",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	reg.Register(&pkg.Package{
+		Name: "pkg-c",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+
+	rec := newBatchRecorder()
+	rec.finalizeErr["pkg-b"] = errors.New("postinstall failed")
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, rec)
+
+	stateSvc, _, cleanup := newStateManagerForTest(t)
+	defer cleanup()
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg:     reg,
+			instReg: instReg,
+			state:   stateSvc,
+			runner:  newTestBatchRunner(),
+			fs:      testutil.NewMockFileSystem(),
+		},
+		resolver: NewResolver(reg),
+		execApt:  noopAptExec,
+	}
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	b := &aptBatch{}
+	b.addApt([]string{"pkg-a"}, batchEntry{pkg: &pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, ForceInstall: true}, bi: rec, exists: true})
+	b.addApt([]string{"pkg-b"}, batchEntry{pkg: &pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, ForceInstall: true}, bi: rec, exists: true})
+	b.addApt([]string{"pkg-c"}, batchEntry{pkg: &pkg.Package{Name: "pkg-c", Type: pkg.TypeApt, ForceInstall: true}, bi: rec, exists: true})
+
+	_, err := svc.flushAptBatch(ctx, b, st, spinner, "install", "installed")
+
+	// All three should have been finalized despite pkg-b's error
+	if len(rec.finalized) != 3 {
+		t.Errorf("expected 3 finalizations (including past the error), got %d: %v", len(rec.finalized), rec.finalized)
+	}
+	// The returned error should mention pkg-b
+	if err == nil || !strings.Contains(err.Error(), "pkg-b") {
+		t.Errorf("expected error mentioning pkg-b, got %v", err)
 	}
 }
 
@@ -202,6 +324,122 @@ func TestProcessOne_batchSkippedPackage(t *testing.T) {
 	}
 	if len(rec.finalized) != 0 {
 		t.Errorf("expected 0 finalizations, got %d", len(rec.finalized))
+	}
+}
+
+// ---- processAll extrepo-skip tests ------------------------------------------
+
+func TestProcessAll_skipsExtrepoWhenAlreadyInstalled(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "pkg-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{Extrepo: []string{"my-repo"}},
+	})
+
+	var calls []string
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			calls = append(calls, name+" "+strings.Join(args, " "))
+			cmd := name + " " + strings.Join(args, " ")
+			if strings.Contains(cmd, "dpkg-query") {
+				return []byte("installed\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+
+	stateSvc, _, cleanup := newStateManagerForTest(t)
+	defer cleanup()
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg:    reg,
+			state:  stateSvc,
+			runner: runner,
+			fs:     testutil.NewMockFileSystem(),
+		},
+		resolver: NewResolver(reg),
+		execApt:  noopAptExec,
+	}
+
+	st := &State{Packages: map[string]PkgEntry{
+		"pkg-a": {Type: "apt", Version: "1.0"},
+	}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	err := svc.processAll(ctx, []string{"pkg-a"}, false, false, st, spinner, "install", "installed")
+	if err != nil {
+		t.Fatalf("processAll: %v", err)
+	}
+
+	for _, c := range calls {
+		if strings.Contains(c, "extrepo enable") || strings.Contains(c, "apt-get update") {
+			t.Errorf("unexpected extrepo/apt-get-update call when package already installed: %s", c)
+		}
+	}
+}
+
+func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "pkg-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{Extrepo: []string{"my-repo"}},
+	})
+
+	var calls []string
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			calls = append(calls, name+" "+strings.Join(args, " "))
+			cmd := name + " " + strings.Join(args, " ")
+			if strings.Contains(cmd, "dpkg-query") {
+				return []byte("not-installed\n"), nil, nil
+			}
+			if strings.Contains(cmd, "apt-cache policy") {
+				return []byte("Candidate: 1.0\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+
+	stateSvc, _, cleanup := newStateManagerForTest(t)
+	defer cleanup()
+
+	rec := newBatchRecorder()
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, rec)
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg:     reg,
+			instReg: instReg,
+			state:   stateSvc,
+			runner:  runner,
+			fs:      testutil.NewMockFileSystem(),
+		},
+		resolver: NewResolver(reg),
+		execApt:  noopAptExec,
+	}
+
+	st := &State{Packages: map[string]PkgEntry{}}
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	err := svc.processAll(ctx, []string{"pkg-a"}, false, false, st, spinner, "install", "installed")
+	if err != nil {
+		t.Fatalf("processAll: %v", err)
+	}
+
+	enableCount := 0
+	for _, c := range calls {
+		if strings.Contains(c, "extrepo enable") {
+			enableCount++
+		}
+	}
+	if enableCount != 1 {
+		t.Errorf("expected extrepo enable to run for a not-installed package, got %d calls", enableCount)
 	}
 }
 

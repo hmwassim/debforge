@@ -11,12 +11,13 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-// batchRecorder records Prepare/Finalize calls and returns controlled results.
+// batchRecorder records Prepare/Finalize/Abort calls and returns controlled results.
 type batchRecorder struct {
 	prepareArgs map[string]installer.BatchArgs // keyed by package name
 	prepareErr  map[string]error
 	finalizeErr map[string]error
 	finalized   []string
+	aborted     []string
 }
 
 func newBatchRecorder() *batchRecorder {
@@ -51,6 +52,10 @@ func (r *batchRecorder) Finalize(_ context.Context, p *pkg.Package, _ ports.Spin
 		return err
 	}
 	return nil
+}
+
+func (r *batchRecorder) Abort(p *pkg.Package) {
+	r.aborted = append(r.aborted, p.Name)
 }
 
 // testBatchRunner handles common commands for batch tests.

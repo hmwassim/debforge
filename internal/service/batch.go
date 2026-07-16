@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -58,13 +59,20 @@ func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *Sta
 
 	spinner.SetDesc("installing packages...")
 	if err := s.execApt(ctx, s.runner, args, spinner); err != nil {
+		for _, e := range b.entries {
+			if ab, ok := e.bi.(installer.BatchAborter); ok {
+				ab.Abort(e.pkg)
+			}
+		}
 		return false, fmt.Errorf("batch apt-get install: %w", err)
 	}
 
 	didWork := false
+	var finalizeErrs []error
 	for _, e := range b.entries {
 		if err := e.bi.Finalize(ctx, e.pkg, spinner); err != nil {
-			return false, fmt.Errorf("%s %s: %w", verb, e.pkg.Name, err)
+			finalizeErrs = append(finalizeErrs, fmt.Errorf("%s %s: %w", verb, e.pkg.Name, err))
+			continue
 		}
 
 		if e.pkg.ForceInstall || !e.exists || e.pkg.Version != e.oldVersion {
@@ -88,5 +96,8 @@ func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *Sta
 	}
 
 	b.reset()
+	if len(finalizeErrs) > 0 {
+		return didWork, errors.Join(finalizeErrs...)
+	}
 	return didWork, nil
 }

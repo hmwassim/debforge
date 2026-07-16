@@ -17,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/domain/download"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
@@ -314,5 +315,88 @@ func TestInstall_proceedsWhenNotInstalledEvenIfVersionUnchanged(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "up to date") {
 		t.Error("install short-circuited due to version match when package is not on the system")
+	}
+}
+
+func TestFinalize_removesTempDir(t *testing.T) {
+	var removed []string
+	fs := testutil.NewMockFileSystem()
+	fs.RemoveAllFunc = func(path string) error {
+		removed = append(removed, path)
+		return nil
+	}
+	inst := &Installer{runner: &testutil.MockRunner{}, fs: fs, tempDirs: map[string]string{
+		"test-deb": "/tmp/debforge-test-abc",
+	}}
+
+	if err := inst.Finalize(context.Background(), &pkg.Package{Name: "test-deb"}, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("Finalize: %v", err)
+	}
+	if len(removed) != 1 || removed[0] != "/tmp/debforge-test-abc" {
+		t.Errorf("expected temp dir removed, got %v", removed)
+	}
+	if _, ok := inst.tempDirs["test-deb"]; ok {
+		t.Error("expected tempDirs entry to be deleted after Finalize")
+	}
+}
+
+func TestAbort_removesTempDirWithoutPostInstall(t *testing.T) {
+	var removed []string
+	var postInstallRan bool
+	fs := testutil.NewMockFileSystem()
+	fs.RemoveAllFunc = func(path string) error {
+		removed = append(removed, path)
+		return nil
+	}
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "sh" {
+				postInstallRan = true
+			}
+			return nil, nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: fs, tempDirs: map[string]string{
+		"test-deb": "/tmp/debforge-test-xyz",
+	}}
+
+	inst.Abort(&pkg.Package{Name: "test-deb", PostInstall: "echo post"})
+
+	if len(removed) != 1 || removed[0] != "/tmp/debforge-test-xyz" {
+		t.Errorf("expected temp dir removed, got %v", removed)
+	}
+	if postInstallRan {
+		t.Error("Abort should not run postinstall scripts")
+	}
+	if _, ok := inst.tempDirs["test-deb"]; ok {
+		t.Error("expected tempDirs entry to be deleted after Abort")
+	}
+}
+
+func TestAbort_noopWhenNoTempDir(t *testing.T) {
+	inst := &Installer{runner: &testutil.MockRunner{}, fs: testutil.NewMockFileSystem()}
+	inst.Abort(&pkg.Package{Name: "test-deb"})
+}
+
+func TestPrepare_debSuffixHandling(t *testing.T) {
+	tests := []struct {
+		name     string
+		urlPath  string
+		expected string
+	}{
+		{"no extension (Discord)", "/api/download?platform=linux&format=deb", "download.deb"},
+		{"already .deb", "/releases/v1.0/pkg.deb", "pkg.deb"},
+		{"uppercase .DEB", "/releases/v1.0/pkg.DEB", "pkg.DEB"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpPath := download.FilenameFromURL(tt.urlPath)
+			if !strings.HasSuffix(strings.ToLower(tmpPath), ".deb") {
+				tmpPath += ".deb"
+			}
+			if tmpPath != tt.expected {
+				t.Errorf("got %q, want %q", tmpPath, tt.expected)
+			}
+		})
 	}
 }

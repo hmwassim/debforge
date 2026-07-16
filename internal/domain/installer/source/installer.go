@@ -40,12 +40,13 @@ type Installer struct {
 	ui           ports.UI
 	execApt      aptpty.AptExecFunc
 	downloadFunc DownloadFunc
-	tagCache     map[string]string // repoURL → latest version
+	tagRefsCache map[string][]string // repoURL → raw `git ls-remote --tags` refs
+	headCache    map[string]string   // repoURL → HEAD commit hash (no-tags fallback only)
 }
 
 // NewInstaller returns a new source Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec, downloadFunc: download.Download, tagCache: make(map[string]string)}
+	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec, downloadFunc: download.Download, tagRefsCache: make(map[string][]string), headCache: make(map[string]string)}
 }
 
 // Install fetches the source code (git clone or download+extract), runs
@@ -209,34 +210,62 @@ func (i *Installer) interpolate(script, version string) string {
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
-	repo := version.RepoFromPkg(p)
-	if repo != "" {
-		if cached, ok := i.tagCache[repo]; ok {
-			return version.ApplyVersionUpdate(spinner, p, cached)
-		}
-	}
-
-	latest, err := version.GatherVersion(ctx, i.runner, p)
-	if err != nil {
-		if p.VersionCmd != "" {
-			return false, err
-		}
-		if repo == "" {
-			return false, err
-		}
-		spinner.SetDesc("checking version for " + p.Name)
-		out, _, err := i.runner.Run(ctx, "git", "ls-remote", repo, "HEAD")
+	if p.VersionCmd != "" {
+		out, _, err := i.runner.Run(ctx, "sh", "-c", p.VersionCmd)
 		if err != nil {
 			return false, fmt.Errorf("version check %s: %w", p.Name, err)
 		}
-		if parts := strings.Fields(string(out)); len(parts) > 0 {
-			latest = parts[0]
+		return version.ApplyVersionUpdate(spinner, p, strings.TrimSpace(string(out)))
+	}
+
+	repo := version.RepoFromPkg(p)
+	if repo == "" {
+		return version.ApplyVersionUpdate(spinner, p, "")
+	}
+
+	refs, ok := i.tagRefsCache[repo]
+	if !ok {
+		var err error
+		refs, err = version.FetchTagRefs(ctx, i.runner, repo)
+		if err != nil {
+			return i.checkVersionHeadFallback(ctx, p, repo, spinner)
+		}
+		if i.tagRefsCache != nil {
+			i.tagRefsCache[repo] = refs
 		}
 	}
 
-	if latest != "" && repo != "" && i.tagCache != nil {
-		i.tagCache[repo] = latest
+	verifyURL := ""
+	if len(p.URLs) > 0 {
+		verifyURL = p.URLs[0]
+	}
+	latest, err := version.SelectTag(ctx, refs, repo, p.TagPrefix, verifyURL)
+	if err != nil {
+		return i.checkVersionHeadFallback(ctx, p, repo, spinner)
 	}
 
+	return version.ApplyVersionUpdate(spinner, p, latest)
+}
+
+// checkVersionHeadFallback is used when repo has no matching version tags
+// (or the tag fetch itself failed): it falls back to the repo's current
+// HEAD commit hash. Unlike SelectTag's result, this has no per-package
+// inputs (no TagPrefix, no verifyURL), so it's safe to cache by repo alone.
+func (i *Installer) checkVersionHeadFallback(ctx context.Context, p *pkg.Package, repo string, spinner ports.Spinner) (bool, error) {
+	if cached, ok := i.headCache[repo]; ok {
+		return version.ApplyVersionUpdate(spinner, p, cached)
+	}
+	spinner.SetDesc("checking version for " + p.Name)
+	out, _, err := i.runner.Run(ctx, "git", "ls-remote", repo, "HEAD")
+	if err != nil {
+		return false, fmt.Errorf("version check %s: %w", p.Name, err)
+	}
+	latest := ""
+	if parts := strings.Fields(string(out)); len(parts) > 0 {
+		latest = parts[0]
+	}
+	if latest != "" && i.headCache != nil {
+		i.headCache[repo] = latest
+	}
 	return version.ApplyVersionUpdate(spinner, p, latest)
 }

@@ -34,68 +34,19 @@ func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, 
 // Install downloads the .deb file(s) from p.URLs, installs them via apt-get,
 // and runs the post-install script.
 func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if err := installer.AssertType(p.Type, pkg.TypeDeb, "deb"); err != nil {
+	args, err := i.Prepare(ctx, p, spinner)
+	if err != nil {
 		return err
 	}
-	if len(p.URLs) == 0 {
-		return fmt.Errorf("deb definition %s: no install url", p.Name)
+	if args.Skipped {
+		return nil
 	}
-
-	if p.VersionCmd != "" || version.RepoFromPkg(p) != "" {
-		updated, err := i.checkVersion(ctx, p, spinner)
-		if err != nil {
-			return err
-		}
-		if !updated && !p.ForceInstall {
-			ok, err := installer.CheckInstalled(ctx, i.runner, i.fs, i.sys, p)
-			if err != nil {
-				return err
-			}
-			if ok {
-				return nil
-			}
-		}
+	installArgs := append([]string{"install", "-y"}, args.AptPkgs...)
+	installArgs = append(installArgs, args.DebPaths...)
+	if err := i.execApt(ctx, i.runner, installArgs, spinner); err != nil {
+		return fmt.Errorf("install %s: %w", p.Name, err)
 	}
-
-	if len(p.Packages) > 0 {
-		spinner.SetDesc("installing prerequisites for " + p.Name)
-		if err := i.execApt(ctx, i.runner, append([]string{"install", "-y"}, p.Packages...), spinner); err != nil {
-			return fmt.Errorf("install prerequisites %s: %w", p.Name, err)
-		}
-	}
-
-	if err := installer.WithTempDir(i.fs, p.Name, func(tmpDir string) error {
-		var tmpPaths []string
-		for idx, raw := range p.URLs {
-			url := download.ExpandURL(raw, p.Version)
-			tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
-			if !strings.HasSuffix(tmpPath, ".deb") {
-				tmpPath += ".deb"
-			}
-			tmpPaths = append(tmpPaths, tmpPath)
-
-			spinner.SetDesc("downloading " + p.Name)
-			sha256 := ""
-			if idx < len(p.SHA256s) {
-				sha256 = p.SHA256s[idx]
-			}
-			if err := download.Download(ctx, i.fs, url, tmpPath, spinner, sha256); err != nil {
-				return fmt.Errorf("download %s: %w", p.Name, err)
-			}
-		}
-
-		spinner.SetDesc("installing " + p.Name)
-		args := append([]string{"install", "-y"}, tmpPaths...)
-		return i.execApt(ctx, i.runner, args, spinner)
-	}); err != nil {
-		return err
-	}
-
-	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
-		return err
-	}
-
-	return nil
+	return i.Finalize(ctx, p, spinner)
 }
 
 // Remove removes the system packages tracked by p via apt-get remove.
@@ -180,7 +131,7 @@ func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.S
 	for idx, raw := range p.URLs {
 		url := download.ExpandURL(raw, p.Version)
 		tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))
-		if !strings.HasSuffix(tmpPath, ".deb") {
+		if !strings.HasSuffix(strings.ToLower(tmpPath), ".deb") {
 			tmpPath += ".deb"
 		}
 		tmpPaths = append(tmpPaths, tmpPath)
@@ -207,16 +158,24 @@ func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.S
 // Finalize runs post-install work after the batch apt-get install:
 // post-install scripts and temp dir cleanup.
 func (i *Installer) Finalize(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	if err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall); err != nil {
-		return err
-	}
+	err := installer.RunPostInstall(ctx, i.runner, spinner, p.Name, p.PostInstall)
+	i.cleanupTempDir(p)
+	return err
+}
 
-	if i.tempDirs != nil {
-		if tmpDir, ok := i.tempDirs[p.Name]; ok {
-			delete(i.tempDirs, p.Name)
-			_ = i.fs.RemoveAll(tmpDir)
-		}
-	}
+// Abort releases the temp dir created by Prepare without running
+// postinstall, for when the batch's shared apt-get call failed and this
+// package was never actually installed.
+func (i *Installer) Abort(p *pkg.Package) {
+	i.cleanupTempDir(p)
+}
 
-	return nil
+func (i *Installer) cleanupTempDir(p *pkg.Package) {
+	if i.tempDirs == nil {
+		return
+	}
+	if tmpDir, ok := i.tempDirs[p.Name]; ok {
+		delete(i.tempDirs, p.Name)
+		_ = i.fs.RemoveAll(tmpDir)
+	}
 }

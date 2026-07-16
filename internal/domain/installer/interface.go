@@ -35,6 +35,16 @@ type BatchInstaller interface {
 	Finalize(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error
 }
 
+// BatchAborter is optionally implemented by a BatchInstaller to release any
+// resources acquired during Prepare (e.g. downloaded temp files) when the
+// batch's shared apt-get call fails and Finalize will never be called for
+// this entry. Implementing it is optional; installers with nothing to
+// release (e.g. apt.Installer, which downloads nothing in Prepare) don't
+// need it.
+type BatchAborter interface {
+	Abort(p *pkg.Package)
+}
+
 // BatchArgs holds the apt-get arguments collected by a BatchInstaller's
 // Prepare method. The service layer aggregates these into a single call.
 type BatchArgs struct {

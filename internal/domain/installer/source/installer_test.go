@@ -3,6 +3,9 @@ package source
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -112,8 +115,11 @@ func TestNewInstaller(t *testing.T) {
 	if inst.execApt == nil {
 		t.Error("execApt should not be nil")
 	}
-	if inst.tagCache == nil {
-		t.Error("tagCache should not be nil")
+	if inst.tagRefsCache == nil {
+		t.Error("tagRefsCache should not be nil")
+	}
+	if inst.headCache == nil {
+		t.Error("headCache should not be nil")
 	}
 }
 
@@ -128,21 +134,21 @@ func TestCheckVersion_cacheHit(t *testing.T) {
 			return nil, nil, nil
 		},
 	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem(), tagCache: make(map[string]string)}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem(), tagRefsCache: make(map[string][]string), headCache: make(map[string]string)}
 
 	p1 := &pkg.Package{
-		Name:    "font-a",
-		Type:    pkg.TypeSource,
-		Repo:    "https://example.invalid/nerd-fonts.git",
+		Name:      "font-a",
+		Type:      pkg.TypeSource,
+		Repo:      "https://example.invalid/nerd-fonts.git",
 		TagPrefix: "v",
-		Source:  &pkg.SourceConfig{BuildScript: "echo build"},
+		Source:    &pkg.SourceConfig{BuildScript: "echo build"},
 	}
 	p2 := &pkg.Package{
-		Name:    "font-b",
-		Type:    pkg.TypeSource,
-		Repo:    "https://example.invalid/nerd-fonts.git",
+		Name:      "font-b",
+		Type:      pkg.TypeSource,
+		Repo:      "https://example.invalid/nerd-fonts.git",
 		TagPrefix: "v",
-		Source:  &pkg.SourceConfig{BuildScript: "echo build"},
+		Source:    &pkg.SourceConfig{BuildScript: "echo build"},
 	}
 
 	_, err := inst.checkVersion(context.Background(), p1, &testutil.MockSpinner{})
@@ -163,6 +169,104 @@ func TestCheckVersion_cacheHit(t *testing.T) {
 
 	if callCount != 1 {
 		t.Errorf("expected git ls-remote called once (cache hit), got %d", callCount)
+	}
+}
+
+func TestCheckVersion_cacheHonorsPerPackageVersionCmd(t *testing.T) {
+	versionCmdCalls := 0
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "git" {
+				return []byte("abc123\trefs/tags/v2.0.0\n"), nil, nil
+			}
+			if name == "sh" {
+				versionCmdCalls++
+				return []byte("9.9.9\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem(), tagRefsCache: make(map[string][]string), headCache: make(map[string]string)}
+
+	p1 := &pkg.Package{
+		Name:   "font-a",
+		Type:   pkg.TypeSource,
+		Repo:   "https://example.invalid/shared.git",
+		Source: &pkg.SourceConfig{BuildScript: "echo build"},
+	}
+	p2 := &pkg.Package{
+		Name:       "special-b",
+		Type:       pkg.TypeSource,
+		Repo:       "https://example.invalid/shared.git",
+		VersionCmd: "echo 9.9.9",
+		Source:     &pkg.SourceConfig{BuildScript: "echo build"},
+	}
+
+	if _, err := inst.checkVersion(context.Background(), p1, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("checkVersion p1: %v", err)
+	}
+	if _, err := inst.checkVersion(context.Background(), p2, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("checkVersion p2: %v", err)
+	}
+
+	if p2.Version != "9.9.9" {
+		t.Errorf("expected p2.Version=9.9.9 (from its own VersionCmd), got %q", p2.Version)
+	}
+	if versionCmdCalls == 0 {
+		t.Error("expected p2's VersionCmd to run, it never did")
+	}
+}
+
+func TestCheckVersion_cacheHonorsPerPackageVerifyURL(t *testing.T) {
+	existsFor := map[string]bool{
+		"a-2.0.0": true, "a-1.0.0": true,
+		"b-1.0.0": true,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if existsFor[strings.TrimPrefix(r.URL.Path, "/")] {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "git" && len(args) > 0 && args[0] == "ls-remote" {
+				return []byte("a\trefs/tags/v1.0.0\nb\trefs/tags/v2.0.0\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem(), tagRefsCache: make(map[string][]string), headCache: make(map[string]string)}
+
+	p1 := &pkg.Package{
+		Name:   "font-a",
+		Type:   pkg.TypeSource,
+		Repo:   "https://example.invalid/shared.git",
+		URLs:   []string{srv.URL + "/a-{version}"},
+		Source: &pkg.SourceConfig{BuildScript: "echo build"},
+	}
+	if _, err := inst.checkVersion(context.Background(), p1, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("checkVersion p1: %v", err)
+	}
+	if p1.Version != "2.0.0" {
+		t.Fatalf("expected p1.Version=2.0.0, got %q", p1.Version)
+	}
+
+	p2 := &pkg.Package{
+		Name:   "font-b",
+		Type:   pkg.TypeSource,
+		Repo:   "https://example.invalid/shared.git",
+		URLs:   []string{srv.URL + "/b-{version}"},
+		Source: &pkg.SourceConfig{BuildScript: "echo build"},
+	}
+	if _, err := inst.checkVersion(context.Background(), p2, &testutil.MockSpinner{}); err != nil {
+		t.Fatalf("checkVersion p2: %v", err)
+	}
+	if p2.Version != "1.0.0" {
+		t.Errorf("expected p2.Version=1.0.0 (its 2.0.0 asset 404s), got %q", p2.Version)
 	}
 }
 
