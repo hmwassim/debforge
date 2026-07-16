@@ -52,10 +52,11 @@ type Package struct {
 	Category    string
 
 	// cross-type
-	Packages []string
-	Remove   []string
-	URLs     []string
-	SHA256s  []string
+	Packages   []string
+	Remove     []string
+	URLs       []string
+	SHA256s    []string
+	SkipUpdate bool
 
 	VersionCmd string
 	TagPrefix  string

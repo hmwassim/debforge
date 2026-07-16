@@ -1,0 +1,8 @@
+name: discord
+description: Discord voice, video, and text chat
+type: deb
+category: communication
+package: discord
+skip_update: true
+install:
+  url: https://discord.com/api/download?platform=linux&format=deb

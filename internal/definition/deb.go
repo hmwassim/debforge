@@ -14,6 +14,7 @@ type debDefinition struct {
 	Category    string   `yaml:"category,omitempty"`
 	Type        string   `yaml:"type"`
 	Package     string   `yaml:"package"`
+	SkipUpdate  bool     `yaml:"skip_update,omitempty"`
 	Depends     []string `yaml:"depends,omitempty"`
 	Repo        string   `yaml:"repo,omitempty"`
 	VersionCmd  string   `yaml:"version_cmd,omitempty"`
@@ -45,6 +46,7 @@ func parseDeb(name string, data []byte) (*pkg.Package, error) {
 		Category:    def.Category,
 		Type:        pkg.TypeDeb,
 		Depends:     def.Depends,
+		SkipUpdate:  def.SkipUpdate,
 		Repo:        def.Repo,
 		VersionCmd:  def.VersionCmd,
 		TagPrefix:   def.TagPrefix,

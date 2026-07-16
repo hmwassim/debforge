@@ -93,6 +93,18 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			dep.SkipRepoSetup = true
 		}
 
+		if dep.SkipUpdate && !dep.ForceInstall && exists {
+			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				spinner.SetDesc(dep.Name + " already installed")
+				sessionProcessed[dep.Name] = true
+				continue
+			}
+		}
+
 		if !rerun && exists {
 			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
 			if err != nil {
