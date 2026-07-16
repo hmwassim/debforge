@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/adapters/exec"
@@ -30,9 +31,11 @@ func run() int {
 	if v := os.Getenv("DEBFORGE_PKGS_DIR"); v != "" {
 		cfgu.PkgsDir = v
 	}
+	fileLog := ui.NewFileLogger(filepath.Join(cfgu.RootDir, "var", "logs"))
+	defer fileLog.Close()
 	return runWith(ctx, os.Args[1:], version, cfgu,
 		fs.NewFileSystem(), exec.NewRunner(),
-		lock.NewFLock(), system.NewSystem(), ui.NewConsoleUI())
+		lock.NewFLock(), system.NewSystem(), ui.NewConsoleUI(fileLog))
 }
 
 func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, sys ports.System, ui ports.UI) int {

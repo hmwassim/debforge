@@ -40,14 +40,17 @@ var isTerminal = func(w io.Writer) bool {
 }
 
 // ConsoleLogger writes formatted log lines to stderr, using color and
-// symbols on terminals and plain text otherwise.
+// symbols on terminals and plain text otherwise. When a FileLogger is
+// provided, every message is also written to a daily-rotated log file.
 type ConsoleLogger struct {
-	mu sync.Mutex
+	mu      sync.Mutex
+	fileLog *FileLogger
 }
 
-// NewConsoleLogger returns a new ConsoleLogger.
-func NewConsoleLogger() *ConsoleLogger {
-	return &ConsoleLogger{}
+// NewConsoleLogger returns a new ConsoleLogger. If fileLog is non-nil,
+// messages are also written to a daily-rotated log file.
+func NewConsoleLogger(fileLog *FileLogger) *ConsoleLogger {
+	return &ConsoleLogger{fileLog: fileLog}
 }
 
 func (l *ConsoleLogger) line(color, symbol, format string, args ...any) {
@@ -59,6 +62,9 @@ func (l *ConsoleLogger) line(color, symbol, format string, args ...any) {
 		fmt.Fprintf(w, "%s[%s]%s %s\n", bold+color, symbol, reset, msg)
 	} else {
 		fmt.Fprintf(w, "[%s] %s\n", symbol, msg)
+	}
+	if l.fileLog != nil {
+		l.fileLog.log(symbolToLevel(symbol), "%s", msg)
 	}
 }
 
@@ -89,5 +95,10 @@ func (l *ConsoleLogger) Prompt(format string, args ...any) bool {
 	var response string
 	_, _ = fmt.Scanln(&response)
 	response = strings.ToLower(strings.TrimSpace(response))
+
+	if l.fileLog != nil {
+		l.fileLog.log("PROMPT", "%s -> %s", msg, response)
+	}
+
 	return response == "y" || response == "yes"
 }

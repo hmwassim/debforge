@@ -28,6 +28,7 @@ type Display struct {
 	ctx     context.Context
 	stop    chan struct{}
 	sdone   chan struct{}
+	fileLog *FileLogger
 
 	// tty reports whether w is a terminal, using the same isTerminal
 	// check ConsoleLogger uses for Info/Warn/Error/Prompt. Without this,
@@ -43,10 +44,11 @@ type Display struct {
 }
 
 // NewDisplay starts a new spinner goroutine that animates content on w
-// until Done, Fail, DoneWarn, or DoneInfo is called.
-func NewDisplay(ctx context.Context, w io.Writer, content string) *Display {
+// until Done, Fail, DoneWarn, or DoneInfo is called. If fileLog is
+// non-nil, spinner transitions are written to the log file.
+func NewDisplay(ctx context.Context, w io.Writer, content string, fileLog *FileLogger) *Display {
 	content = textutil.UcFirst(content)
-	d := &Display{w: w, content: content, ctx: ctx, tty: isTerminal(w)}
+	d := &Display{w: w, content: content, ctx: ctx, tty: isTerminal(w), fileLog: fileLog}
 	d.stop = make(chan struct{})
 	d.sdone = make(chan struct{})
 	go d.run()
@@ -58,6 +60,9 @@ func (d *Display) SetDesc(content string) {
 	d.mu.Lock()
 	d.content = textutil.UcFirst(content)
 	d.mu.Unlock()
+	if d.fileLog != nil {
+		d.fileLog.log("INFO", "spinner: %s", content)
+	}
 }
 
 // Pause temporarily stops the spinner animation and clears the current line.
@@ -98,20 +103,20 @@ func (d *Display) run() {
 	}()
 	defer close(d.sdone)
 
+	d.mu.Lock()
+	content := d.content
+	d.mu.Unlock()
+	if d.fileLog != nil {
+		d.fileLog.log("INFO", "spinner: %s", content)
+	}
+
 	if !d.tty {
 		// Nothing to animate without a terminal: emit one line up front
 		// and let doneWith print the final state when the spinner ends.
-		d.mu.Lock()
-		content := d.content
-		d.mu.Unlock()
 		defaultConsole.writef(d.w, "[%s] %s\n", "i", content)
 		<-d.stopOrCtxDone()
 		return
 	}
-
-	d.mu.Lock()
-	content := d.content
-	d.mu.Unlock()
 	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, content)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -179,6 +184,10 @@ func (d *Display) doneWith(mark, code string) {
 		defaultConsole.writef(d.w, "%s[%s]%s %s\n", bold+code, mark, reset, content)
 	default:
 		defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K\n", bold+code, mark, reset, content)
+	}
+
+	if d.fileLog != nil {
+		d.fileLog.log(symbolToLevel(mark), "spinner done: %s", content)
 	}
 }
 

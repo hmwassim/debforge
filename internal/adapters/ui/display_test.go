@@ -13,7 +13,7 @@ import (
 
 func TestDisplay_NonTTY_Done(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Done()
 	out := buf.String()
 
@@ -24,7 +24,7 @@ func TestDisplay_NonTTY_Done(t *testing.T) {
 
 func TestDisplay_NonTTY_Fail(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "processing")
+	d := NewDisplay(context.Background(), &buf, "processing", nil)
 	d.Fail()
 	out := buf.String()
 
@@ -35,7 +35,7 @@ func TestDisplay_NonTTY_Fail(t *testing.T) {
 
 func TestDisplay_NonTTY_DoneWarn(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "checking")
+	d := NewDisplay(context.Background(), &buf, "checking", nil)
 	d.DoneWarn()
 	out := buf.String()
 
@@ -46,7 +46,7 @@ func TestDisplay_NonTTY_DoneWarn(t *testing.T) {
 
 func TestDisplay_NonTTY_DoneInfo(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "syncing")
+	d := NewDisplay(context.Background(), &buf, "syncing", nil)
 	d.DoneInfo()
 	out := buf.String()
 
@@ -57,7 +57,7 @@ func TestDisplay_NonTTY_DoneInfo(t *testing.T) {
 
 func TestDisplay_NonTTY_Stop(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Stop()
 	out := buf.String()
 
@@ -68,7 +68,7 @@ func TestDisplay_NonTTY_Stop(t *testing.T) {
 
 func TestDisplay_NonTTY_SetDesc(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.SetDesc("updated task")
 	d.Done()
 	out := buf.String()
@@ -80,7 +80,7 @@ func TestDisplay_NonTTY_SetDesc(t *testing.T) {
 
 func TestDisplay_DoneMultipleCalls(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Done()
 	first := buf.String()
 	d.Done()
@@ -93,7 +93,7 @@ func TestDisplay_DoneMultipleCalls(t *testing.T) {
 
 func TestDisplay_StopMultipleCalls(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Stop()
 	first := buf.String()
 	d.Stop()
@@ -106,7 +106,7 @@ func TestDisplay_StopMultipleCalls(t *testing.T) {
 
 func TestDisplay_NonTTY_StripTrailingDots(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "loading...")
+	d := NewDisplay(context.Background(), &buf, "loading...", nil)
 	d.Done()
 	out := buf.String()
 
@@ -121,7 +121,7 @@ func TestDisplay_NonTTY_StripTrailingDots(t *testing.T) {
 
 func TestDisplay_PauseResumeNonTTY(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Pause()
 	d.Resume()
 	d.Done()
@@ -134,7 +134,7 @@ func TestDisplay_PauseResumeNonTTY(t *testing.T) {
 
 func TestDisplay_DoneAfterStop(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Stop()
 	buf.Reset()
 	d.Done()
@@ -145,7 +145,7 @@ func TestDisplay_DoneAfterStop(t *testing.T) {
 
 func TestDisplay_StopAfterDone(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Done()
 	buf.Reset()
 	d.Stop()
@@ -157,7 +157,7 @@ func TestDisplay_StopAfterDone(t *testing.T) {
 func TestDisplay_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var buf bytes.Buffer
-	d := NewDisplay(ctx, &buf, "working")
+	d := NewDisplay(ctx, &buf, "working", nil)
 	cancel()
 	d.Done()
 
@@ -168,14 +168,14 @@ func TestDisplay_ContextCancelled(t *testing.T) {
 
 func TestDisplay_PauseAfterDone(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Done()
 	d.Pause()
 }
 
 func TestDisplay_ResumeAfterDone(t *testing.T) {
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Done()
 	d.Resume()
 }
@@ -193,7 +193,7 @@ func TestDisplay_TTY_Done(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Done()
 	out := buf.String()
 	if !strings.Contains(out, "[*]") {
@@ -208,7 +208,7 @@ func TestDisplay_TTY_Fail(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "processing")
+	d := NewDisplay(context.Background(), &buf, "processing", nil)
 	d.Fail()
 	out := buf.String()
 	if !strings.Contains(out, "[x]") {
@@ -223,7 +223,7 @@ func TestDisplay_TTY_DoneWarn(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "checking")
+	d := NewDisplay(context.Background(), &buf, "checking", nil)
 	d.DoneWarn()
 	out := buf.String()
 	if !strings.Contains(out, "[!]") {
@@ -238,7 +238,7 @@ func TestDisplay_TTY_DoneInfo(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "syncing")
+	d := NewDisplay(context.Background(), &buf, "syncing", nil)
 	d.DoneInfo()
 	out := buf.String()
 	if !strings.Contains(out, "[i]") {
@@ -253,7 +253,7 @@ func TestDisplay_TTY_Stop(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Stop()
 	out := buf.String()
 	// TTY Stop doesn't print a final marker, just removes the animation
@@ -266,7 +266,7 @@ func TestDisplay_TTY_PauseResume(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.Pause()
 	d.Resume()
 	d.Done()
@@ -284,7 +284,7 @@ func TestDisplay_TTY_ContextCancelled(t *testing.T) {
 	defer restoreIsTerminal()
 	ctx, cancel := context.WithCancel(context.Background())
 	var buf bytes.Buffer
-	d := NewDisplay(ctx, &buf, "working")
+	d := NewDisplay(ctx, &buf, "working", nil)
 	cancel()
 	d.Done()
 	out := buf.String()
@@ -300,7 +300,7 @@ func TestDisplay_TTY_SetDesc(t *testing.T) {
 	isTerminal = func(io.Writer) bool { return true }
 	defer restoreIsTerminal()
 	var buf bytes.Buffer
-	d := NewDisplay(context.Background(), &buf, "working")
+	d := NewDisplay(context.Background(), &buf, "working", nil)
 	d.SetDesc("updated task")
 	d.Done()
 	out := buf.String()

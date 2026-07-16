@@ -9,7 +9,7 @@ import (
 )
 
 func TestConsoleUI_SetYes_Prompt(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	u.SetYes(true)
 	if !u.Prompt("Continue?") {
 		t.Error("expected yes-mode Prompt to return true immediately")
@@ -17,7 +17,7 @@ func TestConsoleUI_SetYes_Prompt(t *testing.T) {
 }
 
 func TestConsoleUI_SetYes_PromptInput(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	u.SetYes(true)
 	got := u.PromptInput("default", "Enter value")
 	if got != "default" {
@@ -26,7 +26,7 @@ func TestConsoleUI_SetYes_PromptInput(t *testing.T) {
 }
 
 func TestConsoleUI_PromptInput_yesModeIgnoresSpinner(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	u.SetYes(true)
 	u.currentSpinner = &Display{}
 	got := u.PromptInput("default", "prompt")
@@ -36,7 +36,7 @@ func TestConsoleUI_PromptInput_yesModeIgnoresSpinner(t *testing.T) {
 }
 
 func TestConsoleUI_Prompt_yesModeIgnoresSpinner(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	u.SetYes(true)
 	u.currentSpinner = &Display{}
 	if !u.Prompt("Continue?") {
@@ -45,7 +45,7 @@ func TestConsoleUI_Prompt_yesModeIgnoresSpinner(t *testing.T) {
 }
 
 func TestConsoleUI_Spinner(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	s := u.Spinner(context.Background(), "testing")
 	if s == nil {
 		t.Fatal("Spinner should not return nil")
@@ -57,7 +57,7 @@ func TestConsoleUI_Spinner(t *testing.T) {
 
 func TestConsoleUI_Info(t *testing.T) {
 	out := captureStderr(t, func() {
-		u := NewConsoleUI()
+		u := NewConsoleUI(nil)
 		u.Info("hello %s", "world")
 	})
 	if !strings.Contains(out, "[i] hello world") {
@@ -67,7 +67,7 @@ func TestConsoleUI_Info(t *testing.T) {
 
 func TestConsoleUI_Success(t *testing.T) {
 	out := captureStderr(t, func() {
-		u := NewConsoleUI()
+		u := NewConsoleUI(nil)
 		u.Success("done %s", "ok")
 	})
 	if !strings.Contains(out, "[*] done ok") {
@@ -77,7 +77,7 @@ func TestConsoleUI_Success(t *testing.T) {
 
 func TestConsoleUI_Warn(t *testing.T) {
 	out := captureStderr(t, func() {
-		u := NewConsoleUI()
+		u := NewConsoleUI(nil)
 		u.Warn("warning: %s", "low disk")
 	})
 	if !strings.Contains(out, "[!] warning: low disk") {
@@ -87,7 +87,7 @@ func TestConsoleUI_Warn(t *testing.T) {
 
 func TestConsoleUI_Error(t *testing.T) {
 	out := captureStderr(t, func() {
-		u := NewConsoleUI()
+		u := NewConsoleUI(nil)
 		u.Error("error: %v", "boom")
 	})
 	if !strings.Contains(out, "[x] error: boom") {
@@ -97,7 +97,7 @@ func TestConsoleUI_Error(t *testing.T) {
 
 func TestConsoleUI_InfoWithSpinner(t *testing.T) {
 	var buf bytes.Buffer
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	u.Spinner(context.Background(), "working")
 	out := captureStderr(t, func() {
 		u.Info("message")
@@ -119,7 +119,7 @@ func TestConsoleUI_PromptInput_nonYes(t *testing.T) {
 	_, _ = w.WriteString("user_input\n")
 	w.Close()
 
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	got := u.PromptInput("default", "Enter name")
 	os.Stdin = old
 
@@ -139,7 +139,7 @@ func TestConsoleUI_Prompt_nonYes(t *testing.T) {
 	w.Close()
 
 	out := captureStderr(t, func() {
-		u := NewConsoleUI()
+		u := NewConsoleUI(nil)
 		if !u.Prompt("continue?") {
 			t.Error("expected true for y")
 		}
@@ -162,7 +162,7 @@ func TestConsoleUI_Prompt_nonYesWithSpinner(t *testing.T) {
 	w.Close()
 
 	out := captureStderr(t, func() {
-		u := NewConsoleUI()
+		u := NewConsoleUI(nil)
 		u.Spinner(context.Background(), "working")
 		if u.Prompt("continue?") {
 			t.Error("expected false for n")
@@ -176,7 +176,7 @@ func TestConsoleUI_Prompt_nonYesWithSpinner(t *testing.T) {
 }
 
 func TestNewConsoleUI(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	if u.logger == nil {
 		t.Error("logger should be initialized")
 	}
@@ -189,7 +189,7 @@ func TestNewConsoleUI(t *testing.T) {
 }
 
 func TestConsoleUI_withSpinnerPaused_noSpinner(t *testing.T) {
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	called := false
 	u.withSpinnerPaused(func() {
 		called = true
@@ -201,7 +201,7 @@ func TestConsoleUI_withSpinnerPaused_noSpinner(t *testing.T) {
 
 func TestConsoleUI_withSpinnerPaused_withSpinner(t *testing.T) {
 	var buf bytes.Buffer
-	u := NewConsoleUI()
+	u := NewConsoleUI(nil)
 	u.Spinner(context.Background(), "working")
 	called := false
 	u.withSpinnerPaused(func() {

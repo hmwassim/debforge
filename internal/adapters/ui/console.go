@@ -19,9 +19,10 @@ type ConsoleUI struct {
 	yes            bool
 }
 
-// NewConsoleUI returns a ConsoleUI that writes to stderr.
-func NewConsoleUI() *ConsoleUI {
-	return &ConsoleUI{logger: NewConsoleLogger()}
+// NewConsoleUI returns a ConsoleUI that writes to stderr. If fileLog is
+// non-nil, all messages are also written to a daily-rotated log file.
+func NewConsoleUI(fileLog *FileLogger) *ConsoleUI {
+	return &ConsoleUI{logger: NewConsoleLogger(fileLog)}
 }
 
 // SetYes sets whether yes/no prompts automatically return the default value.
@@ -68,8 +69,8 @@ func (u *ConsoleUI) PromptInput(defaultVal, format string, args ...any) string {
 		return defaultVal
 	}
 	var result string
+	msg := fmt.Sprintf(format, args...)
 	u.withSpinnerPaused(func() {
-		msg := fmt.Sprintf(format, args...)
 		w := os.Stderr
 		if isTerminal(w) {
 			defaultConsole.writef(w, "%s[?]%s %s ", bold+yellow, reset, msg)
@@ -88,6 +89,9 @@ func (u *ConsoleUI) PromptInput(defaultVal, format string, args ...any) string {
 		line, _ := reader.ReadString('\n')
 		result = strings.TrimSpace(line)
 	})
+	if u.logger.fileLog != nil {
+		u.logger.fileLog.log("PROMPT", "%s -> %s", msg, result)
+	}
 	return result
 }
 
@@ -107,7 +111,7 @@ func (u *ConsoleUI) withSpinnerPaused(fn func()) {
 
 // Spinner creates a new animated spinner with the given description.
 func (u *ConsoleUI) Spinner(ctx context.Context, desc string) ports.Spinner {
-	s := NewDisplay(ctx, os.Stderr, desc)
+	s := NewDisplay(ctx, os.Stderr, desc, u.logger.fileLog)
 	u.currentSpinner = s
 	return s
 }
