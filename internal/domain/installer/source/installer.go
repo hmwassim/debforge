@@ -40,11 +40,12 @@ type Installer struct {
 	ui           ports.UI
 	execApt      aptpty.AptExecFunc
 	downloadFunc DownloadFunc
+	tagCache     map[string]string // repoURL → latest version
 }
 
 // NewInstaller returns a new source Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec, downloadFunc: download.Download}
+	return &Installer{runner: runner, fs: fs, ui: ui, execApt: aptpty.AptExec, downloadFunc: download.Download, tagCache: make(map[string]string)}
 }
 
 // Install fetches the source code (git clone or download+extract), runs
@@ -208,12 +209,18 @@ func (i *Installer) interpolate(script, version string) string {
 }
 
 func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner ports.Spinner) (bool, error) {
+	repo := version.RepoFromPkg(p)
+	if repo != "" {
+		if cached, ok := i.tagCache[repo]; ok {
+			return version.ApplyVersionUpdate(spinner, p, cached)
+		}
+	}
+
 	latest, err := version.GatherVersion(ctx, i.runner, p)
 	if err != nil {
 		if p.VersionCmd != "" {
 			return false, err
 		}
-		repo := version.RepoFromPkg(p)
 		if repo == "" {
 			return false, err
 		}
@@ -225,6 +232,10 @@ func (i *Installer) checkVersion(ctx context.Context, p *pkg.Package, spinner po
 		if parts := strings.Fields(string(out)); len(parts) > 0 {
 			latest = parts[0]
 		}
+	}
+
+	if latest != "" && repo != "" && i.tagCache != nil {
+		i.tagCache[repo] = latest
 	}
 
 	return version.ApplyVersionUpdate(spinner, p, latest)

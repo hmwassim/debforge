@@ -193,6 +193,52 @@ func TestNewInstaller(t *testing.T) {
 	if inst.execApt == nil {
 		t.Error("execApt should not be nil")
 	}
+	if inst.policyCache == nil {
+		t.Error("policyCache should not be nil")
+	}
+}
+
+func TestCandidateVersion_cacheHit(t *testing.T) {
+	callCount := 0
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, _ string, _ ...string) ([]byte, []byte, error) {
+			callCount++
+			return policyOutput("2.0.0"), nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, policyCache: make(map[string]string)}
+
+	got1, err := inst.candidateVersion(context.Background(), "test-pkg")
+	if err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	got2, err := inst.candidateVersion(context.Background(), "test-pkg")
+	if err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+	if got1 != "2.0.0" || got2 != "2.0.0" {
+		t.Errorf("got %q, %q, want %q", got1, got2, "2.0.0")
+	}
+	if callCount != 1 {
+		t.Errorf("expected runner called once (cache hit), got %d calls", callCount)
+	}
+}
+
+func TestCandidateVersion_cacheMiss_differentPackage(t *testing.T) {
+	callCount := 0
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, _ string, _ ...string) ([]byte, []byte, error) {
+			callCount++
+			return policyOutput("1.0.0"), nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, policyCache: make(map[string]string)}
+
+	_, _ = inst.candidateVersion(context.Background(), "pkg-a")
+	_, _ = inst.candidateVersion(context.Background(), "pkg-b")
+	if callCount != 2 {
+		t.Errorf("expected runner called twice for different packages, got %d", callCount)
+	}
 }
 
 func TestAptExecFunc_signature(t *testing.T) {

@@ -17,16 +17,17 @@ import (
 
 // Installer installs and removes apt packages.
 type Installer struct {
-	runner  ports.CommandRunner
-	fs      ports.FileSystem
-	ui      ports.UI
-	sys     ports.System
-	execApt aptpty.AptExecFunc
+	runner      ports.CommandRunner
+	fs          ports.FileSystem
+	ui          ports.UI
+	sys         ports.System
+	execApt     aptpty.AptExecFunc
+	policyCache map[string]string // pkgName → candidate version
 }
 
 // NewInstaller returns a new apt Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec}
+	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec, policyCache: make(map[string]string)}
 }
 
 // Install installs the apt packages described by p, including extrepo
@@ -132,8 +133,13 @@ func (i *Installer) isUpToDate(ctx context.Context, p *pkg.Package, spinner port
 
 // candidateVersion returns the candidate version from apt-cache policy
 // for the given system package name, or "" when the package is not known
-// to the apt cache.
+// to the apt cache. Results are cached per package name to avoid
+// redundant apt-cache policy calls when multiple packages depend on
+// the same system package.
 func (i *Installer) candidateVersion(ctx context.Context, pkgName string) (string, error) {
+	if v, ok := i.policyCache[pkgName]; ok {
+		return v, nil
+	}
 	out, _, err := i.runner.Run(ctx, "apt-cache", "policy", pkgName)
 	if err != nil {
 		return "", fmt.Errorf("check policy for %s: %w", pkgName, err)
@@ -143,10 +149,19 @@ func (i *Installer) candidateVersion(ctx context.Context, pkgName string) (strin
 		if strings.HasPrefix(line, "Candidate: ") {
 			v := strings.TrimPrefix(line, "Candidate: ")
 			if v == "(none)" {
+				if i.policyCache != nil {
+					i.policyCache[pkgName] = ""
+				}
 				return "", nil
+			}
+			if i.policyCache != nil {
+				i.policyCache[pkgName] = v
 			}
 			return v, nil
 		}
+	}
+	if i.policyCache != nil {
+		i.policyCache[pkgName] = ""
 	}
 	return "", nil
 }

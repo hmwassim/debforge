@@ -112,6 +112,58 @@ func TestNewInstaller(t *testing.T) {
 	if inst.execApt == nil {
 		t.Error("execApt should not be nil")
 	}
+	if inst.tagCache == nil {
+		t.Error("tagCache should not be nil")
+	}
+}
+
+func TestCheckVersion_cacheHit(t *testing.T) {
+	callCount := 0
+	runner := &testutil.MockRunner{
+		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+			if name == "git" && len(args) > 0 && args[0] == "ls-remote" {
+				callCount++
+				return []byte("abc123\trefs/tags/v2.0.0\n"), nil, nil
+			}
+			return nil, nil, nil
+		},
+	}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem(), tagCache: make(map[string]string)}
+
+	p1 := &pkg.Package{
+		Name:    "font-a",
+		Type:    pkg.TypeSource,
+		Repo:    "https://example.invalid/nerd-fonts.git",
+		TagPrefix: "v",
+		Source:  &pkg.SourceConfig{BuildScript: "echo build"},
+	}
+	p2 := &pkg.Package{
+		Name:    "font-b",
+		Type:    pkg.TypeSource,
+		Repo:    "https://example.invalid/nerd-fonts.git",
+		TagPrefix: "v",
+		Source:  &pkg.SourceConfig{BuildScript: "echo build"},
+	}
+
+	_, err := inst.checkVersion(context.Background(), p1, &testutil.MockSpinner{})
+	if err != nil {
+		t.Fatalf("first checkVersion: %v", err)
+	}
+	if p1.Version != "2.0.0" {
+		t.Errorf("expected p1.Version=2.0.0, got %q", p1.Version)
+	}
+
+	_, err = inst.checkVersion(context.Background(), p2, &testutil.MockSpinner{})
+	if err != nil {
+		t.Fatalf("second checkVersion: %v", err)
+	}
+	if p2.Version != "2.0.0" {
+		t.Errorf("expected p2.Version=2.0.0, got %q", p2.Version)
+	}
+
+	if callCount != 1 {
+		t.Errorf("expected git ls-remote called once (cache hit), got %d", callCount)
+	}
 }
 
 func TestCheckVersion_gitLsRemoteFallback(t *testing.T) {
