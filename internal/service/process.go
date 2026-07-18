@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -104,18 +105,59 @@ func (s *InstallService) enableAllExtrepos(ctx context.Context, names []string, 
 		return nil
 	}
 
+	anyEnabled := false
 	for _, repo := range allRepos {
+		enabled, err := s.extrepoEnabled(ctx, repo)
+		if err != nil {
+			return fmt.Errorf("check extrepo %s: %w", repo, err)
+		}
+		if enabled {
+			continue
+		}
 		spinner.SetDesc("enabling extrepo " + repo)
 		if _, _, err := s.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
 			return fmt.Errorf("enable extrepo %s: %w", repo, err)
 		}
+		anyEnabled = true
 	}
 
-	if err := aptpty.RunUpdate(ctx, s.runner, spinner); err != nil {
-		return fmt.Errorf("apt-get update: %w", err)
+	if anyEnabled {
+		if err := aptpty.RunUpdate(ctx, s.runner, spinner); err != nil {
+			return fmt.Errorf("apt-get update: %w", err)
+		}
 	}
 
 	return nil
+}
+
+// extrepoEnabled checks whether the given extrepo is already enabled by
+// reading its sources file under /etc/apt/sources.list.d/. This mirrors
+// apt.Installer.extrepoEnabled to avoid re-enabling repos that are already
+// active.
+func (s *InstallService) extrepoEnabled(_ context.Context, repo string) (bool, error) {
+	if strings.Contains(repo, "/") || strings.Contains(repo, "..") {
+		return false, nil
+	}
+	path := "/etc/apt/sources.list.d/extrepo_" + repo + ".sources"
+	exists, err := s.fs.Exists(path)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+	data, err := s.fs.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Enabled:") {
+			val := strings.TrimSpace(line[8:])
+			return val != "no", nil
+		}
+	}
+	return true, nil
 }
 
 // alreadySatisfied checks whether a package is already installed and up to

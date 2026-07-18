@@ -1,23 +1,20 @@
 package deb
 
-// Install and Remove are not unit-tested here: both ultimately call into
-// internal/aptpty, which deliberately constructs *exec.Cmd directly
-// (driving a real pty) instead of going through ports.CommandRunner - see
-// aptpty.go's own comment on that tradeoff. Without a real apt-get/dpkg
-// to drive, there's nothing meaningful to assert beyond "the mock wasn't
-// called", which isn't a useful regression test. checkVersion is the one
-// piece of deb-specific logic that doesn't touch aptpty at all, so it's
-// what's covered here.
+// Install is a thin wrapper over Prepare + execApt + Finalize; Remove
+// calls execApt and post-remove scripts. Both depend on aptpty's real
+// pty-based runner, so meaningful coverage lives in Prepare and Finalize.
+// The tests below exercise checkVersion, Prepare (including .deb suffix
+// handling via an injected DownloadFunc), Finalize, and Abort.
 
 import (
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/hmwassim/debforge/internal/domain/download"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
@@ -252,7 +249,9 @@ func TestInstall_versionlessNoPrereqsFailsAtDownload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	inst := &Installer{fs: testutil.NewMockFileSystem()}
+	inst := &Installer{fs: testutil.NewMockFileSystem(), downloadFunc: func(_ context.Context, _ ports.FileSystem, _, _ string, _ ports.Spinner, _ string) error {
+		return errors.New("no network")
+	}}
 	p := &pkg.Package{
 		Name: "test-deb",
 		Type: pkg.TypeDeb,
@@ -261,9 +260,8 @@ func TestInstall_versionlessNoPrereqsFailsAtDownload(t *testing.T) {
 	}
 
 	err := inst.Install(context.Background(), p, &testutil.MockSpinner{})
-	// Expect an error from the download or install phase (not a type/URL error)
-	if err == nil {
-		t.Fatal("expected an error from the install phase")
+	if err == nil || !strings.Contains(err.Error(), "no network") {
+		t.Fatalf("expected download stub error, got %v", err)
 	}
 }
 
@@ -299,7 +297,9 @@ func TestInstall_proceedsWhenNotInstalledEvenIfVersionUnchanged(t *testing.T) {
 			return []byte("abc\trefs/tags/v1.0.0\n"), nil, nil
 		},
 	}
-	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem()}
+	inst := &Installer{runner: runner, fs: testutil.NewMockFileSystem(), downloadFunc: func(_ context.Context, _ ports.FileSystem, _, _ string, _ ports.Spinner, _ string) error {
+		return errors.New("no network")
+	}}
 	p := &pkg.Package{
 		Name:    "test-deb",
 		Type:    pkg.TypeDeb,
@@ -388,14 +388,36 @@ func TestPrepare_debSuffixHandling(t *testing.T) {
 		{"already .deb", "/releases/v1.0/pkg.deb", "pkg.deb"},
 		{"uppercase .DEB", "/releases/v1.0/pkg.DEB", "pkg.DEB"},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpPath := download.FilenameFromURL(tt.urlPath)
-			if !strings.HasSuffix(strings.ToLower(tmpPath), ".deb") {
-				tmpPath += ".deb"
+			fs := testutil.NewMockFileSystem()
+			var capturedDest string
+			stub := func(_ context.Context, _ ports.FileSystem, _, dest string, _ ports.Spinner, _ string) error {
+				capturedDest = dest
+				return errors.New("stub: skip download")
 			}
-			if tmpPath != tt.expected {
-				t.Errorf("got %q, want %q", tmpPath, tt.expected)
+			inst := &Installer{
+				runner:       &testutil.MockRunner{},
+				fs:           fs,
+				execApt:      func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error { return nil },
+				downloadFunc: stub,
+			}
+
+			p := &pkg.Package{
+				Name: "test-deb",
+				Type: pkg.TypeDeb,
+				URLs: []string{tt.urlPath},
+			}
+
+			_, err := inst.Prepare(context.Background(), p, &testutil.MockSpinner{})
+			if err == nil || !strings.Contains(err.Error(), "stub: skip download") {
+				t.Fatalf("expected stub download error, got %v", err)
+			}
+
+			got := filepath.Base(capturedDest)
+			if got != tt.expected {
+				t.Errorf("got %q, want %q", got, tt.expected)
 			}
 		})
 	}

@@ -1,5 +1,9 @@
 // Package deb implements installer.Installer for deb-type packages (deb
 // archives downloaded from a URL and installed via apt-get).
+//
+// Install is a thin wrapper: Prepare + execApt + Finalize. Prepare
+// and Finalize are exported so the batch runner can call them directly;
+// Finalize is also used by Abort's cleanup path.
 package deb
 
 import (
@@ -16,19 +20,25 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// DownloadFunc downloads a file from a URL. Matches download.Download's
+// signature; injectable so tests can exercise Prepare's real logic
+// (including the .deb suffix handling below) without a real HTTP request.
+type DownloadFunc func(ctx context.Context, fs ports.FileSystem, url, dest string, spinner ports.Spinner, sha256 string) error
+
 // Installer installs and removes .deb packages.
 type Installer struct {
-	runner   ports.CommandRunner
-	fs       ports.FileSystem
-	ui       ports.UI
-	sys      ports.System
-	execApt  aptpty.AptExecFunc
-	tempDirs map[string]string // package name → temp dir (batch mode)
+	runner       ports.CommandRunner
+	fs           ports.FileSystem
+	ui           ports.UI
+	sys          ports.System
+	execApt      aptpty.AptExecFunc
+	downloadFunc DownloadFunc
+	tempDirs     map[string]string // package name → temp dir (batch mode)
 }
 
 // NewInstaller returns a new deb Installer.
 func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec}
+	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec, downloadFunc: download.Download}
 }
 
 // Install downloads the .deb file(s) from p.URLs, installs them via apt-get,
@@ -141,7 +151,7 @@ func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.S
 		if idx < len(p.SHA256s) {
 			sha256 = p.SHA256s[idx]
 		}
-		if err := download.Download(ctx, i.fs, url, tmpPath, spinner, sha256); err != nil {
+		if err := i.downloadFunc(ctx, i.fs, url, tmpPath, spinner, sha256); err != nil {
 			_ = i.fs.RemoveAll(tmpDir)
 			return installer.BatchArgs{}, fmt.Errorf("download %s: %w", p.Name, err)
 		}
