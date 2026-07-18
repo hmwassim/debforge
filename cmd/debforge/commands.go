@@ -244,7 +244,7 @@ func (h *commandHandler) search(ctx context.Context, u ports.UI, patterns []stri
 		return 1
 	}
 
-	out := format.FormatSearchOutput(h.reg, st, patterns)
+	out := format.FormatSearchOutput(h.reg, format.NewStateView(st), patterns)
 	if out == "" {
 		if len(patterns) > 0 {
 			u.Info("no packages found matching %q", strings.Join(patterns, " "))
@@ -265,11 +265,11 @@ func (h *commandHandler) list(ctx context.Context, u ports.UI, category string, 
 	var out string
 	switch {
 	case category != "":
-		out = format.FormatListCategory(h.reg, st, category)
+		out = format.FormatListCategory(h.reg, format.NewStateView(st), category)
 	case showPackages:
-		out = format.FormatListPackages(h.reg, st)
+		out = format.FormatListPackages(h.reg, format.NewStateView(st))
 	default:
-		out = format.FormatListCategories(h.reg, st)
+		out = format.FormatListCategories(h.reg, format.NewStateView(st))
 	}
 
 	if out == "" {
@@ -296,7 +296,7 @@ func (h *commandHandler) info(ctx context.Context, u ports.UI, names []string, v
 		if i > 0 {
 			out += "\n"
 		}
-		out += format.FormatInfoOutput(h.reg, st, name, verbose)
+		out += format.FormatInfoOutput(h.reg, format.NewStateView(st), name, verbose)
 	}
 	if out == "" {
 		return 0

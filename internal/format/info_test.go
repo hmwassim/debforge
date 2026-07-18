@@ -11,7 +11,7 @@ import (
 func TestFormatInfoOutput_installed(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "firefox", Description: "Web browser", Type: pkg.TypeApt, Category: "browsers", Apt: &pkg.AptConfig{Extrepo: []string{"mozilla"}, Conflicts: []string{"firefox-esr"}}, Packages: []string{"firefox"}})
-	st := &service.State{Packages: map[string]service.PkgEntry{"firefox": {Version: "150.0.1"}}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{"firefox": {Version: "150.0.1"}}})
 
 	out := FormatInfoOutput(reg, st, "firefox", false)
 	if !strings.Contains(out, "[*]") {
@@ -37,7 +37,7 @@ func TestFormatInfoOutput_installed(t *testing.T) {
 func TestFormatInfoOutput_uninstalled(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "pfetch", Description: "Pretty fetch", Type: pkg.TypeSource, Category: "utils", Source: &pkg.SourceConfig{InstallScript: "cp pfetch /usr/local/bin\n"}})
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
 	out := FormatInfoOutput(reg, st, "pfetch", false)
 	if !strings.Contains(out, "[-]") {
@@ -60,7 +60,7 @@ func TestFormatInfoOutput_verboseConfig(t *testing.T) {
 		Category:    "config",
 		Configs:     map[string]string{"/etc/test.conf": "setting=true\n"},
 	})
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
 	out := FormatInfoOutput(reg, st, "cfg-test", true)
 	if !strings.Contains(out, "[i]") {
@@ -80,7 +80,7 @@ func TestFormatInfoOutput_verboseScripts(t *testing.T) {
 		Packages:    []string{"hello"},
 		PostInstall: "echo done\n",
 	})
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
 	outDefault := FormatInfoOutput(reg, st, "script-pkg", false)
 	if !strings.Contains(outDefault, "(1 line)") {
@@ -101,7 +101,7 @@ func TestFormatInfoOutput_debType(t *testing.T) {
 		Deb:  &pkg.DebConfig{Package: "codium"},
 		URLs: []string{"https://example.com/codium.deb"},
 	})
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
 	out := FormatInfoOutput(reg, st, "vscodium", false)
 	if !strings.Contains(out, "package:") || !strings.Contains(out, "codium") {
@@ -121,7 +121,7 @@ func TestFormatInfoOutput_dependsAndRemove(t *testing.T) {
 		Remove:  []string{"nouveau"},
 		Apt:     &pkg.AptConfig{Extrepo: []string{"nvidia-cuda"}},
 	})
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
 	out := FormatInfoOutput(reg, st, "nvidia", false)
 	if !strings.Contains(out, "depends:") || !strings.Contains(out, "some-dep") {
@@ -134,7 +134,7 @@ func TestFormatInfoOutput_dependsAndRemove(t *testing.T) {
 
 func TestFormatInfoOutput_unknownPackage(t *testing.T) {
 	reg := pkg.NewRegistry()
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 	out := FormatInfoOutput(reg, st, "nonexistent", false)
 	if out != "" {
 		t.Errorf("expected empty output for unknown package, got %q", out)
@@ -144,7 +144,7 @@ func TestFormatInfoOutput_unknownPackage(t *testing.T) {
 func TestFormatInfoOutput_unknownVersion(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "no-ver", Type: pkg.TypeApt, Category: "misc", Packages: []string{"pkg"}})
-	st := &service.State{Packages: map[string]service.PkgEntry{"no-ver": {}}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{"no-ver": {}}})
 
 	out := FormatInfoOutput(reg, st, "no-ver", false)
 	if !strings.Contains(out, "installed (vunknown)") {
@@ -173,7 +173,7 @@ func TestFormatInfoOutput_sourceScripts(t *testing.T) {
 			InstallScript: "make install\n",
 		},
 	})
-	st := &service.State{Packages: map[string]service.PkgEntry{}}
+	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
 	out := FormatInfoOutput(reg, st, "src-pkg", false)
 	if !strings.Contains(out, "build") || !strings.Contains(out, "install") {

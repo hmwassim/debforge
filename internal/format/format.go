@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
-	"github.com/hmwassim/debforge/internal/service"
 )
 
 func writePackageLine(w *bufio.Writer, name, desc string, installed bool, pad int) {
@@ -28,7 +27,7 @@ func writePackageLine(w *bufio.Writer, name, desc string, installed bool, pad in
 	}
 }
 
-func FormatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string) string {
+func FormatSearchOutput(reg *pkg.Registry, st StateView, patterns []string) string {
 	var names []string
 	reg.Range(func(name string, p *pkg.Package) bool {
 		for _, pat := range patterns {
@@ -64,14 +63,13 @@ func FormatSearchOutput(reg *pkg.Registry, st *service.State, patterns []string)
 
 	for _, name := range names {
 		p, _ := reg.Lookup(name)
-		_, installed := st.Packages[name]
-		writePackageLine(w, name, p.Description, installed, pad)
+		writePackageLine(w, name, p.Description, st.IsInstalled(name), pad)
 	}
 	w.Flush()
 	return buf.String()
 }
 
-func FormatListCategories(reg *pkg.Registry, st *service.State) string {
+func FormatListCategories(reg *pkg.Registry, st StateView) string {
 	idx := reg.Categories()
 	cats := make([]string, 0, len(idx))
 	for c := range idx {
@@ -95,12 +93,7 @@ func FormatListCategories(reg *pkg.Registry, st *service.State) string {
 	w := bufio.NewWriter(&buf)
 	for _, c := range cats {
 		pkgs := idx[c]
-		inst := 0
-		for _, name := range pkgs {
-			if _, ok := st.Packages[name]; ok {
-				inst++
-			}
-		}
+		inst := st.CountInstalled(pkgs)
 		marker, color := "i", bold+blue
 		if inst == len(pkgs) {
 			marker, color = "*", bold+green
@@ -111,7 +104,7 @@ func FormatListCategories(reg *pkg.Registry, st *service.State) string {
 	return buf.String()
 }
 
-func FormatListCategory(reg *pkg.Registry, st *service.State, category string) string {
+func FormatListCategory(reg *pkg.Registry, st StateView, category string) string {
 	idx := reg.Categories()
 	pkgs, ok := idx[category]
 	if !ok {
@@ -132,14 +125,13 @@ func FormatListCategory(reg *pkg.Registry, st *service.State, category string) s
 	fmt.Fprintln(w)
 	for _, name := range pkgs {
 		p, _ := reg.Lookup(name)
-		_, installed := st.Packages[name]
-		writePackageLine(w, name, p.Description, installed, pad)
+		writePackageLine(w, name, p.Description, st.IsInstalled(name), pad)
 	}
 	w.Flush()
 	return buf.String()
 }
 
-func FormatListPackages(reg *pkg.Registry, st *service.State) string {
+func FormatListPackages(reg *pkg.Registry, st StateView) string {
 	idx := reg.Categories()
 	cats := make([]string, 0, len(idx))
 	for c := range idx {
@@ -169,8 +161,7 @@ func FormatListPackages(reg *pkg.Registry, st *service.State) string {
 		fmt.Fprintln(w, c)
 		for _, name := range idx[c] {
 			p, _ := reg.Lookup(name)
-			_, installed := st.Packages[name]
-			writePackageLine(w, name, p.Description, installed, pad)
+		writePackageLine(w, name, p.Description, st.IsInstalled(name), pad)
 		}
 	}
 	w.Flush()

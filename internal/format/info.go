@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
-	"github.com/hmwassim/debforge/internal/service"
 	"github.com/hmwassim/debforge/internal/textutil"
 )
 
@@ -17,14 +16,14 @@ type scriptEntry struct {
 	content string
 }
 
-func FormatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verbose bool) string {
+func FormatInfoOutput(reg *pkg.Registry, st StateView, pkgName string, verbose bool) string {
 	p, ok := reg.Lookup(pkgName)
 	if !ok {
 		return ""
 	}
 
 	green, grey, blue, bold, reset := "\033[32m", "\033[90m", "\033[34m", "\033[1m", "\033[0m"
-	_, installed := st.Packages[pkgName]
+	installed := st.IsInstalled(pkgName)
 
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
@@ -46,7 +45,7 @@ func FormatInfoOutput(reg *pkg.Registry, st *service.State, pkgName string, verb
 	fmt.Fprintf(w, "    %-18s %s\n", "type:", p.Type)
 	fmt.Fprintf(w, "    %-18s %s\n", "category:", p.Category)
 	if installed {
-		ver := st.Packages[pkgName].Version
+		ver := st.Version(pkgName)
 		if ver == "" {
 			ver = "unknown"
 		}
