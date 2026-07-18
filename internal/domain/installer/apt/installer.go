@@ -11,6 +11,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	"github.com/hmwassim/debforge/internal/domain/installer/extrepo"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -171,16 +172,15 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	anyEnabled := false
 	for _, repo := range p.Apt.Extrepo {
-		enabled, err := i.extrepoEnabled(ctx, repo)
+		needed, err := extrepo.NeedsEnable(ctx, repo, i.fs)
 		if err != nil {
-			return fmt.Errorf("check extrepo %s: %w", repo, err)
+			return err
 		}
-		if enabled {
+		if !needed {
 			continue
 		}
-		spinner.SetDesc("enabling extrepo " + repo)
-		if _, _, err := i.runner.Run(ctx, "extrepo", "enable", repo); err != nil {
-			return fmt.Errorf("enable extrepo %s: %w", repo, err)
+		if err := extrepo.Enable(ctx, repo, i.runner, spinner); err != nil {
+			return err
 		}
 		anyEnabled = true
 	}
@@ -190,32 +190,6 @@ func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner 
 		}
 	}
 	return nil
-}
-
-func (i *Installer) extrepoEnabled(ctx context.Context, repo string) (bool, error) {
-	if strings.Contains(repo, "/") || strings.Contains(repo, "..") {
-		return false, nil
-	}
-	path := "/etc/apt/sources.list.d/extrepo_" + repo + ".sources"
-	exists, err := i.fs.Exists(path)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, nil
-	}
-	data, err := i.fs.ReadFile(path)
-	if err != nil {
-		return false, err
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Enabled:") {
-			val := strings.TrimSpace(line[8:])
-			return val != "no", nil
-		}
-	}
-	return true, nil
 }
 
 func (i *Installer) disableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
