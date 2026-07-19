@@ -197,7 +197,7 @@ func RepoFromPkg(p *pkg.Package) string {
 }
 
 func parseNums(v string) []int {
-	parts := []int{}
+	parts := make([]int, 0, 8)
 	cur := 0
 	inDig := false
 	for _, ch := range v {
