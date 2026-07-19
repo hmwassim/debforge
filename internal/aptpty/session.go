@@ -110,7 +110,7 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGWINCH, syscall.SIGINT)
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		for sig := range sigCh {
@@ -130,7 +130,6 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 	}
 
 	go func() {
-		defer wg.Done()
 		_, _ = io.Copy(sess, os.Stdin)
 	}()
 
@@ -222,6 +221,7 @@ mainLoop:
 		}
 	}
 
+	sess.Close()
 	signal.Stop(sigCh)
 	close(sigCh)
 	wg.Wait()

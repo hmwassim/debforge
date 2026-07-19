@@ -220,6 +220,27 @@ func TestRunWithSession_tickerFires(t *testing.T) {
 	}
 }
 
+func TestRunWithSession_exitsPromptly(t *testing.T) {
+	spinner := &testutil.MockSpinner{}
+	mock := &mockPtySession{
+		data:    []byte("Reading package lists... Done\n"),
+		readErr: io.EOF,
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- runWithSession(context.Background(), testutil.RunnerReturning(nil, nil),
+			[]string{"full-upgrade", "-y"}, spinner, mockPtyFactory(mock))
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("runWithSession: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("runWithSession did not exit promptly — likely hanging on wg.Wait()")
+	}
+}
+
 func TestRunWithSession_lineLogCapturesTranscript(t *testing.T) {
 	var captured []string
 	LineLog = func(line string) { captured = append(captured, line) }
