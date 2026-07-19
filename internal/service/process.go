@@ -47,6 +47,11 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 	for _, name := range names {
 		didWork, err := s.processOne(ctx, name, force, rerun, st, spinner, verb, pastTense, sessionProcessed)
 		if err != nil {
+			// Persist whatever state was accumulated before the
+			// failure so partially-installed packages are not lost.
+			if saveErr := s.state.Save(st); saveErr != nil {
+				return fmt.Errorf("save state: %w", saveErr)
+			}
 			spinner.Fail()
 			return err
 		}
@@ -54,6 +59,13 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 			workDone = true
 		}
 	}
+
+	// Persist state once at the end instead of per-package. The in-memory
+	// st tracks all mutations; only the final write needs disk I/O.
+	if err := s.state.Save(st); err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
+
 	if workDone {
 		if len(names) > 1 {
 			spinner.SetDesc("Packages " + pastTense)
@@ -255,9 +267,6 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 					entry.Variant = dep.Apt.Variant
 				}
 				s.state.Add(st, dep.Name, entry)
-				if err := s.state.Save(st); err != nil {
-					return false, fmt.Errorf("save state after %s: %w", dep.Name, err)
-				}
 				spinner.SetDesc(dep.Name + " " + pastTense)
 				didWork = true
 			} else {

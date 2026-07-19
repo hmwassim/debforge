@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -117,25 +115,7 @@ func TestProcessOne_lookupInstallerError(t *testing.T) {
 	}
 }
 
-func TestProcessOne_saveStateError(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "debforge-test-*")
-	if err != nil {
-		t.Fatalf("create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	statePath := filepath.Join(tmpDir, "state.json")
-	if err := os.WriteFile(statePath, []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write initial state: %v", err)
-	}
-
-	stateStore := store.NewStore[State](fs.NewFileSystem(), statePath)
-	stateSvc := NewStateManager(stateStore)
-
-	if err := os.Chmod(tmpDir, 0500); err != nil {
-		t.Fatalf("chmod dir: %v", err)
-	}
-
+func TestProcessOne_noSaveDuringExecution(t *testing.T) {
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
 		Name: "test-pkg",
@@ -145,6 +125,9 @@ func TestProcessOne_saveStateError(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
+
+	stateSvc, _, cleanup := newStateManagerForTest(t)
+	defer cleanup()
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
@@ -157,10 +140,17 @@ func TestProcessOne_saveStateError(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err = svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
-	if err == nil {
-		t.Fatal("expected error from saveState")
+	didWork, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	if err != nil {
+		t.Fatalf("processOne: %v", err)
 	}
+	if !didWork {
+		t.Error("expected didWork=true")
+	}
+	if _, ok := st.Packages["test-pkg"]; !ok {
+		t.Error("expected test-pkg in in-memory state")
+	}
+	// processOne no longer persists to disk; that's processAll's job.
 }
 
 func TestProcessOne_depAlreadyInstalled(t *testing.T) {

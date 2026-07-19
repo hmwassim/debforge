@@ -85,9 +85,6 @@ func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *Sta
 				entry.Variant = e.pkg.Apt.Variant
 			}
 			s.state.Add(st, e.pkg.Name, entry)
-			if err := s.state.Save(st); err != nil {
-				return false, fmt.Errorf("save state after %s: %w", e.pkg.Name, err)
-			}
 			spinner.SetDesc(e.pkg.Name + " " + pastTense)
 			didWork = true
 		} else {

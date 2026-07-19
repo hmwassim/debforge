@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/httputil"
@@ -25,6 +26,20 @@ func SetVerifyClient(c *http.Client) {
 // VerifyClient returns the current verify HTTP client (for testing).
 func VerifyClient() *http.Client {
 	return verifyClient
+}
+
+// tagCache deduplicates concurrent FetchTagRefs calls for the same repoURL.
+// Each in-flight request is coalesced so only one git ls-remote runs; all
+// waiters receive the same result.
+var tagCache struct {
+	sync.Mutex
+	inflight map[string]*tagCall
+}
+
+type tagCall struct {
+	wg   sync.WaitGroup
+	refs []string
+	err  error
 }
 
 // RepoFromURL extracts a git repository URL from a release download URL for
@@ -56,15 +71,40 @@ func RepoFromURL(rawURL string) (string, bool) {
 // (e.g. a family of source packages built from one monorepo) should cache
 // this by repoURL rather than re-fetching per package.
 //
+// Concurrent calls for the same repoURL are coalesced: only one
+// git ls-remote runs and all waiters receive the same result.
+//
 // Do NOT cache the result of SelectTag the same way: TagPrefix and
 // verifyURL are per-package and can legitimately produce a different
 // answer from the same ref list (see SelectTag).
 func FetchTagRefs(ctx context.Context, runner ports.CommandRunner, repoURL string) ([]string, error) {
+	tagCache.Lock()
+	if tagCache.inflight == nil {
+		tagCache.inflight = make(map[string]*tagCall)
+	}
+	if c, ok := tagCache.inflight[repoURL]; ok {
+		tagCache.Unlock()
+		c.wg.Wait()
+		return c.refs, c.err
+	}
+	c := &tagCall{}
+	c.wg.Add(1)
+	tagCache.inflight[repoURL] = c
+	tagCache.Unlock()
+
+	defer func() {
+		c.wg.Done()
+		tagCache.Lock()
+		delete(tagCache.inflight, repoURL)
+		tagCache.Unlock()
+	}()
+
 	out, _, err := runner.Run(ctx, "git", "ls-remote", "--tags", repoURL)
 	if err != nil {
-		return nil, fmt.Errorf("ls-remote %q: %w", repoURL, err)
+		c.err = fmt.Errorf("ls-remote %q: %w", repoURL, err)
+		return nil, c.err
 	}
-	refs := []string{}
+	refs := make([]string, 0, strings.Count(string(out), "\n"))
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -76,6 +116,7 @@ func FetchTagRefs(ctx context.Context, runner ports.CommandRunner, repoURL strin
 		}
 		refs = append(refs, parts[1])
 	}
+	c.refs = refs
 	return refs, nil
 }
 

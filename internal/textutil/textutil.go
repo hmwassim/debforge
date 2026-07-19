@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // FormatSize formats a byte count as a human-readable string (e.g., "1.5M").
@@ -29,9 +30,13 @@ func UcFirst(s string) string {
 	if s == "" {
 		return ""
 	}
-	r := []rune(s)
-	r[0] = unicode.ToUpper(r[0])
-	return string(r)
+	r, size := utf8.DecodeRuneInString(s)
+	if r == unicode.ToUpper(r) {
+		return s
+	}
+	var buf [utf8.UTFMax]byte
+	n := utf8.EncodeRune(buf[:], unicode.ToUpper(r))
+	return string(buf[:n]) + s[size:]
 }
 
 // ExpandVersion replaces "{version}" in template with version.

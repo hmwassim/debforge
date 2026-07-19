@@ -38,6 +38,7 @@ func parseProgress(line string) (cur, total int64, pkg string, ok bool) {
 
 func stripANSI(s string) string {
 	var b bytes.Buffer
+	b.Grow(len(s))
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\033' && i+1 < len(s) && s[i+1] == '[' {
 			i += 2

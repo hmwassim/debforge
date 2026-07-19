@@ -70,9 +70,9 @@ func TestProcessOne_successPersistsState(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	err := svc.processAll(ctx, []string{"test-pkg"}, false, true, st, spinner, "install", "installed")
 	if err != nil {
-		t.Fatalf("processOne: %v", err)
+		t.Fatalf("processAll: %v", err)
 	}
 
 	entry, ok := st.Packages["test-pkg"]
@@ -134,9 +134,9 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "root-pkg", false, true, st, spinner, "install", "installed", nil)
+	err := svc.processAll(ctx, []string{"root-pkg"}, false, true, st, spinner, "install", "installed")
 	if err == nil {
-		t.Fatal("expected error from processOne due to root-pkg failure")
+		t.Fatal("expected error from processAll due to root-pkg failure")
 	}
 
 	if _, ok := st.Packages["dep-a"]; !ok {

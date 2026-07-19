@@ -114,3 +114,43 @@ func TestRemove_wrongType(t *testing.T) {
 		t.Fatal("expected error for wrong type")
 	}
 }
+
+func TestRemove_doesNotMutateOriginalSlices(t *testing.T) {
+	inst := &Installer{
+		execApt: func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
+			return nil
+		},
+	}
+
+	t.Run("packages with variant", func(t *testing.T) {
+		origPkgs := []string{"base-pkg"}
+		p := &pkg.Package{
+			Name:     "test-pkg",
+			Type:     pkg.TypeApt,
+			Packages: origPkgs,
+			Apt:      &pkg.AptConfig{Variant: "pro", Variants: map[string][]string{"pro": {"pro-pkg"}}},
+		}
+		if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+			t.Fatalf("Remove: %v", err)
+		}
+		if len(origPkgs) != 1 || origPkgs[0] != "base-pkg" {
+			t.Errorf("original Packages mutated: got %v", origPkgs)
+		}
+	})
+
+	t.Run("remove with variant", func(t *testing.T) {
+		origRemove := []string{"rm-pkg"}
+		p := &pkg.Package{
+			Name:     "test-pkg",
+			Type:     pkg.TypeApt,
+			Remove:   origRemove,
+			Apt:      &pkg.AptConfig{Variant: "pro", Variants: map[string][]string{"pro": {"pro-pkg"}}},
+		}
+		if err := inst.Remove(context.Background(), p, &testutil.MockSpinner{}); err != nil {
+			t.Fatalf("Remove: %v", err)
+		}
+		if len(origRemove) != 1 || origRemove[0] != "rm-pkg" {
+			t.Errorf("original Remove mutated: got %v", origRemove)
+		}
+	})
+}
