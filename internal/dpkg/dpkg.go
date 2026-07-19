@@ -31,7 +31,8 @@ func ListInstalled(ctx context.Context, runner ports.CommandRunner) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	installed := make(map[string]bool)
+	// A typical Trixie install has ~2000-3000 packages; 2500 avoids ~12 reallocs.
+	installed := make(map[string]bool, 2500)
 	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
 		if line == "" {
 			continue

@@ -16,17 +16,20 @@ func installPackages(p *pkg.Package) []string {
 
 // removePackages returns the effective list of system packages to remove
 // for p, preferring p.Remove over p.Packages and including variant
-// packages when a variant is selected.
+// packages when a variant is selected. Returns a new slice so the
+// original p.Remove / p.Packages backing array is never mutated.
 func removePackages(p *pkg.Package) []string {
-	pkgs := p.Packages
+	src := p.Packages
 	if len(p.Remove) > 0 {
-		pkgs = p.Remove
+		src = p.Remove
 	}
-	if p.Apt.Variant != "" {
-		if v, ok := p.Apt.Variants[p.Apt.Variant]; ok {
-			pkgs = append(pkgs, v...)
-		}
+	var variantPkgs []string
+	if p.Apt != nil && p.Apt.Variant != "" {
+		variantPkgs = p.Apt.Variants[p.Apt.Variant]
 	}
+	pkgs := make([]string, len(src), len(src)+len(variantPkgs))
+	copy(pkgs, src)
+	pkgs = append(pkgs, variantPkgs...)
 	return pkgs
 }
 
