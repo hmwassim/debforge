@@ -97,6 +97,19 @@ func lookupVariant(st *State, name string) string {
 	return ""
 }
 
+// newPkgEntry builds a PkgEntry from a resolved package.
+func newPkgEntry(p *pkg.Package) PkgEntry {
+	e := PkgEntry{
+		Type:         string(p.Type),
+		Version:      p.Version,
+		ConfigHashes: p.ConfigHashes,
+	}
+	if p.Apt != nil {
+		e.Variant = p.Apt.Variant
+	}
+	return e
+}
+
 // applyVariant clones p and applies the variant recorded in st so that
 // subsequent install/remove/update operations target the right system
 // packages. Returns p unchanged when no variant is stored.

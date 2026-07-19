@@ -93,6 +93,9 @@ func TestFlushAptBatch_aptGetFailureCallsAbort(t *testing.T) {
 			state:   stateSvc,
 			runner:  newTestBatchRunner(),
 			fs:      testutil.NewMockFileSystem(),
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt: func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
@@ -156,6 +159,9 @@ func TestFlushAptBatch_partialFinalizeErrorContinues(t *testing.T) {
 			state:   stateSvc,
 			runner:  newTestBatchRunner(),
 			fs:      testutil.NewMockFileSystem(),
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -210,6 +216,9 @@ func TestProcessOne_batchAptPackages(t *testing.T) {
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: newTestBatchRunner(),
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -265,6 +274,9 @@ func TestProcessOne_batchBrokenBySource(t *testing.T) {
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: runner,
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -306,6 +318,9 @@ func TestProcessOne_batchSkippedPackage(t *testing.T) {
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: newTestBatchRunner(),
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -358,6 +373,9 @@ func TestProcessAll_skipsExtrepoWhenAlreadyInstalled(t *testing.T) {
 			state:  stateSvc,
 			runner: runner,
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -411,13 +429,17 @@ func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, rec)
 
+	mockFs := testutil.NewMockFileSystem()
 	svc := &InstallService{
 		baseService: baseService{
 			reg:     reg,
 			instReg: instReg,
 			state:   stateSvc,
 			runner:  runner,
-			fs:      testutil.NewMockFileSystem(),
+			fs:      mockFs,
+			aptUpdate:  &testAptUpdater{runner: runner},
+			extrepo:    &testExtrepoManager{runner: runner, fs: mockFs},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -474,6 +496,9 @@ func TestEnableAllExtrepos_collectsAndEnables(t *testing.T) {
 			reg: reg, state: stateSvc,
 			runner: runner,
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  &testAptUpdater{runner: runner},
+			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -532,6 +557,9 @@ func TestEnableAllExtrepos_deduplicates(t *testing.T) {
 			reg: reg, state: stateSvc,
 			runner: runner,
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  &testAptUpdater{runner: runner},
+			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -576,6 +604,9 @@ func TestEnableAllExtrepos_noRepos(t *testing.T) {
 		baseService: baseService{
 			reg: reg, state: stateSvc,
 			runner: runner,
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -615,6 +646,9 @@ func TestEnableAllExtrepos_skipsAlreadyEnabled(t *testing.T) {
 			reg: reg, state: stateSvc,
 			runner: runner,
 			fs:     fs,
+			aptUpdate:  nopAptUpdater{},
+			extrepo:    nopExtrepoManager{},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -663,6 +697,9 @@ func TestEnableAllExtrepos_enablesDisabledRepo(t *testing.T) {
 			reg: reg, state: stateSvc,
 			runner: runner,
 			fs:     fs,
+			aptUpdate:  &testAptUpdater{runner: runner},
+			extrepo:    &testExtrepoManager{runner: runner, fs: fs},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -716,6 +753,9 @@ func TestEnableAllExtrepos_enablesWhenNoFile(t *testing.T) {
 			reg: reg, state: stateSvc,
 			runner: runner,
 			fs:     testutil.NewMockFileSystem(),
+			aptUpdate:  &testAptUpdater{runner: runner},
+			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
+			pkgLister:  nopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}

@@ -76,15 +76,7 @@ func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *Sta
 		}
 
 		if e.pkg.ForceInstall || !e.exists || e.pkg.Version != e.oldVersion {
-			entry := PkgEntry{
-				Type:         string(e.pkg.Type),
-				Version:      e.pkg.Version,
-				ConfigHashes: e.pkg.ConfigHashes,
-			}
-			if e.pkg.Apt != nil {
-				entry.Variant = e.pkg.Apt.Variant
-			}
-			s.state.Add(st, e.pkg.Name, entry)
+			s.state.Add(st, e.pkg.Name, newPkgEntry(e.pkg))
 			spinner.SetDesc(e.pkg.Name + " " + pastTense)
 			didWork = true
 		} else {

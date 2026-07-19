@@ -53,7 +53,7 @@ func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
 	stateSvc, statePath, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -124,7 +124,7 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}

@@ -10,6 +10,9 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/hmwassim/debforge/internal/adapters/apt"
+	adpDpkg "github.com/hmwassim/debforge/internal/adapters/dpkg"
+	adpExtrepo "github.com/hmwassim/debforge/internal/adapters/extrepo"
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/definition"
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -36,6 +39,9 @@ type commandHandler struct {
 	runner   ports.CommandRunner
 	fsys     ports.FileSystem
 	sys      ports.System
+	aptUpd   ports.AptUpdater
+	extrepo  ports.ExtrepoManager
+	pkgList  ports.PackageLister
 }
 
 func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRunner, locker ports.Locker, ui ports.UI, sys ports.System) (*commandHandler, error) {
@@ -61,6 +67,9 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
 		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
+		aptUpd:  &apt.Updater{Runner: runner},
+		extrepo: &adpExtrepo.Manager{Runner: runner, Fs: fsys},
+		pkgList: &adpDpkg.Lister{Runner: runner},
 	}, nil
 }
 

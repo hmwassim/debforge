@@ -9,7 +9,10 @@ import (
 
 	"github.com/hmwassim/debforge/internal/adapters/fs"
 	"github.com/hmwassim/debforge/internal/adapters/store"
+	"github.com/hmwassim/debforge/internal/aptpty"
+	"github.com/hmwassim/debforge/internal/domain/installer/extrepo"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -125,4 +128,54 @@ func newStateManagerForTest(t *testing.T) (*StateManager, string, func()) {
 	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
 	stateSvc := NewStateManager(stateStore)
 	return stateSvc, tmpFile.Name(), func() { os.Remove(tmpFile.Name()) }
+}
+
+// nopAptUpdater is a no-op apt updater for tests.
+type nopAptUpdater struct{}
+
+func (nopAptUpdater) RunUpdate(_ context.Context, _ ports.Spinner) error { return nil }
+
+// nopExtrepoManager is a no-op extrepo manager for tests.
+type nopExtrepoManager struct{}
+
+func (nopExtrepoManager) NeedsEnable(_ context.Context, _ string) (bool, error) { return false, nil }
+func (nopExtrepoManager) Enable(_ context.Context, _ string, _ ports.Spinner) error { return nil }
+
+// nopPackageLister is a no-op package lister for tests.
+type nopPackageLister struct{}
+
+func (nopPackageLister) ListInstalled(_ context.Context) (map[string]bool, error) {
+	return make(map[string]bool), nil
+}
+
+// testExtrepoManager delegates to the real extrepo package using the runner and fs.
+type testExtrepoManager struct {
+	runner ports.CommandRunner
+	fs     ports.FileSystem
+}
+
+func (m *testExtrepoManager) NeedsEnable(ctx context.Context, repo string) (bool, error) {
+	return extrepo.NeedsEnable(ctx, repo, m.fs)
+}
+
+func (m *testExtrepoManager) Enable(ctx context.Context, repo string, spinner ports.Spinner) error {
+	return extrepo.Enable(ctx, repo, m.runner, spinner)
+}
+
+// testAptUpdater delegates to aptpty.RunUpdate using the runner.
+type testAptUpdater struct {
+	runner ports.CommandRunner
+}
+
+func (m *testAptUpdater) RunUpdate(ctx context.Context, spinner ports.Spinner) error {
+	return aptpty.RunUpdate(ctx, m.runner, spinner)
+}
+
+// testPackageLister delegates to dpkg.ListInstalled using the runner.
+type testPackageLister struct {
+	runner ports.CommandRunner
+}
+
+func (m *testPackageLister) ListInstalled(ctx context.Context) (map[string]bool, error) {
+	return dpkg.ListInstalled(ctx, m.runner)
 }

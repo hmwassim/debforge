@@ -16,7 +16,7 @@ func TestNewInstallService(t *testing.T) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 	defer cleanup()
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil, nil)
+	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil, nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}
@@ -28,7 +28,7 @@ func TestNewRemoveService(t *testing.T) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 	defer cleanup()
 
-	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil, nil)
+	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil, nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}

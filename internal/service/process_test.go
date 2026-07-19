@@ -27,7 +27,7 @@ func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder, func()) 
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -128,7 +128,7 @@ func setupDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 

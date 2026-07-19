@@ -14,7 +14,7 @@ import (
 )
 
 func (h *commandHandler) selfRemove(ctx context.Context, u ports.UI) int {
-	remover := self.NewRemover(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, h.reg, h.instReg, h.stateSvc)
+	remover := self.NewRemover(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, h.reg, h.instReg, h.stateSvc, h.aptUpd, h.extrepo, h.pkgList)
 	if err := remover.Remove(ctx); err != nil {
 		u.Error("self-remove failed: %s", err)
 		return 1
@@ -42,7 +42,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo, h.pkgList)
 	if err := svc.SelectVariants(ctx, names, forceMode); err != nil {
 		u.Error("variant selection failed: %s", err)
 		return 1
@@ -54,7 +54,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 }
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
-	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
+	svc := service.NewRemoveService(h.reg, h.instReg, h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo, h.pkgList)
 
 	st, err := h.stateSvc.Load()
 	if err == nil {
@@ -69,7 +69,7 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo, h.pkgList)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
 			return err

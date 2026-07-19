@@ -27,7 +27,7 @@ func TestCheckInstalled_doesNotPersist(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	cleanedUp, err := checkInstalled(ctx, svc.state, st, "test-pkg", svc.runner, svc.fs, svc.sys, p, spinner)
+	cleanedUp, err := svc.checkInstalled(ctx, st, "test-pkg", p, spinner)
 	if err == nil {
 		t.Fatal("expected ErrNotInstalled from checkInstalled")
 	}
@@ -70,7 +70,7 @@ func TestCheckInstalled_installed(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	cleanedUp, err := checkInstalled(ctx, svc.state, st, "test-pkg", svc.runner, svc.fs, svc.sys, p, spinner)
+	cleanedUp, err := svc.checkInstalled(ctx, st, "test-pkg", p, spinner)
 	if err != nil {
 		t.Fatalf("expected no error for installed package, got: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestCheckInstalled_notInstalled(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	cleanedUp, err := checkInstalled(ctx, svc.state, st, "test-pkg", svc.runner, svc.fs, svc.sys, p, spinner)
+	cleanedUp, err := svc.checkInstalled(ctx, st, "test-pkg", p, spinner)
 	if err == nil {
 		t.Fatal("expected ErrNotInstalled for missing package")
 	}

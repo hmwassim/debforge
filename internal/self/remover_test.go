@@ -8,9 +8,25 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/service"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
+
+type nopAptUpdater struct{}
+
+func (nopAptUpdater) RunUpdate(_ context.Context, _ ports.Spinner) error { return nil }
+
+type nopExtrepoManager struct{}
+
+func (nopExtrepoManager) NeedsEnable(_ context.Context, _ string) (bool, error) { return false, nil }
+func (nopExtrepoManager) Enable(_ context.Context, _ string, _ ports.Spinner) error { return nil }
+
+type nopPackageLister struct{}
+
+func (nopPackageLister) ListInstalled(_ context.Context) (map[string]bool, error) {
+	return make(map[string]bool), nil
+}
 
 // removerTestDeps holds the dependencies created for a Remover test.
 type removerTestDeps struct {
@@ -34,7 +50,7 @@ func newRemoverForTest(t *testing.T) (*Remover, *removerTestDeps) {
 	st := store.NewStore[service.State](fs, cfg.StatePath)
 	stateSvc := service.NewStateManager(st)
 
-	rm := NewRemover(cfg, runner, fs, ui, locker, sys, reg, instReg, stateSvc)
+	rm := NewRemover(cfg, runner, fs, ui, locker, sys, reg, instReg, stateSvc, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
 	return rm, &removerTestDeps{cfg: cfg, fs: fs, ui: ui, stateSvc: stateSvc}
 }
 
@@ -147,7 +163,7 @@ func TestRemoverRemove_publicMethod_notRoot(t *testing.T) {
 	// Replace the sys on the remoter with a non-root one.
 	// We need to recreate since sys is set in NewRemover.
 	cfg := deps.cfg
-	rm2 := NewRemover(cfg, testutil.RunnerReturning(nil, nil), deps.fs, deps.ui, &testutil.MockLocker{}, &mockSystem{privileged: false}, pkg.NewRegistry(), installer.NewRegistry(), deps.stateSvc)
+	rm2 := NewRemover(cfg, testutil.RunnerReturning(nil, nil), deps.fs, deps.ui, &testutil.MockLocker{}, &mockSystem{privileged: false}, pkg.NewRegistry(), installer.NewRegistry(), deps.stateSvc, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
 	if err := rm2.Remove(ctx); err == nil {
 		t.Fatal("expected error when not root")
 	}

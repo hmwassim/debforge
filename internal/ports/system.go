@@ -84,3 +84,19 @@ type System interface {
 	UserHomeDir() (string, error)
 	LookupUser(name string) (*UserInfo, error)
 }
+
+// AptUpdater runs apt-get update through a pseudo-terminal session.
+type AptUpdater interface {
+	RunUpdate(ctx context.Context, spinner Spinner) error
+}
+
+// ExtrepoManager enables and disables extrepo sources.
+type ExtrepoManager interface {
+	NeedsEnable(ctx context.Context, repo string) (bool, error)
+	Enable(ctx context.Context, repo string, spinner Spinner) error
+}
+
+// PackageLister returns all system packages currently installed via dpkg.
+type PackageLister interface {
+	ListInstalled(ctx context.Context) (map[string]bool, error)
+}

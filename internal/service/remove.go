@@ -8,7 +8,6 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
-	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -28,11 +27,15 @@ func NewRemoveService(
 	runner ports.CommandRunner,
 	fs ports.FileSystem,
 	sys ports.System,
+	aptUpdate ports.AptUpdater,
+	extrepo ports.ExtrepoManager,
+	pkgLister ports.PackageLister,
 ) *RemoveService {
 	return &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: state, locker: locker,
 			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
+			aptUpdate: aptUpdate, extrepo: extrepo, pkgLister: pkgLister,
 		},
 	}
 }
@@ -44,12 +47,18 @@ func (s *RemoveService) Run(ctx context.Context, names []string, spinner ports.S
 		for _, name := range names {
 			if err := s.RemoveOne(ctx, name, st, spinner); err != nil {
 				if !errors.Is(err, ErrNotInstalled) {
+					if saveErr := s.state.Save(st); saveErr != nil {
+						return fmt.Errorf("save state: %w", saveErr)
+					}
 					spinner.Fail()
 					return err
 				}
 			} else {
 				removedAny = true
 			}
+		}
+		if err := s.state.Save(st); err != nil {
+			return fmt.Errorf("save state: %w", err)
 		}
 		if removedAny {
 			if len(names) > 1 {
@@ -77,7 +86,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 
 	p = applyVariant(p, st, name)
 
-	if _, err := checkInstalled(ctx, s.state, st, name, s.runner, s.fs, s.sys, p, spinner); err != nil {
+	if _, err := s.checkInstalled(ctx, st, name, p, spinner); err != nil {
 		return err
 	}
 
@@ -97,9 +106,6 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 	s.removeDependents(ctx, st, spinner)
 	if err := s.removeOrphaned(ctx, st, spinner); err != nil {
 		return fmt.Errorf("cleanup orphans: %w", err)
-	}
-	if err := s.state.Save(st); err != nil {
-		return fmt.Errorf("save state after %s: %w", p.Name, err)
 	}
 
 	spinner.SetDesc(name + " removed")
@@ -193,7 +199,7 @@ func (s *RemoveService) depUnsatisfied(p *pkg.Package, st *State) bool {
 }
 
 func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) error {
-	installed, err := dpkg.ListInstalled(ctx, s.runner)
+	installed, err := s.pkgLister.ListInstalled(ctx)
 	if err != nil {
 		return fmt.Errorf("list dpkg packages: %w", err)
 	}

@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
-	"github.com/hmwassim/debforge/internal/domain/installer/extrepo"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -119,21 +117,21 @@ func (s *InstallService) enableAllExtrepos(ctx context.Context, names []string, 
 
 	anyEnabled := false
 	for _, repo := range allRepos {
-		needed, err := extrepo.NeedsEnable(ctx, repo, s.fs)
+		needed, err := s.extrepo.NeedsEnable(ctx, repo)
 		if err != nil {
 			return err
 		}
 		if !needed {
 			continue
 		}
-		if err := extrepo.Enable(ctx, repo, s.runner, spinner); err != nil {
+		if err := s.extrepo.Enable(ctx, repo, spinner); err != nil {
 			return err
 		}
 		anyEnabled = true
 	}
 
 	if anyEnabled {
-		if err := aptpty.RunUpdate(ctx, s.runner, spinner); err != nil {
+		if err := s.aptUpdate.RunUpdate(ctx, spinner); err != nil {
 			return fmt.Errorf("apt-get update: %w", err)
 		}
 	}
@@ -157,6 +155,109 @@ func (s *InstallService) alreadySatisfied(ctx context.Context, name string, st *
 		return false, err
 	}
 	return ok, nil
+}
+
+// depResult holds the outcome of processing a single dependency.
+type depResult struct {
+	didWork  bool
+	batchAdd bool
+	entry    batchEntry
+	aptPkgs  []string
+	debPaths []string
+}
+
+// processDep processes a single dependency through the install pipeline:
+// restore state, check skip conditions, then dispatch to the appropriate
+// installer. Returns the result, which may include batch entries to collect.
+func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb, pastTense string, rerun, force bool, st *State, spinner ports.Spinner, sessionProcessed map[string]bool) (depResult, error) {
+	if force {
+		dep.ForceInstall = true
+	}
+
+	exists, oldVersion := s.restoreDepState(dep, st)
+
+	if verb == "update" {
+		dep = dep.Clone()
+		dep.SkipRepoSetup = true
+	}
+
+	if dep.SkipUpdate && !dep.ForceInstall && exists {
+		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
+		if err != nil {
+			return depResult{}, err
+		}
+		if ok {
+			if verb == "update" {
+				spinner.SetDesc(dep.Name + " already up to date")
+			} else {
+				spinner.SetDesc(dep.Name + " already installed")
+			}
+			sessionProcessed[dep.Name] = true
+			return depResult{}, nil
+		}
+	}
+
+	if !rerun && exists {
+		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
+		if err != nil {
+			return depResult{}, err
+		}
+		if ok {
+			spinner.SetDesc(dep.Name + " already installed")
+			sessionProcessed[dep.Name] = true
+			return depResult{}, nil
+		}
+	}
+
+	if dep.Apt != nil && dep.Apt.Variant == "__skip__" {
+		spinner.SetDesc(dep.Name + " skipped")
+		sessionProcessed[dep.Name] = true
+		return depResult{}, nil
+	}
+
+	inst, err := LookupInstaller(s.instReg, dep.Type)
+	if err != nil {
+		return depResult{}, err
+	}
+
+	bi, ok := inst.(installer.BatchInstaller)
+	if !ok {
+		if err := inst.Install(ctx, dep, spinner); err != nil {
+			return depResult{}, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+		}
+		workDone := dep.ForceInstall || !exists || dep.Version != oldVersion
+		if workDone {
+			s.state.Add(st, dep.Name, newPkgEntry(dep))
+			spinner.SetDesc(dep.Name + " " + pastTense)
+		} else {
+			spinner.SetDesc(dep.Name + " already up to date")
+		}
+		sessionProcessed[dep.Name] = true
+		return depResult{didWork: workDone}, nil
+	}
+
+	args, err := bi.Prepare(ctx, dep, spinner)
+	if err != nil {
+		return depResult{}, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+	}
+	if args.Skipped {
+		sessionProcessed[dep.Name] = true
+		return depResult{}, nil
+	}
+
+	entry := batchEntry{
+		pkg:        dep,
+		bi:         bi,
+		exists:     exists,
+		oldVersion: oldVersion,
+	}
+	sessionProcessed[dep.Name] = true
+	return depResult{
+		batchAdd: true,
+		entry:    entry,
+		aptPkgs:  args.AptPkgs,
+		debPaths: args.DebPaths,
+	}, nil
 }
 
 // processOne processes a single named package and its transitive
@@ -193,111 +294,22 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 		if sessionProcessed[dep.Name] {
 			continue
 		}
-		if force {
-			dep.ForceInstall = true
-		}
 
-		exists, oldVersion := s.restoreDepState(dep, st)
-
-		if verb == "update" {
-			dep = dep.Clone()
-			dep.SkipRepoSetup = true
-		}
-
-		if dep.SkipUpdate && !dep.ForceInstall && exists {
-			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				if verb == "update" {
-					spinner.SetDesc(dep.Name + " already up to date")
-				} else {
-					spinner.SetDesc(dep.Name + " already installed")
-				}
-				sessionProcessed[dep.Name] = true
-				continue
-			}
-		}
-
-		if !rerun && exists {
-			ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				spinner.SetDesc(dep.Name + " already installed")
-				sessionProcessed[dep.Name] = true
-				continue
-			}
-		}
-
-		if dep.Apt != nil && dep.Apt.Variant == "__skip__" {
-			spinner.SetDesc(dep.Name + " skipped")
-			sessionProcessed[dep.Name] = true
-			continue
-		}
-
-		inst, err := LookupInstaller(s.instReg, dep.Type)
+		result, err := s.processDep(ctx, dep, verb, pastTense, rerun, force, st, spinner, sessionProcessed)
 		if err != nil {
 			return false, err
 		}
-
-		bi, ok := inst.(installer.BatchInstaller)
-		if !ok {
-			if batch.hasWork() {
-				bw, err := s.flushAptBatch(ctx, &batch, st, spinner, verb, pastTense)
-				if err != nil {
-					return false, err
-				}
-				if bw {
-					didWork = true
-				}
+		if result.batchAdd {
+			if len(result.aptPkgs) > 0 {
+				batch.addApt(result.aptPkgs, result.entry)
 			}
-			if err := inst.Install(ctx, dep, spinner); err != nil {
-				return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+			if len(result.debPaths) > 0 {
+				batch.addDeb(result.debPaths, result.entry)
 			}
-			if dep.ForceInstall || !exists || dep.Version != oldVersion {
-				entry := PkgEntry{
-					Type:         string(dep.Type),
-					Version:      dep.Version,
-					ConfigHashes: dep.ConfigHashes,
-				}
-				if dep.Apt != nil {
-					entry.Variant = dep.Apt.Variant
-				}
-				s.state.Add(st, dep.Name, entry)
-				spinner.SetDesc(dep.Name + " " + pastTense)
-				didWork = true
-			} else {
-				spinner.SetDesc(dep.Name + " already up to date")
-			}
-			sessionProcessed[dep.Name] = true
-			continue
 		}
-
-		args, err := bi.Prepare(ctx, dep, spinner)
-		if err != nil {
-			return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+		if result.didWork {
+			didWork = true
 		}
-		if args.Skipped {
-			sessionProcessed[dep.Name] = true
-			continue
-		}
-
-		entry := batchEntry{
-			pkg:        dep,
-			bi:         bi,
-			exists:     exists,
-			oldVersion: oldVersion,
-		}
-		if len(args.AptPkgs) > 0 {
-			batch.addApt(args.AptPkgs, entry)
-		}
-		if len(args.DebPaths) > 0 {
-			batch.addDeb(args.DebPaths, entry)
-		}
-		sessionProcessed[dep.Name] = true
 	}
 
 	if batch.hasWork() {
