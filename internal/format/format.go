@@ -1,3 +1,5 @@
+// Package format renders package lists, search results, and info output
+// for the terminal UI.
 package format
 
 import (
@@ -27,8 +29,11 @@ func writePackageLine(w *bufio.Writer, name, desc string, installed bool, pad in
 	}
 }
 
+// FormatSearchOutput renders a table of packages matching any of the given
+// patterns. Patterns starting with "@" match category names; all others
+// match package names or descriptions as prefixes.
 func FormatSearchOutput(reg *pkg.Registry, st StateView, patterns []string) string {
-	var names []string
+	names := []string{}
 	reg.Range(func(name string, p *pkg.Package) bool {
 		for _, pat := range patterns {
 			if strings.HasPrefix(pat, "@") {
@@ -50,7 +55,7 @@ func FormatSearchOutput(reg *pkg.Registry, st StateView, patterns []string) stri
 	})
 	sort.Strings(names)
 
-	maxLen := 0
+	var maxLen int
 	for _, name := range names {
 		if len(name) > maxLen {
 			maxLen = len(name)
@@ -69,6 +74,8 @@ func FormatSearchOutput(reg *pkg.Registry, st StateView, patterns []string) stri
 	return buf.String()
 }
 
+// FormatListCategories renders a table of all known categories with their
+// package counts.
 func FormatListCategories(reg *pkg.Registry, st StateView) string {
 	idx := reg.Categories()
 	cats := make([]string, 0, len(idx))
@@ -81,7 +88,7 @@ func FormatListCategories(reg *pkg.Registry, st StateView) string {
 		return ""
 	}
 
-	maxLen := 0
+	var maxLen int
 	for _, c := range cats {
 		if len(c) > maxLen {
 			maxLen = len(c)
@@ -104,6 +111,7 @@ func FormatListCategories(reg *pkg.Registry, st StateView) string {
 	return buf.String()
 }
 
+// FormatListCategory renders a table of packages in the given category.
 func FormatListCategory(reg *pkg.Registry, st StateView, category string) string {
 	idx := reg.Categories()
 	pkgs, ok := idx[category]
@@ -111,7 +119,7 @@ func FormatListCategory(reg *pkg.Registry, st StateView, category string) string
 		return ""
 	}
 
-	maxLen := 0
+	var maxLen int
 	for _, name := range pkgs {
 		if len(name) > maxLen {
 			maxLen = len(name)
@@ -131,6 +139,7 @@ func FormatListCategory(reg *pkg.Registry, st StateView, category string) string
 	return buf.String()
 }
 
+// FormatListPackages renders all packages grouped by category.
 func FormatListPackages(reg *pkg.Registry, st StateView) string {
 	idx := reg.Categories()
 	cats := make([]string, 0, len(idx))
@@ -143,7 +152,7 @@ func FormatListPackages(reg *pkg.Registry, st StateView) string {
 		return ""
 	}
 
-	maxLen := 0
+	var maxLen int
 	reg.Range(func(name string, _ *pkg.Package) bool {
 		if len(name) > maxLen {
 			maxLen = len(name)

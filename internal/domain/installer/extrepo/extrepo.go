@@ -47,7 +47,7 @@ func NeedsEnable(ctx context.Context, repo string, fs ports.FileSystem) (bool, e
 func Enable(ctx context.Context, repo string, runner ports.CommandRunner, spinner ports.Spinner) error {
 	spinner.SetDesc("enabling extrepo " + repo)
 	if _, _, err := runner.Run(ctx, "extrepo", "enable", repo); err != nil {
-		return fmt.Errorf("enable extrepo %s: %w", repo, err)
+		return fmt.Errorf("enable extrepo %q: %w", repo, err)
 	}
 	return nil
 }

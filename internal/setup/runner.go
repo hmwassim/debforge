@@ -5,14 +5,19 @@ import (
 	"fmt"
 )
 
+// Runner executes a sequence of Steps, applying each when its Check
+// reports a non-satisfied status.
 type Runner struct {
 	steps []Step
 }
 
+// NewRunner returns a Runner that executes the given steps in order.
 func NewRunner(steps ...Step) *Runner {
 	return &Runner{steps: steps}
 }
 
+// Run applies each step whose Check reports a missing, drifted, or
+// conflicted status. It stops on the first error.
 func (r *Runner) Run(ctx context.Context, cx *Context) error {
 	for _, step := range r.steps {
 		var result CheckResult
@@ -51,6 +56,8 @@ func (r *Runner) Run(ctx context.Context, cx *Context) error {
 	return nil
 }
 
+// CheckAll runs every step's Check without applying anything.
+// Used by the doctor command to display system status.
 func (r *Runner) CheckAll(ctx context.Context, cx *Context) []CheckResult {
 	results := make([]CheckResult, len(r.steps))
 	for i, step := range r.steps {

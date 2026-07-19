@@ -16,6 +16,8 @@ type scriptEntry struct {
 	content string
 }
 
+// FormatInfoOutput renders detailed information for a single package,
+// including type-specific config, scripts, and install status.
 func FormatInfoOutput(reg *pkg.Registry, st StateView, pkgName string, verbose bool) string {
 	p, ok := reg.Lookup(pkgName)
 	if !ok {
@@ -220,26 +222,26 @@ func FormatInfoOutput(reg *pkg.Registry, st StateView, pkgName string, verbose b
 
 	var scripts []scriptEntry
 	if p.PreInstall != "" {
-		scripts = append(scripts, scriptEntry{"pre_install", p.PreInstall})
+		scripts = append(scripts, scriptEntry{name: "pre_install", content: p.PreInstall})
 	}
 	if p.PostInstall != "" {
-		scripts = append(scripts, scriptEntry{"post_install", p.PostInstall})
+		scripts = append(scripts, scriptEntry{name: "post_install", content: p.PostInstall})
 	}
 	if p.PostRemove != "" {
-		scripts = append(scripts, scriptEntry{"post_remove", p.PostRemove})
+		scripts = append(scripts, scriptEntry{name: "post_remove", content: p.PostRemove})
 	}
 	if p.Source != nil {
 		if p.Source.BuildScript != "" {
-			scripts = append(scripts, scriptEntry{"build", p.Source.BuildScript})
+			scripts = append(scripts, scriptEntry{name: "build", content: p.Source.BuildScript})
 		}
 		if p.Source.InstallScript != "" {
-			scripts = append(scripts, scriptEntry{"install", p.Source.InstallScript})
+			scripts = append(scripts, scriptEntry{name: "install", content: p.Source.InstallScript})
 		}
 		if p.Source.RemoveScript != "" {
-			scripts = append(scripts, scriptEntry{"remove", p.Source.RemoveScript})
+			scripts = append(scripts, scriptEntry{name: "remove", content: p.Source.RemoveScript})
 		}
 		if p.Source.PostinstallScript != "" {
-			scripts = append(scripts, scriptEntry{"postinstall", p.Source.PostinstallScript})
+			scripts = append(scripts, scriptEntry{name: "postinstall", content: p.Source.PostinstallScript})
 		}
 	}
 	if len(scripts) > 0 {

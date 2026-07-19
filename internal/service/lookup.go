@@ -14,7 +14,7 @@ import (
 func LookupPackage(reg *pkg.Registry, name string) (*pkg.Package, error) {
 	p, ok := reg.Lookup(name)
 	if !ok {
-		return nil, fmt.Errorf("unknown package: %s", name)
+		return nil, fmt.Errorf("unknown package: %q", name)
 	}
 	return p, nil
 }
@@ -24,7 +24,7 @@ func LookupPackage(reg *pkg.Registry, name string) (*pkg.Package, error) {
 func LookupInstaller(instReg *installer.Registry, typ pkg.Type) (installer.Installer, error) {
 	inst, ok := instReg.Lookup(typ)
 	if !ok {
-		return nil, fmt.Errorf("no installer for type %s", typ)
+		return nil, fmt.Errorf("no installer for type %q", typ)
 	}
 	return inst, nil
 }

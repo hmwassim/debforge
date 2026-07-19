@@ -42,7 +42,7 @@ func (h *commandHandler) checkGPUPreconditions(ctx context.Context, u ports.UI, 
 }
 
 func (h *commandHandler) checkConflicts(ctx context.Context, u ports.UI, names []string) []string {
-	var conflicts []string
+	conflicts := []string{}
 	for _, name := range names {
 		p, ok := h.reg.Lookup(name)
 		if !ok {
@@ -117,7 +117,7 @@ func loadDefs(reg *pkg.Registry, names []string, fsys ports.FileSystem, u ports.
 }
 
 func expandGlobs(reg *pkg.Registry, names []string) []string {
-	var out []string
+	out := []string{}
 	seen := make(map[string]bool)
 
 	var catIndex map[string][]string

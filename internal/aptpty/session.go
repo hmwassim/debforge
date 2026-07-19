@@ -77,7 +77,7 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 	}
 
 	var mode string
-	var pkgArgs []string
+	pkgArgs := []string{}
 	if len(aptArgs) > 0 {
 		mode = aptArgs[0]
 		if len(aptArgs) > 1 {
@@ -148,11 +148,11 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 	}()
 
 	var (
-		sbuf    []byte
+		sbuf    = []byte{}
 		cur     int64
 		total   int64
 		pkg     string
-		aptErrs []string
+		aptErrs = []string{}
 	)
 
 	ticker := time.NewTicker(150 * time.Millisecond)
@@ -213,7 +213,7 @@ mainLoop:
 
 	if err := sess.Wait(); err != nil {
 		var exitErr *exec.ExitError
-		code := 0
+		var code int
 		if errors.As(err, &exitErr) {
 			code = exitErr.ExitCode()
 		}

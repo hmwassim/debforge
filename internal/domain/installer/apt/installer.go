@@ -229,7 +229,7 @@ func (i *Installer) SelectVariant(ctx context.Context, p *pkg.Package) error {
 	}
 	slices.Sort(names)
 
-	var opts []string
+	opts := make([]string, 0, len(names))
 	for i, name := range names {
 		opts = append(opts, fmt.Sprintf("  [%d] %s -> %s", i+1, name, strings.Join(p.Apt.Variants[name], ", ")))
 	}

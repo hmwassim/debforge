@@ -18,7 +18,7 @@ func GatherVersion(ctx context.Context, runner ports.CommandRunner, p *pkg.Packa
 	if p.VersionCmd != "" {
 		out, _, err := runner.Run(ctx, "sh", "-c", p.VersionCmd)
 		if err != nil {
-			return "", fmt.Errorf("version check %s: %w", p.Name, err)
+			return "", fmt.Errorf("version check %q: %w", p.Name, err)
 		}
 		return strings.TrimSpace(string(out)), nil
 	}
@@ -40,7 +40,7 @@ func GatherVersion(ctx context.Context, runner ports.CommandRunner, p *pkg.Packa
 // Returns an error when latest is empty.
 func ApplyVersionUpdate(spinner ports.Spinner, p *pkg.Package, latest string) (bool, error) {
 	if latest == "" {
-		return false, fmt.Errorf("version check %s: empty output", p.Name)
+		return false, fmt.Errorf("version check %q: empty output", p.Name)
 	}
 	if latest == p.Version {
 		spinner.SetDesc(p.Name + " already up to date")

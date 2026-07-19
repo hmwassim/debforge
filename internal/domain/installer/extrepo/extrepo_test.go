@@ -119,7 +119,7 @@ func TestEnable_extrepoEnableError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when extrepo enable fails")
 	}
-	if !strings.Contains(err.Error(), "enable extrepo myrepo") {
+	if !strings.Contains(err.Error(), `enable extrepo "myrepo"`) {
 		t.Errorf("expected error to mention enable extrepo, got %v", err)
 	}
 }

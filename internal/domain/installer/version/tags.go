@@ -48,9 +48,9 @@ func RepoFromURL(rawURL string) (string, bool) {
 func FetchTagRefs(ctx context.Context, runner ports.CommandRunner, repoURL string) ([]string, error) {
 	out, _, err := runner.Run(ctx, "git", "ls-remote", "--tags", repoURL)
 	if err != nil {
-		return nil, fmt.Errorf("ls-remote %s: %w", repoURL, err)
+		return nil, fmt.Errorf("ls-remote %q: %w", repoURL, err)
 	}
-	var refs []string
+	refs := []string{}
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -82,7 +82,7 @@ func SelectTag(ctx context.Context, refs []string, repoURL, prefix, verifyURL st
 		prefix = "v"
 	}
 
-	var tags []string
+	tags := make([]string, 0, len(refs))
 	for _, ref := range refs {
 		tag, ok := strings.CutPrefix(ref, "refs/tags/")
 		if !ok {
@@ -99,7 +99,7 @@ func SelectTag(ctx context.Context, refs []string, repoURL, prefix, verifyURL st
 	}
 
 	if len(tags) == 0 {
-		return "", fmt.Errorf("no version tags found in %s", repoURL)
+		return "", fmt.Errorf("no version tags found in %q", repoURL)
 	}
 
 	slices.SortFunc(tags, func(a, b string) int {
@@ -137,9 +137,9 @@ func SelectTag(ctx context.Context, refs []string, repoURL, prefix, verifyURL st
 	}
 
 	if lastErr != nil {
-		return "", fmt.Errorf("no version tag with a valid download URL found in %s (last attempt: %w)", repoURL, lastErr)
+		return "", fmt.Errorf("no version tag with a valid download URL found in %q (last attempt: %w)", repoURL, lastErr)
 	}
-	return "", fmt.Errorf("no version tag with a valid download URL found in %s", repoURL)
+	return "", fmt.Errorf("no version tag with a valid download URL found in %q", repoURL)
 }
 
 // LatestTag returns the newest tag from a git repository, stripped of the
@@ -181,7 +181,7 @@ func RepoFromPkg(p *pkg.Package) string {
 }
 
 func parseNums(v string) []int {
-	var parts []int
+	parts := []int{}
 	cur := 0
 	inDig := false
 	for _, ch := range v {

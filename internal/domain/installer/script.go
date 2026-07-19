@@ -27,6 +27,8 @@ func RunScriptInDir(ctx context.Context, runner ports.CommandRunner, spinner por
 	return nil
 }
 
+// TrimErr truncates stderr to 500 characters and formats it with a
+// leading ": " separator for embedding in error messages.
 func TrimErr(stderr []byte) string {
 	out := strings.TrimSpace(string(stderr))
 	if out == "" {

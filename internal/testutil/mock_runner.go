@@ -1,3 +1,4 @@
+// Package testutil provides shared test doubles for the ports interfaces.
 package testutil
 
 import (

@@ -278,7 +278,7 @@ func (u *Updater) ensureLink(target, link string) error {
 		return err
 	}
 	if fi.IsDir() {
-		return fmt.Errorf("%s is a directory", link)
+		return fmt.Errorf("%q is a directory", link)
 	}
 	current, err := u.fs.Readlink(link)
 	if err == nil && current == target {

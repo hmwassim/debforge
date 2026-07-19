@@ -106,7 +106,7 @@ func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.S
 		return installer.BatchArgs{}, err
 	}
 	if len(p.URLs) == 0 {
-		return installer.BatchArgs{}, fmt.Errorf("deb definition %s: no install url", p.Name)
+		return installer.BatchArgs{}, fmt.Errorf("deb definition %q: no install url", p.Name)
 	}
 
 	if p.VersionCmd != "" || version.RepoFromPkg(p) != "" {
@@ -137,7 +137,7 @@ func (i *Installer) Prepare(ctx context.Context, p *pkg.Package, spinner ports.S
 		return installer.BatchArgs{}, err
 	}
 
-	var tmpPaths []string
+	tmpPaths := make([]string, 0, len(p.URLs))
 	for idx, raw := range p.URLs {
 		url := download.ExpandURL(raw, p.Version)
 		tmpPath := filepath.Join(tmpDir, download.FilenameFromURL(url))

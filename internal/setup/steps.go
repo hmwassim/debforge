@@ -1,5 +1,7 @@
 package setup
 
+// DefaultSteps returns the ordered list of provisioning steps applied
+// during "debforge setup".
 var DefaultSteps = func() []Step {
 	return []Step{
 		&ReposStep{

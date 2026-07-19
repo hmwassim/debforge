@@ -179,7 +179,7 @@ func (h *commandHandler) doctor(ctx context.Context, u ports.UI) int {
 }
 
 func (h *commandHandler) diff(ctx context.Context, u ports.UI, args []string) int {
-	var targets []string
+	targets := make([]string, 0, len(args))
 
 	if len(args) > 0 {
 		for _, arg := range args {
@@ -291,13 +291,14 @@ func (h *commandHandler) info(ctx context.Context, u ports.UI, names []string, v
 			return 1
 		}
 	}
-	var out string
+	var sb strings.Builder
 	for i, name := range names {
 		if i > 0 {
-			out += "\n"
+			sb.WriteByte('\n')
 		}
-		out += format.FormatInfoOutput(h.reg, format.NewStateView(st), name, verbose)
+		sb.WriteString(format.FormatInfoOutput(h.reg, format.NewStateView(st), name, verbose))
 	}
+	out := sb.String()
 	if out == "" {
 		return 0
 	}

@@ -14,6 +14,7 @@ type Spinner interface {
 	Stop()
 }
 
+// UI is the port for terminal output, interactive prompts, and spinner display.
 type UI interface {
 	Info(format string, args ...any)
 	Success(format string, args ...any)

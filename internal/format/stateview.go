@@ -35,7 +35,7 @@ func (v *stateView) Version(name string) string {
 }
 
 func (v *stateView) CountInstalled(names []string) int {
-	n := 0
+	var n int
 	for _, name := range names {
 		if _, ok := v.st.Packages[name]; ok {
 			n++

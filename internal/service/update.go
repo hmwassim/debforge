@@ -41,7 +41,7 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 // recorded Version in state.json from going stale after `update --all`'s
 // system-wide apt-get upgrade bumps installed versions out from under it.
 func allManagedPackageNames(reg *pkg.Registry, st *State) []string {
-	var names []string
+	names := make([]string, 0, len(st.Packages))
 	for name := range st.Packages {
 		if _, ok := reg.Lookup(name); !ok {
 			continue

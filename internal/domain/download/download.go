@@ -60,11 +60,11 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: %s", url, resp.Status)
+		return fmt.Errorf("download %q: %s", url, resp.Status)
 	}
 
 	if resp.Request.URL.Scheme != "https" {
-		return fmt.Errorf("download %s: insecure connection (scheme=%s)", url, resp.Request.URL.Scheme)
+		return fmt.Errorf("download %q: insecure connection (scheme=%q)", url, resp.Request.URL.Scheme)
 	}
 
 	total := resp.ContentLength
@@ -111,13 +111,13 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 	}
 
 	if fi, err := fs.Stat(destPath); err == nil && fi.Size() == 0 {
-		return fmt.Errorf("downloaded file is empty: %s", url)
+		return fmt.Errorf("downloaded file is empty: %q", url)
 	}
 
 	if sha256Hex != "" {
 		got := hex.EncodeToString(hash.Sum(nil))
 		if got != sha256Hex {
-			return fmt.Errorf("sha256 mismatch: expected %s, got %s", sha256Hex, got)
+			return fmt.Errorf("sha256 mismatch: expected %q, got %q", sha256Hex, got)
 		}
 	}
 

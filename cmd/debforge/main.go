@@ -97,9 +97,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	yesMode := *y || *yes
 	forceMode := *f || *force
 	allMode := *a || *all
-	selfMode := false
-	verboseMode := false
-	packagesMode := false
+	var selfMode bool
+	var verboseMode bool
+	var packagesMode bool
 	args := fs.Args()
 
 	if len(args) == 0 {

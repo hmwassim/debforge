@@ -57,7 +57,7 @@ type BatchArgs struct {
 // the error message to identify the installer.
 func AssertType(typ, expected pkg.Type, name string) error {
 	if typ != expected {
-		return fmt.Errorf("%s installer called for type %s", name, typ)
+		return fmt.Errorf("%q installer called for type %q", name, typ)
 	}
 	return nil
 }
