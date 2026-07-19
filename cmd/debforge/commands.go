@@ -16,7 +16,7 @@ import (
 func (h *commandHandler) selfRemove(ctx context.Context, u ports.UI) int {
 	remover := self.NewRemover(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, h.reg, h.instReg, h.stateSvc)
 	if err := remover.Remove(ctx); err != nil {
-		u.Error("%s", err)
+		u.Error("self-remove failed: %s", err)
 		return 1
 	}
 	return 0
@@ -25,7 +25,7 @@ func (h *commandHandler) selfRemove(ctx context.Context, u ports.UI) int {
 func (h *commandHandler) selfUpdate(ctx context.Context, u ports.UI, forceMode bool) int {
 	updater := self.NewUpdater(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, forceMode)
 	if err := updater.Update(ctx); err != nil {
-		u.Error("%s", err)
+		u.Error("self-update failed: %s", err)
 		return 1
 	}
 	return 0
@@ -35,13 +35,16 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 	if !h.checkGPUPreconditions(ctx, u, names) {
 		return 1
 	}
-	if conflicts := h.checkConflicts(ctx, u, names); len(conflicts) > 0 {
+	if conflicts, err := h.checkConflicts(ctx, u, names); err != nil {
+		u.Error("conflict check: %s", err)
+		return 1
+	} else if len(conflicts) > 0 {
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
 	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys)
 	if err := svc.SelectVariants(ctx, names, forceMode); err != nil {
-		u.Error("%s", err)
+		u.Error("variant selection failed: %s", err)
 		return 1
 	}
 

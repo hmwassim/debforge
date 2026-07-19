@@ -132,6 +132,11 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 	}
 	resultCh := make(chan readResult, 100)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				resultCh <- readResult{err: fmt.Errorf("pty read panic: %v", r)}
+			}
+		}()
 		rbuf := make([]byte, 65536)
 		for {
 			n, err := sess.Read(rbuf)

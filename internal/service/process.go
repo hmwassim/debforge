@@ -86,7 +86,7 @@ func (s *InstallService) enableAllExtrepos(ctx context.Context, names []string, 
 		}
 		deps, err := s.resolver.Resolve(p)
 		if err != nil {
-			continue
+			return fmt.Errorf("resolve deps for %q: %w", name, err)
 		}
 		for _, dep := range deps {
 			if dep.Type != pkg.TypeApt || dep.Apt == nil {

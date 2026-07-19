@@ -41,7 +41,7 @@ func (h *commandHandler) checkGPUPreconditions(ctx context.Context, u ports.UI, 
 	return true
 }
 
-func (h *commandHandler) checkConflicts(ctx context.Context, u ports.UI, names []string) []string {
+func (h *commandHandler) checkConflicts(ctx context.Context, u ports.UI, names []string) ([]string, error) {
 	conflicts := []string{}
 	for _, name := range names {
 		p, ok := h.reg.Lookup(name)
@@ -49,10 +49,14 @@ func (h *commandHandler) checkConflicts(ctx context.Context, u ports.UI, names [
 			continue
 		}
 		if p.Apt != nil {
-			conflicts = append(conflicts, aptpty.FindInstalledConflicts(ctx, h.runner, p.Apt.Conflicts)...)
+			found, err := aptpty.FindInstalledConflicts(ctx, h.runner, p.Apt.Conflicts)
+			if err != nil {
+				return nil, fmt.Errorf("check conflicts for %q: %w", name, err)
+			}
+			conflicts = append(conflicts, found...)
 		}
 	}
-	return conflicts
+	return conflicts, nil
 }
 
 func extractFlags(ss []string, yes, force, all, self, verbose, packages *bool) []string {

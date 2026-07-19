@@ -95,7 +95,9 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 
 	s.state.Remove(st, name)
 	s.removeDependents(ctx, st, spinner)
-	s.removeOrphaned(ctx, st, spinner)
+	if err := s.removeOrphaned(ctx, st, spinner); err != nil {
+		return fmt.Errorf("cleanup orphans: %w", err)
+	}
 	if err := s.state.Save(st); err != nil {
 		return fmt.Errorf("save state after %s: %w", p.Name, err)
 	}
@@ -190,11 +192,10 @@ func (s *RemoveService) depUnsatisfied(p *pkg.Package, st *State) bool {
 	return false
 }
 
-func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) {
+func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner ports.Spinner) error {
 	installed, err := dpkg.ListInstalled(ctx, s.runner)
 	if err != nil {
-		spinner.SetDesc(fmt.Sprintf("failed to list dpkg packages: %v", err))
-		return
+		return fmt.Errorf("list dpkg packages: %w", err)
 	}
 	for name := range st.Packages {
 		p, err := LookupPackage(s.reg, name)
@@ -205,6 +206,7 @@ func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner p
 			s.state.Remove(st, name)
 		}
 	}
+	return nil
 }
 
 // pkgIsOrphaned reports whether p tracks system packages (apt or deb) that

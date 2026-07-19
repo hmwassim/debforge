@@ -107,18 +107,18 @@ func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.S
 
 // FindInstalledConflicts returns the subset of names that are currently
 // installed according to dpkg-query.
-func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) []string {
+func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) ([]string, error) {
 	found := make([]string, 0, len(names))
 	for _, name := range names {
 		ok, err := dpkg.IsInstalled(ctx, runner, name)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("check %q: %w", name, err)
 		}
 		if ok {
 			found = append(found, name)
 		}
 	}
-	return found
+	return found, nil
 }
 
 // ---- pre-run: --print-uris ------------------------------------------------

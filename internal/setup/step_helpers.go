@@ -22,7 +22,10 @@ type ConfigFile struct {
 func checkConfigFiles(cx *Context, cfgs []ConfigFile) CheckResult {
 	for _, cfg := range cfgs {
 		action := installer.DecideConfigAction(cx.Fsys, cfg.Path, cfg.Content, cx.ConfigHashes[cfg.Path], false)
-		exists, _ := cx.Fsys.Exists(cfg.Path)
+		exists, err := cx.Fsys.Exists(cfg.Path)
+		if err != nil {
+			return CheckResult{Status: StatusError, Summary: fmt.Sprintf("check %s: %s", cfg.Path, err)}
+		}
 		switch {
 		case action == installer.ConfigWrite && !exists:
 			return CheckResult{Status: StatusMissing, Summary: fmt.Sprintf("%s does not exist", cfg.Path)}

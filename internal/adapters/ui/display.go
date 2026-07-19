@@ -102,12 +102,17 @@ func (d *Display) Resume() {
 }
 
 func (d *Display) run() {
+	defer close(d.sdone)
 	defer func() {
+		if r := recover(); r != nil {
+			if d.fileLog != nil {
+				d.fileLog.log("ERROR", "spinner panic: %v", r)
+			}
+		}
 		d.mu.Lock()
 		d.done = true
 		d.mu.Unlock()
 	}()
-	defer close(d.sdone)
 
 	d.mu.Lock()
 	content := d.content

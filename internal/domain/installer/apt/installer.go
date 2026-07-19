@@ -160,7 +160,10 @@ func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
 // ---- conflicts ------------------------------------------------------------
 
 func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	found := aptpty.FindInstalledConflicts(ctx, i.runner, p.Apt.Conflicts)
+	found, err := aptpty.FindInstalledConflicts(ctx, i.runner, p.Apt.Conflicts)
+	if err != nil {
+		return fmt.Errorf("check conflicts: %w", err)
+	}
 	if len(found) == 0 {
 		return nil
 	}
