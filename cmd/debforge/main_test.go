@@ -90,9 +90,14 @@ func TestRunWith_help(t *testing.T) {
 
 func TestRunWith_unknownCommand(t *testing.T) {
 	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
 	code := runWithArgs(context.Background(), []string{"foobar"}, fsys, runner, locker, sys, ui, cfg)
-	if code != 0 {
-		t.Errorf("expected 0, got %d", code)
+	if code != 2 {
+		t.Errorf("expected 2, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called")
 	}
 }
 
@@ -120,9 +125,14 @@ func TestRunWith_selfRemove_notPrivileged(t *testing.T) {
 
 func TestRunWith_install_noNames(t *testing.T) {
 	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
 	code := runWithArgs(context.Background(), []string{"install"}, fsys, runner, locker, sys, ui, cfg)
-	if code != 1 {
-		t.Errorf("expected 1, got %d", code)
+	if code != 2 {
+		t.Errorf("expected 2, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called")
 	}
 }
 
@@ -159,9 +169,14 @@ func TestRunWith_install_withYesFlag(t *testing.T) {
 
 func TestRunWith_remove_noNames(t *testing.T) {
 	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
 	code := runWithArgs(context.Background(), []string{"remove"}, fsys, runner, locker, sys, ui, cfg)
-	if code != 1 {
-		t.Errorf("expected 1, got %d", code)
+	if code != 2 {
+		t.Errorf("expected 2, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called")
 	}
 }
 
@@ -182,9 +197,14 @@ func TestRunWith_remove_unknownPackage(t *testing.T) {
 
 func TestRunWith_update_noNamesNoAll(t *testing.T) {
 	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
 	code := runWithArgs(context.Background(), []string{"update"}, fsys, runner, locker, sys, ui, cfg)
-	if code != 1 {
-		t.Errorf("expected 1, got %d", code)
+	if code != 2 {
+		t.Errorf("expected 2, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called")
 	}
 }
 
@@ -277,9 +297,14 @@ func TestRunWith_info_unknownPackage(t *testing.T) {
 
 func TestRunWith_info_noNames(t *testing.T) {
 	fsys, runner, locker, sys, ui, cfg := newRunWithEnv(t)
+	var errorCalled bool
+	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
 	code := runWithArgs(context.Background(), []string{"info"}, fsys, runner, locker, sys, ui, cfg)
-	if code != 1 {
-		t.Errorf("expected 1, got %d", code)
+	if code != 2 {
+		t.Errorf("expected 2, got %d", code)
+	}
+	if !errorCalled {
+		t.Error("expected ui.Error to be called")
 	}
 }
 
@@ -321,8 +346,8 @@ func TestRunWith_flagParseError(t *testing.T) {
 	var errorCalled bool
 	ui.ErrorFunc = func(_ string, _ ...any) { errorCalled = true }
 	code := runWithArgs(context.Background(), []string{"--unknown-flag"}, fsys, runner, locker, sys, ui, cfg)
-	if code != 1 {
-		t.Errorf("expected 1, got %d", code)
+	if code != 2 {
+		t.Errorf("expected 2, got %d", code)
 	}
 	if !errorCalled {
 		t.Error("expected ui.Error to be called")

@@ -91,7 +91,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 			return 0
 		}
 		ui.Error("%s", err)
-		return 1
+		return 2
 	}
 
 	yesMode := *y || *yes
@@ -109,7 +109,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 
 	h, err := newHandler(cfg, fsys, runner, locker, ui, sys)
 	if err != nil {
-		ui.Error("bootstrap: %s", err)
+		ui.Error("bootstrap: %v", err)
 		return 1
 	}
 
@@ -122,11 +122,12 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	case "install":
 		if selfMode {
 			ui.Error("--self is not supported for install")
-			return 1
+			return 2
 		}
 		if len(names) == 0 {
+			ui.Error("install requires at least one package name")
 			usage()
-			return 1
+			return 2
 		}
 		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
@@ -142,8 +143,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 			return h.selfRemove(ctx, ui)
 		}
 		if len(names) == 0 {
+			ui.Error("remove requires at least one package name")
 			usage()
-			return 1
+			return 2
 		}
 		if !loadDefs(h.reg, names, fsys, ui) {
 			return 1
@@ -159,8 +161,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 			return h.selfUpdate(ctx, ui, forceMode)
 		}
 		if len(names) == 0 && !allMode {
+			ui.Error("update requires package names or --all")
 			usage()
-			return 1
+			return 2
 		}
 		if allMode && len(names) > 0 {
 			ui.Warn("--all updates every managed package; ignoring explicit name(s): %s", strings.Join(names, ", "))
@@ -178,7 +181,7 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 	case "setup":
 		if selfMode {
 			ui.Error("--self is not supported for setup")
-			return 1
+			return 2
 		}
 		return h.setup(ctx, ui, forceMode)
 
@@ -203,8 +206,9 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 
 	case "info":
 		if len(names) == 0 {
+			ui.Error("info requires at least one package name")
 			usage()
-			return 1
+			return 2
 		}
 		names, ok := h.resolveNames(names, ui)
 		if !ok {
@@ -213,39 +217,45 @@ func runWith(ctx context.Context, rawArgs []string, version string, cfg *self.Co
 		return h.info(ctx, ui, names, verboseMode)
 
 	default:
+		ui.Error("unknown command: %s", args[0])
 		usage()
+		return 2
 	}
-	return 0
 }
 
 func usage() {
-	fmt.Println("debforge - package manager")
+	fmt.Println("debforge - package manager for Debian")
 	fmt.Println()
-	fmt.Println("Usage: debforge [flags] <command> [<name>...]")
-	fmt.Println()
-	fmt.Println("Flags:")
-	fmt.Println("    -y, --yes               Skip confirmation prompts")
-	fmt.Println("    -f, --force             Force operation (reinstall)")
-	fmt.Println("    -a, --all               Update all packages (update only)")
-	fmt.Println("    -v, --verbose           Show detailed output where supported")
+	fmt.Println("Usage: debforge [global-flags] <command> [command-flags] [<name>...]")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("    install <name>...       Install packages")
-	fmt.Println("    remove <name>...        Remove packages from system")
-	fmt.Println("    update [<name>...]      Reinstall packages (runs apt-get update)")
-	fmt.Println("        --all               Update all packages and run apt-get upgrade")
-	fmt.Println("    setup                   Provision system (repos, firmware, desktop)")
-	fmt.Println("        --force             Skip checks, reapply all steps")
-	fmt.Println("    doctor                  Check system health")
-	fmt.Println("    list                    List available categories")
-	fmt.Println("    list @<category>        List packages in a category")
-	fmt.Println("    list --packages         List packages grouped by category")
-	fmt.Println("    search [<pattern>]      Search packages by name or description")
-	fmt.Println("    diff [<path>...]        Show config diff vs sidecar")
-	fmt.Println("    info <name>...          Show detailed package information")
-	fmt.Println("        -v, --verbose       Show full config and script contents")
+	fmt.Println("    remove  <name>...       Remove packages from system")
+	fmt.Println("    update  [<name>...]     Reinstall or upgrade packages")
+	fmt.Println("    list    [@<category>]   List categories or packages")
+	fmt.Println("    search  [<pattern>]     Search packages by name or description")
+	fmt.Println("    info    <name>...       Show detailed package information")
+	fmt.Println("    diff    [<path>...]     Show config diff vs sidecar")
+	fmt.Println("    setup                    Provision system (repos, firmware, desktop)")
+	fmt.Println("    doctor                   Check system health")
+	fmt.Println()
+	fmt.Println("Global Flags:")
+	fmt.Println("    -y, --yes               Skip confirmation prompts")
+	fmt.Println("    -f, --force             Force operation (reinstall)")
+	fmt.Println("    -h, --help              Show this help")
+	fmt.Println("        --version           Show version")
+	fmt.Println()
+	fmt.Println("Command Flags:")
+	fmt.Println("    update --all            Update all packages and run apt-get upgrade")
 	fmt.Println("    update --self           Update debforge itself")
-	fmt.Println("    remove --self           Remove debforge from system")
-	fmt.Println("    --help                  Show this help")
-	fmt.Println("    --version               Show version")
+	fmt.Println("    remove  --self          Remove debforge from system")
+	fmt.Println("    list    --packages      List packages grouped by category")
+	fmt.Println("    info    -v, --verbose   Show full config and script contents")
+	fmt.Println("    setup   --force         Skip checks, reapply all steps")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("    debforge install firefox discord")
+	fmt.Println("    debforge update --all")
+	fmt.Println("    debforge list @desktop")
+	fmt.Println("    debforge search browser")
 }
