@@ -328,6 +328,98 @@ func TestWriteUserConfigsWithHashes_chownDirError(t *testing.T) {
 	}
 }
 
+func TestValidateConfigPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"valid /etc", "/etc/foo.conf", false},
+		{"valid /usr/share", "/usr/share/app.conf", false},
+		{"valid /usr/lib", "/usr/lib/foo/bar.conf", false},
+		{"valid /opt", "/opt/app/config.yaml", false},
+		{"valid /boot", "/boot/grub.cfg", false},
+		{"valid /var", "/var/log/app.conf", false},
+		{"empty path", "", true},
+		{"relative path", "etc/foo.conf", true},
+		{"traversal in path", "/etc/../etc/foo.conf", true},
+		{"traversal at end", "/etc/foo/../../etc/foo.conf", true},
+		{"outside allowed /root", "/root/.ssh/authorized_keys", true},
+		{"outside allowed /home", "/home/user/.bashrc", true},
+		{"outside allowed /tmp", "/tmp/evil.conf", true},
+		{"outside allowed /srv", "/srv/share.conf", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateConfigPath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateConfigPath(%q) err = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateUserConfigPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		absPath string
+		homeDir string
+		wantErr bool
+	}{
+		{"valid user config", "/home/user/.config/app.conf", "/home/user", false},
+		{"valid nested", "/home/user/.config/foo/bar.conf", "/home/user", false},
+		{"escapes home via traversal", "/home/user/../../etc/passwd", "/home/user", true},
+		{"outside home absolute", "/etc/foo.conf", "/home/user", true},
+		{"outside home other user", "/home/other/.config/app.conf", "/home/user", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateUserConfigPath(tt.absPath, tt.homeDir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateUserConfigPath(%q, %q) err = %v, wantErr %v",
+					tt.absPath, tt.homeDir, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateRemovablePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"valid file", "/opt/debforge/bin/foo", false},
+		{"valid subdir", "/etc/apt/sources.list.d/foo.list", false},
+		{"empty path", "", true},
+		{"root", "/", true},
+		{"bin", "/bin", true},
+		{"boot", "/boot", true},
+		{"dev", "/dev", true},
+		{"etc", "/etc", true},
+		{"home", "/home", true},
+		{"lib", "/lib", true},
+		{"lib64", "/lib64", true},
+		{"opt", "/opt", true},
+		{"proc", "/proc", true},
+		{"root home", "/root", true},
+		{"run", "/run", true},
+		{"sbin", "/sbin", true},
+		{"sys", "/sys", true},
+		{"usr", "/usr", true},
+		{"var", "/var", true},
+		{"traversal", "/opt/foo/../../etc/passwd", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateRemovablePath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRemovablePath(%q) err = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestUserHomeDir_default(t *testing.T) {
 	dir, err := userdir.Home(testSys)
 	if err != nil {

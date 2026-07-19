@@ -8,8 +8,15 @@ import (
 	"strings"
 	"testing"
 
+	"go.uber.org/goleak"
 	"golang.org/x/term"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m,
+		goleak.IgnoreCurrent(),
+	)
+}
 
 func TestDisplay_NonTTY_Done(t *testing.T) {
 	var buf bytes.Buffer

@@ -122,7 +122,10 @@ func (d *Display) run() {
 		// Nothing to animate without a terminal: emit one line up front
 		// and let doneWith print the final state when the spinner ends.
 		defaultConsole.writef(d.w, "[%s] %s\n", "i", content)
-		<-d.stopOrCtxDone()
+		select {
+		case <-d.ctx.Done():
+		case <-d.stop:
+		}
 		return
 	}
 	defaultConsole.writef(d.w, "\r%s[%s]%s %s\033[K", bold+magenta, spinFrames[0], reset, content)
@@ -147,21 +150,6 @@ func (d *Display) run() {
 			idx++
 		}
 	}
-}
-
-// stopOrCtxDone returns a channel that closes when either the spinner is
-// stopped or its context is done, for the non-tty run() path which has no
-// ticker to multiplex against.
-func (d *Display) stopOrCtxDone() <-chan struct{} {
-	ch := make(chan struct{})
-	go func() {
-		select {
-		case <-d.ctx.Done():
-		case <-d.stop:
-		}
-		close(ch)
-	}()
-	return ch
 }
 
 func (d *Display) doneWith(mark, code string) {

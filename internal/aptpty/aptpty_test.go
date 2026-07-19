@@ -9,7 +9,14 @@ import (
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/testutil"
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m,
+		goleak.IgnoreCurrent(),
+	)
+}
 
 // mockPtySession implements ptySession with controlled input/output.
 type mockPtySession struct {

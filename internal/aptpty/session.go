@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -108,7 +109,10 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGWINCH, syscall.SIGINT)
+	var wg sync.WaitGroup
+	wg.Add(3)
 	go func() {
+		defer wg.Done()
 		for sig := range sigCh {
 			switch sig {
 			case syscall.SIGWINCH:
@@ -125,7 +129,10 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 		_ = sess.SetSize(uint16(h), uint16(w))
 	}
 
-	go func() { _, _ = io.Copy(sess, os.Stdin) }()
+	go func() {
+		defer wg.Done()
+		_, _ = io.Copy(sess, os.Stdin)
+	}()
 
 	type readResult struct {
 		data []byte
@@ -133,6 +140,7 @@ func runWithSession(ctx context.Context, runner ports.CommandRunner, aptArgs []s
 	}
 	resultCh := make(chan readResult, 100)
 	go func() {
+		defer wg.Done()
 		defer func() {
 			if r := recover(); r != nil {
 				resultCh <- readResult{err: fmt.Errorf("pty read panic: %v", r)}
@@ -216,6 +224,7 @@ mainLoop:
 
 	signal.Stop(sigCh)
 	close(sigCh)
+	wg.Wait()
 
 	if err := sess.Wait(); err != nil {
 		var exitErr *exec.ExitError

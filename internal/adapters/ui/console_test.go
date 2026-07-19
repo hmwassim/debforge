@@ -47,6 +47,7 @@ func TestConsoleUI_Prompt_yesModeIgnoresSpinner(t *testing.T) {
 func TestConsoleUI_Spinner(t *testing.T) {
 	u := NewConsoleUI(nil)
 	s := u.Spinner(context.Background(), "testing")
+	defer s.Stop()
 	if s == nil {
 		t.Fatal("Spinner should not return nil")
 	}
@@ -98,7 +99,8 @@ func TestConsoleUI_Error(t *testing.T) {
 func TestConsoleUI_InfoWithSpinner(t *testing.T) {
 	var buf bytes.Buffer
 	u := NewConsoleUI(nil)
-	u.Spinner(context.Background(), "working")
+	s := u.Spinner(context.Background(), "working")
+	defer s.Stop()
 	out := captureStderr(t, func() {
 		u.Info("message")
 	})
@@ -163,7 +165,8 @@ func TestConsoleUI_Prompt_nonYesWithSpinner(t *testing.T) {
 
 	out := captureStderr(t, func() {
 		u := NewConsoleUI(nil)
-		u.Spinner(context.Background(), "working")
+		s := u.Spinner(context.Background(), "working")
+		defer s.Stop()
 		if u.Prompt("continue?") {
 			t.Error("expected false for n")
 		}
@@ -202,7 +205,8 @@ func TestConsoleUI_withSpinnerPaused_noSpinner(t *testing.T) {
 func TestConsoleUI_withSpinnerPaused_withSpinner(t *testing.T) {
 	var buf bytes.Buffer
 	u := NewConsoleUI(nil)
-	u.Spinner(context.Background(), "working")
+	s := u.Spinner(context.Background(), "working")
+	defer s.Stop()
 	called := false
 	u.withSpinnerPaused(func() {
 		called = true

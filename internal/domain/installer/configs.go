@@ -272,18 +272,26 @@ var allowedConfigPrefixes = []string{
 	"/var/",
 }
 
+// checkPathTraversal returns an error if path contains ".." components.
+func checkPathTraversal(path string) error {
+	if strings.Contains(path, "..") {
+		return fmt.Errorf("path %q contains traversal component", path)
+	}
+	return nil
+}
+
 // ValidateConfigPath checks whether a config destination path falls
 // within an allowed directory prefix and contains no traversal
 // components. This prevents untrusted YAML definitions from writing to
 // arbitrary filesystem locations.
 func ValidateConfigPath(path string) error {
-	clean := filepath.Clean(path)
-	if clean == "" {
+	if path == "" {
 		return fmt.Errorf("config path is empty")
 	}
-	if strings.Contains(clean, "..") {
-		return fmt.Errorf("config path %q contains traversal component", path)
+	if err := checkPathTraversal(path); err != nil {
+		return err
 	}
+	clean := filepath.Clean(path)
 	if !filepath.IsAbs(clean) {
 		return fmt.Errorf("config path %q is not absolute", path)
 	}
@@ -319,12 +327,12 @@ func ValidateRemovablePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("path is empty")
 	}
+	if err := checkPathTraversal(path); err != nil {
+		return err
+	}
 	clean := filepath.Clean(path)
 	if clean == "/" {
 		return fmt.Errorf("refusing to remove root directory")
-	}
-	if strings.Contains(clean, "..") {
-		return fmt.Errorf("path %q contains traversal component", path)
 	}
 	for _, d := range dangerousRoots {
 		if clean == d {

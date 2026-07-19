@@ -66,6 +66,36 @@ func TestSplitLines(t *testing.T) {
 	}
 }
 
+func TestSanitizeVersion(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"clean version", "1.2.3", "1.2.3"},
+		{"with hyphens", "1.2.3-beta1", "1.2.3-beta1"},
+		{"with underscores", "1.2.3_beta1", "1.2.3_beta1"},
+		{"with plus", "1.2.3+build1", "1.2.3+build1"},
+		{"shell injection $(cmd)", "$(rm -rf /)", "rm-rf"},
+		{"shell injection backtick", "`rm -rf /`", "rm-rf"},
+		{"shell injection semicolon", "1.0;rm -rf /", "1.0rm-rf"},
+		{"shell injection pipe", "1.0|cat /etc/passwd", "1.0catetcpasswd"},
+		{"shell injection ampersand", "1.0&malicious", "1.0malicious"},
+		{"shell injection dollar", "$HOME", "HOME"},
+		{"empty string", "", ""},
+		{"spaces stripped", "1.0 beta", "1.0beta"},
+		{"quotes stripped", `1.0"evil"`, "1.0evil"},
+		{"unicode stripped", "1.0β", "1.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SanitizeVersion(tt.in); got != tt.want {
+				t.Errorf("SanitizeVersion(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestExpandVersion(t *testing.T) {
 	cases := []struct{ template, version, want string }{
 		{"https://example.com/pkg_{version}.deb", "1.2.3", "https://example.com/pkg_1.2.3.deb"},
