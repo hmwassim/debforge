@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/domain/installer/version"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
@@ -113,10 +114,14 @@ func TestCheckVersion_runnerErrorPropagates(t *testing.T) {
 }
 
 func TestInstall_shortCircuitsWhenInstalledAndVersionUnchanged(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
+
+	old := version.VerifyClient()
+	version.SetVerifyClient(srv.Client())
+	defer func() { version.SetVerifyClient(old) }()
 
 	runner := &testutil.MockRunner{
 		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {

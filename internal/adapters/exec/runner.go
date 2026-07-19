@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -44,8 +45,9 @@ func (r *Runner) RunWithOptions(ctx context.Context, opts ports.RunOptions, name
 	if opts.Dir != "" {
 		cmd.Dir = opts.Dir
 	}
+	cmd.Env = CleanEnv()
 	if len(opts.Env) > 0 {
-		cmd.Env = append(os.Environ(), opts.Env...)
+		cmd.Env = append(cmd.Env, opts.Env...)
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
@@ -65,6 +67,50 @@ func (r *Runner) RunWithOptions(ctx context.Context, opts ports.RunOptions, name
 		r.logFn(name, args, stdoutBuf.Bytes(), stderrBuf.Bytes(), err)
 	}
 	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
+}
+
+// sensitiveEnvPrefixes lists environment variable prefixes that should
+// not be inherited by child processes to prevent credential leakage.
+var sensitiveEnvPrefixes = []string{
+	"SSH_", "GPG_", "AWS_", "AZURE_", "GOOGLE_",
+	"GITHUB_", "GITLAB_", "TOKEN", "SECRET", "PASSWORD",
+	"CREDENTIAL", "API_KEY", "PRIVATE_KEY",
+}
+
+// CleanEnv returns a minimal environment with PATH, HOME, USER, TERM,
+// and LANG/LC_* preserved, stripping sensitive variables like SSH keys,
+// cloud credentials, and tokens. This prevents credential leakage to
+// child processes (apt-get, git, go build) when running as root.
+func CleanEnv() []string {
+	env := os.Environ()
+	clean := make([]string, 0, len(env))
+	for _, e := range env {
+		key := strings.SplitN(e, "=", 2)[0]
+		// Always keep core variables
+		switch key {
+		case "PATH", "HOME", "USER", "TERM", "SHELL",
+			"LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES",
+			"DEBIAN_FRONTEND", "DEBCONF_NONINTERACTIVE",
+			"TMPDIR", "GOPATH", "GOMODCACHE", "GOCACHE",
+			"GOFLAGS", "GONOSUMCHECK", "GONOSUMDB", "GOPRIVATE":
+			// GOPATH/GOCACHE are kept for self-update builds;
+			// GOFLAGS/GONOSUMCHECK are intentionally kept so Go
+			// module behavior is not silently altered.
+			clean = append(clean, e)
+			continue
+		}
+		sensitive := false
+		for _, prefix := range sensitiveEnvPrefixes {
+			if strings.HasPrefix(key, prefix) || strings.Contains(key, prefix) {
+				sensitive = true
+				break
+			}
+		}
+		if !sensitive {
+			clean = append(clean, e)
+		}
+	}
+	return clean
 }
 
 var _ ports.CommandRunner = (*Runner)(nil)

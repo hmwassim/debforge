@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	execAdapter "github.com/hmwassim/debforge/internal/adapters/exec"
 	"github.com/hmwassim/debforge/internal/ports"
 	"golang.org/x/term"
 )
@@ -46,7 +47,7 @@ func (s *realPtySession) SetSize(rows, cols uint16) error {
 // variable so tests can inject a mock.
 var startPty ptyFactory = func(ctx context.Context, name string, args ...string) (ptySession, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "LANGUAGE=C")
+	cmd.Env = append(execAdapter.CleanEnv(), "LC_ALL=C", "LANG=C", "LANGUAGE=C")
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		return nil, err

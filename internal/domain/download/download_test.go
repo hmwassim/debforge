@@ -16,10 +16,10 @@ import (
 )
 
 func withTLSClient(ts *httptest.Server, fn func()) {
-	old := http.DefaultClient
-	http.DefaultClient = ts.Client()
+	old := httpClient
+	httpClient = ts.Client()
+	defer func() { httpClient = old }()
 	fn()
-	http.DefaultClient = old
 }
 
 func TestExpandURL(t *testing.T) {

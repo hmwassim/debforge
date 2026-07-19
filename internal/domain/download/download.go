@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/hmwassim/debforge/internal/httputil"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/textutil"
 )
@@ -20,6 +21,20 @@ import (
 // ExpandURL replaces {version} placeholders in url with the given version.
 func ExpandURL(url, version string) string {
 	return textutil.ExpandVersion(url, version)
+}
+
+// httpClient is the HTTP client used for downloads. Package-level var
+// so tests can swap it with httptest's client.
+var httpClient = httputil.NewClient()
+
+// SetHTTPClient overrides the default download client (for testing).
+func SetHTTPClient(c *http.Client) {
+	httpClient = c
+}
+
+// ResetHTTPClient restores the default hardened download client.
+func ResetHTTPClient() {
+	httpClient = httputil.NewClient()
 }
 
 type progressReader struct {
@@ -49,11 +64,15 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 // Download fetches a file from url over HTTPS, writes it to destPath,
 // optionally verifies its SHA-256 hash, and reports progress via spinner.
 func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, spinner ports.Spinner, sha256Hex string) (err error) {
+	if !httputil.IsHTTPS(url) {
+		return fmt.Errorf("download %q: only HTTPS URLs are supported", url)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -61,10 +80,6 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download %q: %s", url, resp.Status)
-	}
-
-	if resp.Request.URL.Scheme != "https" {
-		return fmt.Errorf("download %q: insecure connection (scheme=%q)", url, resp.Request.URL.Scheme)
 	}
 
 	total := resp.ContentLength
@@ -98,8 +113,13 @@ func Download(ctx context.Context, fs ports.FileSystem, url, destPath string, sp
 		}
 	}
 
-	if _, err := io.Copy(f, src); err != nil {
+	src = io.LimitReader(src, httputil.MaxDownloadSize+1)
+	n, err := io.Copy(f, src)
+	if err != nil {
 		return err
+	}
+	if n > httputil.MaxDownloadSize {
+		return fmt.Errorf("download %q: exceeds maximum size of %d bytes", url, httputil.MaxDownloadSize)
 	}
 	if total > 0 && spinner != nil {
 		cur := textutil.FormatSize(total)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/domain/installer/version"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
@@ -222,7 +223,7 @@ func TestCheckVersion_cacheHonorsPerPackageVerifyURL(t *testing.T) {
 		"a-2.0.0": true, "a-1.0.0": true,
 		"b-1.0.0": true,
 	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if existsFor[strings.TrimPrefix(r.URL.Path, "/")] {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -230,6 +231,10 @@ func TestCheckVersion_cacheHonorsPerPackageVerifyURL(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
+
+	old := version.VerifyClient()
+	version.SetVerifyClient(srv.Client())
+	defer func() { version.SetVerifyClient(old) }()
 
 	runner := &testutil.MockRunner{
 		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {

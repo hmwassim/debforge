@@ -46,9 +46,10 @@ func (f *FileSystem) MkdirTemp(pattern string) (string, error) {
 	return os.MkdirTemp("", pattern)
 }
 
-// Create creates or truncates the file at path and returns a WriteCloser.
+// Create creates or truncates the file at path with restrictive
+// permissions (0600) and returns a WriteCloser.
 func (f *FileSystem) Create(path string) (io.WriteCloser, error) {
-	return os.Create(path)
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 }
 
 // Stat returns a FileInfo describing the file at path.

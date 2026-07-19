@@ -96,6 +96,9 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 			return fmt.Errorf("get home directory: %w", err)
 		}
 		absPath := userdir.ExpandHome(path, homeDir)
+		if err := installer.ValidateUserConfigPath(absPath, homeDir); err != nil {
+			return err
+		}
 
 		action := installer.DecideConfigAction(i.fs, absPath, content, p.ConfigHashes[absPath], p.ForceInstall)
 		if action == installer.ConfigSkip || action == installer.ConfigConflict {
@@ -117,6 +120,13 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 				return fmt.Errorf("get home directory: %w", err)
 			}
 			absPath = userdir.ExpandHome(path, homeDir)
+			if err := installer.ValidateUserConfigPath(absPath, homeDir); err != nil {
+				return err
+			}
+		} else {
+			if err := installer.ValidateRemovablePath(absPath); err != nil {
+				return err
+			}
 		}
 		if err := i.fs.RemoveAll(absPath); err != nil {
 			return fmt.Errorf("remove config %s: %w", path, err)
@@ -125,6 +135,9 @@ func (i *Installer) Remove(ctx context.Context, p *pkg.Package, spinner ports.Sp
 
 	for path := range p.Configs {
 		spinner.SetDesc("removing config " + path)
+		if err := installer.ValidateRemovablePath(path); err != nil {
+			return err
+		}
 		content := p.Configs[path]
 		action := installer.DecideConfigAction(i.fs, path, content, p.ConfigHashes[path], p.ForceInstall)
 		if action == installer.ConfigSkip || action == installer.ConfigConflict {

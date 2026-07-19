@@ -143,7 +143,7 @@ func TestLatestTag_runnerError(t *testing.T) {
 func TestLatestTag_verifyURLSkipsMissingAssets(t *testing.T) {
 	// v2.0.0's asset 404s, v1.0.0's exists - LatestTag should fall back
 	// to the highest tag that actually has a downloadable asset.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/2.0.0.deb" { // tag v2.0.0 has its leading "v" stripped before substitution
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -151,6 +151,10 @@ func TestLatestTag_verifyURLSkipsMissingAssets(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
+
+	old := verifyClient
+	verifyClient = srv.Client()
+	defer func() { verifyClient = old }()
 
 	out := []byte("abc\trefs/tags/v1.0.0\ndef\trefs/tags/v2.0.0\n")
 	got, err := LatestTag(context.Background(), runnerReturning(out, nil), "https://github.com/o/p.git", "", srv.URL+"/{version}.deb")

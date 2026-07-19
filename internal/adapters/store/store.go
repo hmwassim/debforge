@@ -2,6 +2,8 @@
 package store
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -57,8 +59,13 @@ func (s *Store[T]) Save(v *T) error {
 	// Atomic write: write to a temp file on the same filesystem, then
 	// rename over the target. Rename is atomic on POSIX, so a crash
 	// mid-write leaves the original state intact rather than truncating it.
-	tmpPath := s.path + ".tmp"
-	if err := s.fs.WriteFile(tmpPath, data, 0644); err != nil {
+	// Random suffix prevents predictable temp file paths.
+	var randBuf [8]byte
+	if _, err := rand.Read(randBuf[:]); err != nil {
+		return err
+	}
+	tmpPath := s.path + ".tmp." + hex.EncodeToString(randBuf[:])
+	if err := s.fs.WriteFile(tmpPath, data, 0600); err != nil {
 		return err
 	}
 	return s.fs.Rename(tmpPath, s.path)

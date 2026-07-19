@@ -7,11 +7,25 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/httputil"
 	"github.com/hmwassim/debforge/internal/ports"
 )
+
+// verifyClient is the HTTP client used for version tag verification.
+// Package-level var so tests can swap it with httptest's client.
+var verifyClient = httputil.NewVerifyClient()
+
+// SetVerifyClient overrides the verify HTTP client (for testing).
+func SetVerifyClient(c *http.Client) {
+	verifyClient = c
+}
+
+// VerifyClient returns the current verify HTTP client (for testing).
+func VerifyClient() *http.Client {
+	return verifyClient
+}
 
 // RepoFromURL extracts a git repository URL from a release download URL for
 // well-known hosts (GitHub, GitLab). Returns ("", false) if the host is
@@ -113,18 +127,20 @@ func SelectTag(ctx context.Context, refs []string, repoURL, prefix, verifyURL st
 		return strings.TrimPrefix(tags[len(tags)-1], prefix), nil
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
 	var lastErr error
 	for i := len(tags) - 1; i >= 0; i-- {
 		v := strings.TrimPrefix(tags[i], prefix)
 		u := strings.ReplaceAll(verifyURL, "{version}", v)
+		if !httputil.IsHTTPS(u) {
+			continue
+		}
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
 		if err != nil {
 			lastErr = err
 			continue
 		}
-		resp, err := client.Do(req)
+		resp, err := verifyClient.Do(req)
 		if err != nil {
 			lastErr = err
 			continue

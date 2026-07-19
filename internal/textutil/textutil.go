@@ -35,8 +35,24 @@ func UcFirst(s string) string {
 }
 
 // ExpandVersion replaces "{version}" in template with version.
+// The version string is sanitized to prevent shell injection via
+// string interpolation into scripts.
 func ExpandVersion(template, version string) string {
-	return strings.ReplaceAll(template, "{version}", version)
+	return strings.ReplaceAll(template, "{version}", SanitizeVersion(version))
+}
+
+// SanitizeVersion strips shell-unsafe characters from a version string,
+// allowing only alphanumeric characters, dots, hyphens, underscores,
+// and plus signs. This prevents command injection when version strings
+// are interpolated into shell scripts via {version} placeholders.
+func SanitizeVersion(v string) string {
+	return strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_' || r == '+' {
+			return r
+		}
+		return -1
+	}, v)
 }
 
 // Sha256Hex returns the hex-encoded SHA-256 hash of data.
