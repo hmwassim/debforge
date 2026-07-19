@@ -42,7 +42,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo, h.pkgList)
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo)
 	if err := svc.SelectVariants(ctx, names, forceMode); err != nil {
 		u.Error("variant selection failed: %s", err)
 		return 1
@@ -69,7 +69,7 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
-	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo, h.pkgList)
+	svc := service.NewInstallService(h.reg, h.instReg, service.NewResolver(h.reg), h.stateSvc, h.locker, h.cfg.LockPath, h.runner, h.fsys, h.sys, h.aptUpd, h.extrepo)
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
 			return err

@@ -31,7 +31,6 @@ type baseService struct {
 	sys      ports.System
 	aptUpdate  ports.AptUpdater
 	extrepo    ports.ExtrepoManager
-	pkgLister  ports.PackageLister
 }
 
 // InstallService orchestrates the installation of one or more packages
@@ -55,13 +54,12 @@ func NewInstallService(
 	sys ports.System,
 	aptUpdate ports.AptUpdater,
 	extrepo ports.ExtrepoManager,
-	pkgLister ports.PackageLister,
 ) *InstallService {
 	return &InstallService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: state, locker: locker,
 			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
-			aptUpdate: aptUpdate, extrepo: extrepo, pkgLister: pkgLister,
+			aptUpdate: aptUpdate, extrepo: extrepo,
 		},
 		resolver: resolver,
 		execApt:  aptpty.AptExec,

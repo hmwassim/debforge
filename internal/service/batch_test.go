@@ -95,7 +95,6 @@ func TestFlushAptBatch_aptGetFailureCallsAbort(t *testing.T) {
 			fs:      testutil.NewMockFileSystem(),
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt: func(_ context.Context, _ ports.CommandRunner, _ []string, _ ports.Spinner) error {
@@ -161,7 +160,6 @@ func TestFlushAptBatch_partialFinalizeErrorContinues(t *testing.T) {
 			fs:      testutil.NewMockFileSystem(),
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -218,7 +216,6 @@ func TestProcessOne_batchAptPackages(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -276,7 +273,6 @@ func TestProcessOne_batchBrokenBySource(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -320,7 +316,6 @@ func TestProcessOne_batchSkippedPackage(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -375,7 +370,6 @@ func TestProcessAll_skipsExtrepoWhenAlreadyInstalled(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -439,7 +433,6 @@ func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
 			fs:      mockFs,
 			aptUpdate:  &testAptUpdater{runner: runner},
 			extrepo:    &testExtrepoManager{runner: runner, fs: mockFs},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -498,7 +491,6 @@ func TestEnableAllExtrepos_collectsAndEnables(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  &testAptUpdater{runner: runner},
 			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -559,7 +551,6 @@ func TestEnableAllExtrepos_deduplicates(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  &testAptUpdater{runner: runner},
 			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -606,7 +597,6 @@ func TestEnableAllExtrepos_noRepos(t *testing.T) {
 			runner: runner,
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -648,7 +638,6 @@ func TestEnableAllExtrepos_skipsAlreadyEnabled(t *testing.T) {
 			fs:     fs,
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -699,7 +688,6 @@ func TestEnableAllExtrepos_enablesDisabledRepo(t *testing.T) {
 			fs:     fs,
 			aptUpdate:  &testAptUpdater{runner: runner},
 			extrepo:    &testExtrepoManager{runner: runner, fs: fs},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -755,7 +743,6 @@ func TestEnableAllExtrepos_enablesWhenNoFile(t *testing.T) {
 			fs:     testutil.NewMockFileSystem(),
 			aptUpdate:  &testAptUpdater{runner: runner},
 			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
-			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}

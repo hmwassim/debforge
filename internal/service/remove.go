@@ -15,6 +15,7 @@ import (
 // orphan cleanup and state persistence.
 type RemoveService struct {
 	baseService
+	pkgLister ports.PackageLister
 }
 
 // NewRemoveService returns a new RemoveService.
@@ -35,8 +36,9 @@ func NewRemoveService(
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: state, locker: locker,
 			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
-			aptUpdate: aptUpdate, extrepo: extrepo, pkgLister: pkgLister,
+			aptUpdate: aptUpdate, extrepo: extrepo,
 		},
+		pkgLister: pkgLister,
 	}
 }
 

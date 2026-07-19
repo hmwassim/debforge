@@ -44,7 +44,7 @@ func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder, func()
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
 		resolver:    NewResolver(reg),
 	}
 
