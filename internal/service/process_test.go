@@ -6,6 +6,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
@@ -27,7 +28,7 @@ func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder, func()) 
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -128,7 +129,7 @@ func setupDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 

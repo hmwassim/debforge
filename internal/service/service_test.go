@@ -6,6 +6,7 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 // Constructor tests
@@ -16,7 +17,7 @@ func TestNewInstallService(t *testing.T) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 	defer cleanup()
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil, nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil, nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}
@@ -28,7 +29,7 @@ func TestNewRemoveService(t *testing.T) {
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 	defer cleanup()
 
-	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil, nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil, nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}

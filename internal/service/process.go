@@ -159,17 +159,22 @@ func (s *InstallService) alreadySatisfied(ctx context.Context, name string, st *
 
 // depResult holds the outcome of processing a single dependency.
 type depResult struct {
-	didWork  bool
-	batchAdd bool
-	entry    batchEntry
-	aptPkgs  []string
-	debPaths []string
+	didWork    bool
+	batchAdd   bool
+	needsFlush bool // non-batch installer encountered; flush pending batch first
+	entry      batchEntry
+	aptPkgs    []string
+	debPaths   []string
 }
 
 // processDep processes a single dependency through the install pipeline:
 // restore state, check skip conditions, then dispatch to the appropriate
 // installer. Returns the result, which may include batch entries to collect.
-func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb, pastTense string, rerun, force bool, st *State, spinner ports.Spinner, sessionProcessed map[string]bool) (depResult, error) {
+//
+// When pending is true and the dependency requires a non-batch installer,
+// processDep returns needsFlush=true without performing the install. The
+// caller must flush the batch first, then call processDep again.
+func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb, pastTense string, rerun, force, pending bool, st *State, spinner ports.Spinner, sessionProcessed map[string]bool) (depResult, error) {
 	if force {
 		dep.ForceInstall = true
 	}
@@ -222,6 +227,9 @@ func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb,
 
 	bi, ok := inst.(installer.BatchInstaller)
 	if !ok {
+		if pending {
+			return depResult{needsFlush: true}, nil
+		}
 		if err := inst.Install(ctx, dep, spinner); err != nil {
 			return depResult{}, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
 		}
@@ -295,9 +303,22 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 			continue
 		}
 
-		result, err := s.processDep(ctx, dep, verb, pastTense, rerun, force, st, spinner, sessionProcessed)
+		result, err := s.processDep(ctx, dep, verb, pastTense, rerun, force, batch.hasWork(), st, spinner, sessionProcessed)
 		if err != nil {
 			return false, err
+		}
+		if result.needsFlush {
+			bw, err := s.flushAptBatch(ctx, &batch, st, spinner, verb, pastTense)
+			if err != nil {
+				return false, err
+			}
+			if bw {
+				didWork = true
+			}
+			result, err = s.processDep(ctx, dep, verb, pastTense, rerun, force, false, st, spinner, sessionProcessed)
+			if err != nil {
+				return false, err
+			}
 		}
 		if result.batchAdd {
 			if len(result.aptPkgs) > 0 {

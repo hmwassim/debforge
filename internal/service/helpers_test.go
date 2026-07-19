@@ -130,24 +130,6 @@ func newStateManagerForTest(t *testing.T) (*StateManager, string, func()) {
 	return stateSvc, tmpFile.Name(), func() { os.Remove(tmpFile.Name()) }
 }
 
-// nopAptUpdater is a no-op apt updater for tests.
-type nopAptUpdater struct{}
-
-func (nopAptUpdater) RunUpdate(_ context.Context, _ ports.Spinner) error { return nil }
-
-// nopExtrepoManager is a no-op extrepo manager for tests.
-type nopExtrepoManager struct{}
-
-func (nopExtrepoManager) NeedsEnable(_ context.Context, _ string) (bool, error) { return false, nil }
-func (nopExtrepoManager) Enable(_ context.Context, _ string, _ ports.Spinner) error { return nil }
-
-// nopPackageLister is a no-op package lister for tests.
-type nopPackageLister struct{}
-
-func (nopPackageLister) ListInstalled(_ context.Context) (map[string]bool, error) {
-	return make(map[string]bool), nil
-}
-
 // testExtrepoManager delegates to the real extrepo package using the runner and fs.
 type testExtrepoManager struct {
 	runner ports.CommandRunner

@@ -29,7 +29,7 @@ func TestSelectVariants_noVariantsSkips(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -56,7 +56,7 @@ func TestSelectVariants_appliesVariant(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -95,7 +95,7 @@ func TestSelectVariants_skipsWhenInStateAndNotForce(t *testing.T) {
 	}
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -117,7 +117,7 @@ func TestSelectVariants_loadError(t *testing.T) {
 	}
 
 	svc := &InstallService{
-		baseService: baseService{state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 	}
 
 	err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false)
@@ -134,9 +134,9 @@ func TestSelectVariants_lookupError(t *testing.T) {
 		baseService: baseService{
 			reg:   pkg.NewRegistry(),
 			state: stateSvc,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(pkg.NewRegistry()),
 	}
@@ -163,9 +163,9 @@ func TestSelectVariants_resolveError(t *testing.T) {
 		baseService: baseService{
 			reg:   reg,
 			state: stateSvc,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -192,9 +192,9 @@ func TestSelectVariants_lookupInstallerError(t *testing.T) {
 			reg:     reg,
 			instReg: installer.NewRegistry(),
 			state:   stateSvc,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -222,9 +222,9 @@ func TestSelectVariants_notAVariantSelector(t *testing.T) {
 	svc := &InstallService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -251,9 +251,9 @@ func TestSelectVariants_selectError(t *testing.T) {
 	svc := &InstallService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -285,9 +285,9 @@ func TestProcessOne_rerunBypassesInstalledCheck(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			fs: testutil.NewMockFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -326,7 +326,7 @@ func TestProcessOne_skipVariantDoesNothing(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -366,9 +366,9 @@ func TestProcessOne_alreadyInstalledReturnsFalse(t *testing.T) {
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{},
 			fs:     testutil.NewMockFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -411,9 +411,9 @@ func TestProcessOne_installedButRemovedReinstalls(t *testing.T) {
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &nopRunner{},
 			fs:     testutil.NewMockFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 		resolver: NewResolver(reg),
 	}
@@ -446,7 +446,7 @@ func TestProcessAll_emptyNames(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -468,7 +468,7 @@ func TestProcessAll_unknownName(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 
@@ -501,7 +501,7 @@ func TestCheckInstalled_runnerError(t *testing.T) {
 	p := &pkg.Package{Name: "test-pkg", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}}
 	st := &State{Packages: map[string]PkgEntry{"test-pkg": {Type: "apt"}}}
 
-	svc := &baseService{state: stateSvc, runner: runner, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}
+	svc := &baseService{state: stateSvc, runner: runner, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}
 	_, err := svc.checkInstalled(ctx, st, "test-pkg", p, &mockSpinner{})
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
@@ -529,7 +529,7 @@ func TestProcessAll_workDoneMultiple(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -571,7 +571,7 @@ func TestProcessAll_nothingToDoMultiple(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -610,7 +610,7 @@ func TestProcessAll_nothingToDoMultipleUpdate(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -648,7 +648,7 @@ func TestInstallServiceRun_success(t *testing.T) {
 	runner := &nopRunner{}
 	mfs := testutil.NewMockFileSystem()
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath, runner, mfs, nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath, runner, mfs, nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 
 	ctx := context.Background()
 	spinner := &mockSpinner{}
@@ -675,7 +675,7 @@ func TestInstallServiceRun_loadError(t *testing.T) {
 		pkg.NewRegistry(), installer.NewRegistry(), NewResolver(pkg.NewRegistry()),
 		stateSvc, &testutil.MockLocker{}, filepath.Join(t.TempDir(), "lock"),
 		&nopRunner{}, testutil.NewMockFileSystem(), nil,
-		nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{},
+		testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{},
 	)
 
 	err := svc.Run(context.Background(), []string{"test-pkg"}, false, &mockSpinner{})

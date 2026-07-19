@@ -8,6 +8,7 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
 	"github.com/hmwassim/debforge/internal/service"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 // mockInstaller is a trivial installer.Installer test double.
@@ -48,21 +49,6 @@ func (m *mockCmdRunner) RunWithOptions(ctx context.Context, _ ports.RunOptions, 
 
 var _ ports.CommandRunner = (*mockCmdRunner)(nil)
 
-type nopAptUpdater struct{}
-
-func (nopAptUpdater) RunUpdate(_ context.Context, _ ports.Spinner) error { return nil }
-
-type nopExtrepoManager struct{}
-
-func (nopExtrepoManager) NeedsEnable(_ context.Context, _ string) (bool, error) { return false, nil }
-func (nopExtrepoManager) Enable(_ context.Context, _ string, _ ports.Spinner) error { return nil }
-
-type nopPackageLister struct{}
-
-func (nopPackageLister) ListInstalled(_ context.Context) (map[string]bool, error) {
-	return make(map[string]bool), nil
-}
-
 // newHandlerForTest constructs a commandHandler with the given dependencies,
 // skipping the real filesystem/definition loading that newHandler does.
 func newHandlerForTest(
@@ -78,7 +64,7 @@ func newHandlerForTest(
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
 		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
-		aptUpd: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgList: nopPackageLister{},
+		aptUpd: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgList: testutil.NopPackageLister{},
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 type failAfterRecorder struct {
@@ -53,7 +54,7 @@ func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
 	stateSvc, statePath, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}
@@ -124,7 +125,7 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 	defer cleanup()
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 	svc.runner = &nopRunner{}

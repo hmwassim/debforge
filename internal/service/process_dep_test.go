@@ -7,6 +7,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/fs"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/testutil"
 )
 
 // setupSharedDepTest creates a service with three packages:
@@ -43,7 +44,7 @@ func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder, func()
 	stateSvc, _, cleanup := newStateManagerForTest(t)
 
 	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 		resolver:    NewResolver(reg),
 	}
 

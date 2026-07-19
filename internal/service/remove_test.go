@@ -42,9 +42,9 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: runner, fs: fs.NewFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 	}
 
@@ -152,8 +152,8 @@ func TestRemoveOne_removesTransitiveDependents(t *testing.T) {
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}},
 			fs:     fs.NewFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
 			pkgLister:  &testPackageLister{runner: &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}}},
 		},
 	}
@@ -269,9 +269,9 @@ func TestRemoveOrphaned_listInstalledError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: failRunner,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 	}
 
@@ -309,7 +309,7 @@ func TestRemoveServiceRun_multipleSuccess(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &successRunner{}, testutil.NewMockFileSystem(), nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &successRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"pkg-a": {Type: "apt"},
@@ -350,7 +350,7 @@ func TestRemoveServiceRun_success(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &successRunner{}, testutil.NewMockFileSystem(), nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &successRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -390,7 +390,7 @@ func TestRemoveServiceRun_notInstalled(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &nopRunner{}, testutil.NewMockFileSystem(), nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &nopRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -419,7 +419,7 @@ func TestRemoveServiceRun_error(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &nopRunner{}, testutil.NewMockFileSystem(), nil, nopAptUpdater{}, nopExtrepoManager{}, nopPackageLister{})
+	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &nopRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 
 	ctx := context.Background()
 	spinner := &mockSpinner{}
@@ -442,7 +442,7 @@ func TestRemoveOne_lookupPackageError(t *testing.T) {
 	defer cleanup()
 
 	svc := &RemoveService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 	}
 
 	st := &State{Packages: map[string]PkgEntry{}}
@@ -475,9 +475,9 @@ func TestRemoveOne_lookupInstallerError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{}, fs: testutil.NewMockFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 	}
 
@@ -514,9 +514,9 @@ func TestRemoveOne_removeError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{}, fs: testutil.NewMockFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 	}
 
@@ -596,7 +596,7 @@ func TestExtrepoNeeded(t *testing.T) {
 	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}})
 	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-2"}}})
 
-	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
 
 	if !svc.extrepoNeeded(context.Background(), "repo-2", "pkg-a", st) {
@@ -612,7 +612,7 @@ func TestExtrepoNeeded_notNeeded(t *testing.T) {
 	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}})
 	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt})
 
-	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
 
 	if svc.extrepoNeeded(context.Background(), "repo-1", "pkg-a", st) {
@@ -637,7 +637,7 @@ func TestDisableOrphanedExtrepos(t *testing.T) {
 		},
 	}
 
-	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1", "repo-2"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}, "pkg-b": {}}}
 
@@ -671,7 +671,7 @@ func TestDisableOrphanedExtrepos_error(t *testing.T) {
 		},
 	}
 
-	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}}}
 
@@ -713,9 +713,9 @@ func TestRemoveOne_saveStateError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{}, fs: testutil.NewMockFileSystem(),
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 	}
 
@@ -760,8 +760,8 @@ func TestRemoveOrphaned_removesOrphan(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: runner,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
 			pkgLister:  &testPackageLister{runner: runner},
 		},
 	}
@@ -792,7 +792,7 @@ func TestRemoveDependents_unknownPackageInState(t *testing.T) {
 	defer cleanup()
 
 	svc := &RemoveService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}},
+		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}},
 	}
 
 	st := &State{Packages: map[string]PkgEntry{
@@ -821,9 +821,9 @@ func TestRemoveOrphaned_unknownPackageInState(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: runner,
-			aptUpdate:  nopAptUpdater{},
-			extrepo:    nopExtrepoManager{},
-			pkgLister:  nopPackageLister{},
+			aptUpdate:  testutil.NopAptUpdater{},
+			extrepo:    testutil.NopExtrepoManager{},
+			pkgLister:  testutil.NopPackageLister{},
 		},
 	}
 
@@ -847,7 +847,7 @@ func TestExtrepoNeeded_noAptConfig(t *testing.T) {
 		Type: pkg.TypeDeb,
 	})
 
-	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 	st := &State{Packages: map[string]PkgEntry{
 		"pkg-a": {},
 		"pkg-b": {},
@@ -879,7 +879,7 @@ func TestDisableOrphanedExtrepos_runnerError(t *testing.T) {
 		},
 	}
 
-	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, runner: runner, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}}}
 
@@ -948,7 +948,7 @@ func TestAffectedDependents(t *testing.T) {
 		Depends: []string{"scx-scheds", "scx-tools"},
 	})
 
-	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+	svc := &RemoveService{baseService: baseService{reg: reg, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 
 	t.Run("root removal returns transitive dependents", func(t *testing.T) {
 		st := &State{Packages: map[string]PkgEntry{
@@ -990,7 +990,7 @@ func TestAffectedDependents(t *testing.T) {
 
 	t.Run("unknown package in state is skipped", func(t *testing.T) {
 		emptyReg := pkg.NewRegistry()
-		svc := &RemoveService{baseService: baseService{reg: emptyReg, aptUpdate: nopAptUpdater{}, extrepo: nopExtrepoManager{}, pkgLister: nopPackageLister{}}}
+		svc := &RemoveService{baseService: baseService{reg: emptyReg, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgLister: testutil.NopPackageLister{}}}
 		st := &State{Packages: map[string]PkgEntry{
 			"unknown": {Type: "deb"},
 		}}
