@@ -11,6 +11,7 @@ import "testing"
 // itself a real dpkg package) could never be recognized as installed.
 
 func TestPrimarySystemPackage_prefersDebPackage(t *testing.T) {
+	t.Parallel()
 	p := &Package{
 		Name:     "my-deb-pkg",
 		Packages: []string{"some-other-name"},
@@ -22,6 +23,7 @@ func TestPrimarySystemPackage_prefersDebPackage(t *testing.T) {
 }
 
 func TestPrimarySystemPackage_fallsBackToFirstPackage(t *testing.T) {
+	t.Parallel()
 	p := &Package{Name: "wine", Packages: []string{"wine", "wine32", "wine64"}}
 	if got := p.PrimarySystemPackage(); got != "wine" {
 		t.Errorf("got %q, want %q", got, "wine")
@@ -29,6 +31,7 @@ func TestPrimarySystemPackage_fallsBackToFirstPackage(t *testing.T) {
 }
 
 func TestPrimarySystemPackage_fallsBackToName(t *testing.T) {
+	t.Parallel()
 	p := &Package{Name: "firefox"}
 	if got := p.PrimarySystemPackage(); got != "firefox" {
 		t.Errorf("got %q, want %q", got, "firefox")
@@ -36,6 +39,7 @@ func TestPrimarySystemPackage_fallsBackToName(t *testing.T) {
 }
 
 func TestPrimarySystemPackage_emptyDebPackageFallsThrough(t *testing.T) {
+	t.Parallel()
 	p := &Package{Name: "x", Packages: []string{"x-real"}, Deb: &DebConfig{Package: ""}}
 	if got := p.PrimarySystemPackage(); got != "x-real" {
 		t.Errorf("expected empty Deb.Package to fall through to Packages[0], got %q", got)
@@ -50,6 +54,7 @@ func TestPrimarySystemPackage_emptyDebPackageFallsThrough(t *testing.T) {
 // package's install mutate every other install's shared template.
 
 func TestClone_mutatingSlicesDoesNotAffectOriginal(t *testing.T) {
+	t.Parallel()
 	orig := &Package{
 		Name:     "p",
 		Depends:  []string{"a", "b"},
@@ -73,6 +78,7 @@ func TestClone_mutatingSlicesDoesNotAffectOriginal(t *testing.T) {
 }
 
 func TestClone_mutatingMapsDoesNotAffectOriginal(t *testing.T) {
+	t.Parallel()
 	orig := &Package{
 		Name:    "p",
 		Configs: map[string]string{"/etc/x.conf": "content"},
@@ -90,6 +96,7 @@ func TestClone_mutatingMapsDoesNotAffectOriginal(t *testing.T) {
 }
 
 func TestClone_mutatingAptVariantDoesNotAffectOriginal(t *testing.T) {
+	t.Parallel()
 	orig := &Package{
 		Name: "wine",
 		Apt: &AptConfig{
@@ -114,6 +121,7 @@ func TestClone_mutatingAptVariantDoesNotAffectOriginal(t *testing.T) {
 }
 
 func TestClone_nilSubConfigsStayNil(t *testing.T) {
+	t.Parallel()
 	orig := &Package{Name: "p"}
 	clone := orig.Clone()
 	if clone.Apt != nil || clone.Deb != nil || clone.Source != nil {
@@ -122,6 +130,7 @@ func TestClone_nilSubConfigsStayNil(t *testing.T) {
 }
 
 func TestClone_runtimeFlagsAreCopiedButIndependentGoingForward(t *testing.T) {
+	t.Parallel()
 	orig := &Package{Name: "p", ForceInstall: true, SkipRepoSetup: false}
 	clone := orig.Clone()
 	if !clone.ForceInstall {
@@ -136,6 +145,7 @@ func TestClone_runtimeFlagsAreCopiedButIndependentGoingForward(t *testing.T) {
 // ---- Registry -------------------------------------------------------------
 
 func TestPkgRegistry_registerIndexesByName(t *testing.T) {
+	t.Parallel()
 	r := NewRegistry()
 	r.Register(&Package{Name: "firefox"})
 

@@ -21,6 +21,7 @@ func (walkErrorFS) Walk(_ string, _ func(string, ports.FileInfo, error) error) e
 }
 
 func TestLoadAll_dirNotExist(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	reg := pkg.NewRegistry()
 	err := LoadAll("/nonexistent", fs, reg)
@@ -30,6 +31,7 @@ func TestLoadAll_dirNotExist(t *testing.T) {
 }
 
 func TestLoadAll_loadsYAMLFiles(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "pkg-a.yaml"), []byte(`
 name: pkg-a
@@ -68,6 +70,7 @@ install:
 }
 
 func TestLoadAll_badYAML(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte(`{{{`), 0644); err != nil {
 		t.Fatal(err)
@@ -80,6 +83,7 @@ func TestLoadAll_badYAML(t *testing.T) {
 }
 
 func TestLoadAll_walkError(t *testing.T) {
+	t.Parallel()
 	base := testutil.NewMockFileSystem()
 	base.Files["/mydir"] = nil
 	base.ExistsFunc = func(_ string) (bool, error) { return true, nil }
@@ -92,6 +96,7 @@ func TestLoadAll_walkError(t *testing.T) {
 }
 
 func TestLoadAll_dirExistsButEmpty(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	reg := pkg.NewRegistry()
 	err := LoadAll(dir, fs.NewFileSystem(), reg)

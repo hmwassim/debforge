@@ -9,6 +9,7 @@ import (
 )
 
 func TestFormatSearchOutput_withResults(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "pkg-a", Description: "Package A", Type: pkg.TypeApt})
 	reg.Register(&pkg.Package{Name: "pkg-b", Description: "Package B", Type: pkg.TypeApt})
@@ -27,6 +28,7 @@ func TestFormatSearchOutput_withResults(t *testing.T) {
 }
 
 func TestFormatSearchOutput_filtered(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "nvidia-driver", Description: "NVIDIA GPU driver", Type: pkg.TypeApt})
 	reg.Register(&pkg.Package{Name: "firefox", Description: "Web browser", Type: pkg.TypeApt})
@@ -42,6 +44,7 @@ func TestFormatSearchOutput_filtered(t *testing.T) {
 }
 
 func TestFormatSearchOutput_matchDescription(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "gpu-tools", Description: "Utilities for NVIDIA GPUs", Type: pkg.TypeApt})
 	reg.Register(&pkg.Package{Name: "cpu-tools", Description: "CPU utilities", Type: pkg.TypeApt})
@@ -57,6 +60,7 @@ func TestFormatSearchOutput_matchDescription(t *testing.T) {
 }
 
 func TestFormatSearchOutput_noResults(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt})
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
@@ -68,6 +72,7 @@ func TestFormatSearchOutput_noResults(t *testing.T) {
 }
 
 func TestFormatSearchOutput_emptyPatterns(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt})
 	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt})
@@ -80,6 +85,7 @@ func TestFormatSearchOutput_emptyPatterns(t *testing.T) {
 }
 
 func TestFormatSearchOutput_emptyRegistry(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 
@@ -90,6 +96,7 @@ func TestFormatSearchOutput_emptyRegistry(t *testing.T) {
 }
 
 func TestFormatSearchOutput_caseInsensitive(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "MyPkg", Description: "My custom package", Type: pkg.TypeApt})
 	reg.Register(&pkg.Package{Name: "other", Description: "something else", Type: pkg.TypeApt})
@@ -107,6 +114,7 @@ func TestFormatSearchOutput_caseInsensitive(t *testing.T) {
 }
 
 func TestFormatSearchOutput_multiplePatternsJoined(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "nvidia-driver", Description: "NVIDIA GPU driver", Type: pkg.TypeApt})
 	reg.Register(&pkg.Package{Name: "firefox", Description: "Web browser", Type: pkg.TypeApt})
@@ -122,6 +130,7 @@ func TestFormatSearchOutput_multiplePatternsJoined(t *testing.T) {
 }
 
 func TestFormatListCategories_withCategories(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
 	reg.Register(&pkg.Package{Name: "firefox", Category: "browsers", Description: "Firefox"})
@@ -142,6 +151,7 @@ func TestFormatListCategories_withCategories(t *testing.T) {
 }
 
 func TestFormatListCategories_fullyInstalled(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
 	reg.Register(&pkg.Package{Name: "lutris", Category: "gaming", Description: "Lutris"})
@@ -161,6 +171,7 @@ func TestFormatListCategories_fullyInstalled(t *testing.T) {
 }
 
 func TestFormatListCategories_empty(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 	out := FormatListCategories(reg, st)
@@ -170,6 +181,7 @@ func TestFormatListCategories_empty(t *testing.T) {
 }
 
 func TestFormatListCategory_existing(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam platform"})
 	reg.Register(&pkg.Package{Name: "lutris", Category: "gaming", Description: "Lutris"})
@@ -192,6 +204,7 @@ func TestFormatListCategory_existing(t *testing.T) {
 }
 
 func TestFormatListCategory_nonExisting(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "steam", Category: "gaming"})
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
@@ -202,6 +215,7 @@ func TestFormatListCategory_nonExisting(t *testing.T) {
 }
 
 func TestFormatListPackages_withCategories(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "steam", Category: "gaming", Description: "Steam"})
 	reg.Register(&pkg.Package{Name: "firefox", Category: "browsers", Description: "Firefox"})
@@ -223,6 +237,7 @@ func TestFormatListPackages_withCategories(t *testing.T) {
 }
 
 func TestSortedMapKeys(t *testing.T) {
+	t.Parallel()
 	m := map[string]string{"z": "1", "a": "2", "m": "3"}
 	keys := sortedMapKeys(m)
 	if len(keys) != 3 || keys[0] != "a" || keys[1] != "m" || keys[2] != "z" {
@@ -231,6 +246,7 @@ func TestSortedMapKeys(t *testing.T) {
 }
 
 func TestSortedMapKeys_empty(t *testing.T) {
+	t.Parallel()
 	keys := sortedMapKeys(nil)
 	if len(keys) != 0 {
 		t.Errorf("expected empty, got %v", keys)
@@ -238,6 +254,7 @@ func TestSortedMapKeys_empty(t *testing.T) {
 }
 
 func TestFormatListPackages_empty(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 	out := FormatListPackages(reg, st)

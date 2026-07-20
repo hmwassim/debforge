@@ -63,6 +63,7 @@ func (m *memFS) Walk(root string, fn func(path string, info ports.FileInfo, err 
 func (m *memFS) Chown(path string, uid, gid int) error { return nil }
 
 func TestContainsNewline(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s    string
 		want bool
@@ -82,6 +83,7 @@ func TestContainsNewline(t *testing.T) {
 }
 
 func TestResolveConfigFiles_nil(t *testing.T) {
+	t.Parallel()
 	fs := &memFS{}
 	got, err := resolveConfigFiles(nil, fs, "/configs")
 	if err != nil {
@@ -93,6 +95,7 @@ func TestResolveConfigFiles_nil(t *testing.T) {
 }
 
 func TestResolveConfigFiles_inline(t *testing.T) {
+	t.Parallel()
 	fs := &memFS{}
 	raw := map[string]string{
 		"/etc/foo.conf": "inline content\nline2",
@@ -107,6 +110,7 @@ func TestResolveConfigFiles_inline(t *testing.T) {
 }
 
 func TestResolveConfigFiles_fileRef(t *testing.T) {
+	t.Parallel()
 	fs := &memFS{
 		files: map[string]*memFile{
 			"/configs/foo.conf": {content: "file content"},
@@ -125,6 +129,7 @@ func TestResolveConfigFiles_fileRef(t *testing.T) {
 }
 
 func TestResolveConfigFiles_missingFile(t *testing.T) {
+	t.Parallel()
 	fs := &memFS{}
 	raw := map[string]string{
 		"/etc/missing.conf": "does-not-exist",
@@ -136,6 +141,7 @@ func TestResolveConfigFiles_missingFile(t *testing.T) {
 }
 
 func TestResolveConfigFiles_emptyValue(t *testing.T) {
+	t.Parallel()
 	fs := &memFS{}
 	raw := map[string]string{
 		"/etc/foo.conf": "",
@@ -150,6 +156,7 @@ func TestResolveConfigFiles_emptyValue(t *testing.T) {
 }
 
 func TestResolveConfigFiles_mixed(t *testing.T) {
+	t.Parallel()
 	fs := &memFS{
 		files: map[string]*memFile{
 			"/configs/bar.conf": {content: "bar content"},
@@ -172,6 +179,7 @@ func TestResolveConfigFiles_mixed(t *testing.T) {
 }
 
 func TestConfigsDirFromYAMLPath(t *testing.T) {
+	t.Parallel()
 	got := configsDirFromYAMLPath("/repo/packages/config/my-pkg.yaml", "my-pkg")
 	want := "/repo/configs/my-pkg"
 	if got != want {

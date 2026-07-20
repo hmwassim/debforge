@@ -5,10 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/hmwassim/debforge/internal/adapters/lock"
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
@@ -725,6 +730,77 @@ func TestProcessAll_cancelledContext(t *testing.T) {
 	err := svc.processAll(ctx, []string{"test-pkg"}, &pipelineCtx{st: st, spinner: &mockSpinner{}, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
+	}
+}
+
+// ---- concurrency tests -------------------------------------------------------
+
+// concurrencyInstaller tracks the max number of concurrent Install calls
+// so we can verify the file lock serializes concurrent Run invocations.
+type concurrencyInstaller struct {
+	maxConcurrent atomic.Int32
+	active        atomic.Int32
+}
+
+func (c *concurrencyInstaller) Install(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
+	cur := c.active.Add(1)
+	for {
+		old := c.maxConcurrent.Load()
+		if cur <= old || c.maxConcurrent.CompareAndSwap(old, cur) {
+			break
+		}
+	}
+	time.Sleep(50 * time.Millisecond)
+	c.active.Add(-1)
+	return nil
+}
+
+func (c *concurrencyInstaller) Remove(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
+	return nil
+}
+
+func TestInstallServiceRun_concurrentSerialization(t *testing.T) {
+	t.Parallel()
+
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}})
+	reg.Register(&pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}})
+
+	tracker := &concurrencyInstaller{}
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, tracker)
+
+	stateSvc, _ := newStateManagerForTest(t)
+	lockPath := filepath.Join(t.TempDir(), "lock")
+
+	svc := NewInstallService(Deps{
+		Reg: reg, InstReg: instReg, State: stateSvc,
+		Locker: &lock.FLock{}, LockPath: lockPath,
+		Runner: &nopRunner{}, Fs: testutil.NewMockFileSystem(),
+		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
+	}, NewResolver(reg))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	errs := make(chan error, 2)
+
+	for _, name := range []string{"pkg-a", "pkg-b"} {
+		go func(n string) {
+			defer wg.Done()
+			errs <- svc.Run(context.Background(), []string{n}, false, &mockSpinner{})
+		}(name)
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Errorf("Run returned error: %v", err)
+		}
+	}
+
+	if got := tracker.maxConcurrent.Load(); got > 1 {
+		t.Errorf("max concurrent Install calls = %d, want ≤ 1 — file lock is not serializing", got)
 	}
 }
 

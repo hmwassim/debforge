@@ -8,6 +8,7 @@ import (
 )
 
 func TestIsBlockedIP(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		ip   net.IP
@@ -38,6 +39,7 @@ func TestIsBlockedIP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := isBlockedIP(tt.ip); got != tt.want {
 				t.Errorf("isBlockedIP(%v) = %v, want %v", tt.ip, got, tt.want)
 			}
@@ -46,6 +48,7 @@ func TestIsBlockedIP(t *testing.T) {
 }
 
 func TestIsHTTPS(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		url  string
@@ -61,6 +64,7 @@ func TestIsHTTPS(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := IsHTTPS(tt.url); got != tt.want {
 				t.Errorf("IsHTTPS(%q) = %v, want %v", tt.url, got, tt.want)
 			}
@@ -69,6 +73,7 @@ func TestIsHTTPS(t *testing.T) {
 }
 
 func TestNewClient_redirectLimit(t *testing.T) {
+	t.Parallel()
 	c := NewClient()
 	if c.CheckRedirect == nil {
 		t.Fatal("CheckRedirect is nil")
@@ -84,6 +89,7 @@ func TestNewClient_redirectLimit(t *testing.T) {
 }
 
 func TestNewVerifyClient_redirectLimit(t *testing.T) {
+	t.Parallel()
 	c := NewVerifyClient()
 	if c.CheckRedirect == nil {
 		t.Fatal("CheckRedirect is nil")

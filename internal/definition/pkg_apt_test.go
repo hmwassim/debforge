@@ -5,6 +5,7 @@ import (
 )
 
 func TestParseApt_setsPrimary(t *testing.T) {
+	t.Parallel()
 	data := []byte(`
 name: gaming-meta
 type: apt
@@ -24,6 +25,7 @@ install:
 }
 
 func TestParseApt_noPrimaryWithoutPackages(t *testing.T) {
+	t.Parallel()
 	data := []byte(`
 name: custom-wine
 type: apt

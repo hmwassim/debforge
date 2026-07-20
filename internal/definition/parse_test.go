@@ -8,6 +8,7 @@ import (
 )
 
 func TestParse_apt(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/repo/packages/apt/test.yaml"] = []byte(`
 name: test-pkg
@@ -26,6 +27,7 @@ install:
 }
 
 func TestParse_deb(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/repo/packages/deb/test.yaml"] = []byte(`
 name: test-deb
@@ -44,6 +46,7 @@ install:
 }
 
 func TestParse_source(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/repo/packages/source/test.yaml"] = []byte(`
 name: test-source
@@ -61,6 +64,7 @@ install:
 }
 
 func TestParse_config(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	yamlPath := "/repo/packages/config/my-app.yaml"
 	fs.Files[yamlPath] = []byte(`
@@ -107,6 +111,7 @@ post_remove: echo cleanup
 }
 
 func TestParse_config_noRemoveConfigs(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	yamlPath := "/repo/packages/config/my-app.yaml"
 	fs.Files[yamlPath] = []byte(`
@@ -128,6 +133,7 @@ install:
 }
 
 func TestParse_config_missingFile(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/repo/packages/config/my-app.yaml"] = []byte(`
 name: my-app
@@ -143,6 +149,7 @@ install:
 }
 
 func TestParse_config_pathTraversal(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/repo/packages/config/my-app.yaml"] = []byte(`
 name: my-app
@@ -158,6 +165,7 @@ install:
 }
 
 func TestParse_readError(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	_, err := Parse("/nonexistent.yaml", fs)
 	if err == nil {
@@ -166,6 +174,7 @@ func TestParse_readError(t *testing.T) {
 }
 
 func TestParse_badYAML(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/bad.yaml"] = []byte(`{{{`)
 	_, err := Parse("/bad.yaml", fs)
@@ -175,6 +184,7 @@ func TestParse_badYAML(t *testing.T) {
 }
 
 func TestParse_missingName(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/noname.yaml"] = []byte(`
 type: apt
@@ -189,6 +199,7 @@ install:
 }
 
 func TestParse_unsupportedType(t *testing.T) {
+	t.Parallel()
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/unknown.yaml"] = []byte(`
 name: test

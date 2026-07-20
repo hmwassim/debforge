@@ -9,6 +9,7 @@ import (
 )
 
 func TestFormatInfoOutput_installed(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "firefox", Description: "Web browser", Type: pkg.TypeApt, Category: "browsers", Apt: &pkg.AptConfig{Extrepo: []string{"mozilla"}, Conflicts: []string{"firefox-esr"}}, Packages: []string{"firefox"}})
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{"firefox": {Version: "150.0.1"}}})
@@ -35,6 +36,7 @@ func TestFormatInfoOutput_installed(t *testing.T) {
 }
 
 func TestFormatInfoOutput_uninstalled(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "pfetch", Description: "Pretty fetch", Type: pkg.TypeSource, Category: "utils", Source: &pkg.SourceConfig{InstallScript: "cp pfetch /usr/local/bin\n"}})
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
@@ -52,6 +54,7 @@ func TestFormatInfoOutput_uninstalled(t *testing.T) {
 }
 
 func TestFormatInfoOutput_verboseConfig(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
 		Name:        "cfg-test",
@@ -72,6 +75,7 @@ func TestFormatInfoOutput_verboseConfig(t *testing.T) {
 }
 
 func TestFormatInfoOutput_verboseScripts(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
 		Name:        "script-pkg",
@@ -94,6 +98,7 @@ func TestFormatInfoOutput_verboseScripts(t *testing.T) {
 }
 
 func TestFormatInfoOutput_debType(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
 		Name: "vscodium", Description: "VS Code without MS branding",
@@ -113,6 +118,7 @@ func TestFormatInfoOutput_debType(t *testing.T) {
 }
 
 func TestFormatInfoOutput_dependsAndRemove(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
 		Name: "nvidia", Description: "NVIDIA drivers",
@@ -133,6 +139,7 @@ func TestFormatInfoOutput_dependsAndRemove(t *testing.T) {
 }
 
 func TestFormatInfoOutput_unknownPackage(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{}})
 	out := FormatInfoOutput(reg, st, "nonexistent", false)
@@ -142,6 +149,7 @@ func TestFormatInfoOutput_unknownPackage(t *testing.T) {
 }
 
 func TestFormatInfoOutput_unknownVersion(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{Name: "no-ver", Type: pkg.TypeApt, Category: "misc", Packages: []string{"pkg"}})
 	st := NewStateView(&service.State{Packages: map[string]service.PkgEntry{"no-ver": {}}})
@@ -153,6 +161,7 @@ func TestFormatInfoOutput_unknownVersion(t *testing.T) {
 }
 
 func TestPluralS(t *testing.T) {
+	t.Parallel()
 	if pluralS(1) != "" {
 		t.Error("expected '' for 1")
 	}
@@ -165,6 +174,7 @@ func TestPluralS(t *testing.T) {
 }
 
 func TestFormatInfoOutput_sourceScripts(t *testing.T) {
+	t.Parallel()
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
 		Name: "src-pkg", Type: pkg.TypeSource, Category: "utils",

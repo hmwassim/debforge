@@ -7,6 +7,7 @@ import (
 )
 
 func TestParseApt_noPackagesNoVariants(t *testing.T) {
+	t.Parallel()
 	_, err := parseApt("empty-apt", []byte(`
 name: empty-apt
 type: apt
@@ -18,6 +19,7 @@ install: {}
 }
 
 func TestParseApt_badYAML(t *testing.T) {
+	t.Parallel()
 	_, err := parseApt("bad", []byte(`{{{`))
 	if err == nil {
 		t.Fatal("expected YAML unmarshal error")
@@ -25,6 +27,7 @@ func TestParseApt_badYAML(t *testing.T) {
 }
 
 func TestParseApt_full(t *testing.T) {
+	t.Parallel()
 	data := []byte(`
 name: gaming-meta
 type: apt
@@ -107,6 +110,7 @@ post_remove: echo removed
 }
 
 func TestParseDeb_minimal(t *testing.T) {
+	t.Parallel()
 	p, err := parseDeb("my-deb", []byte(`
 name: my-deb
 type: deb
@@ -129,6 +133,7 @@ install:
 }
 
 func TestParseDeb_full(t *testing.T) {
+	t.Parallel()
 	data := []byte(`
 name: my-deb
 type: deb
@@ -200,6 +205,7 @@ post_remove: systemctl stop my-service
 }
 
 func TestParseDeb_badYAML(t *testing.T) {
+	t.Parallel()
 	_, err := parseDeb("bad", []byte(`{{{`))
 	if err == nil {
 		t.Fatal("expected YAML unmarshal error")
@@ -207,6 +213,7 @@ func TestParseDeb_badYAML(t *testing.T) {
 }
 
 func TestParseSource_minimal(t *testing.T) {
+	t.Parallel()
 	p, err := parseSource("my-source", []byte(`
 name: my-source
 type: source
@@ -228,6 +235,7 @@ install:
 }
 
 func TestParseSource_full(t *testing.T) {
+	t.Parallel()
 	data := []byte(`
 name: my-source
 type: source
@@ -310,6 +318,7 @@ remove:
 }
 
 func TestParseAptSource_badYAML(t *testing.T) {
+	t.Parallel()
 	_, err := parseSource("bad", []byte(`{{{`))
 	if err == nil {
 		t.Fatal("expected YAML unmarshal error")

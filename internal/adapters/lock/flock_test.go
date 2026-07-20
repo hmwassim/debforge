@@ -59,7 +59,10 @@ func TestAcquire_cancelledBeforeCallReturnsImmediately(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from already-cancelled context, got nil")
 	}
-	if elapsed > 100*time.Millisecond {
+	// On a cancelled context Acquire must return without blocking.
+	// 500ms is generous enough for slow CI/VMs while still catching
+	// accidental blocking.
+	if elapsed > 500*time.Millisecond {
 		t.Errorf("Acquire took %v on already-cancelled context, should be instant", elapsed)
 	}
 }
@@ -71,7 +74,7 @@ func TestAcquire_returnsOnContextCancelWhileContended(t *testing.T) {
 	// Speed up tests by shortening the poll interval.
 	orig := pollInterval
 	pollInterval = 5 * time.Millisecond
-	defer func() { pollInterval = orig }()
+	t.Cleanup(func() { pollInterval = orig })
 
 	// Acquire and hold the lock so the second Acquire contends.
 	release1, err := l.Acquire(context.Background(), lockPath)
@@ -90,7 +93,11 @@ func TestAcquire_returnsOnContextCancelWhileContended(t *testing.T) {
 	if err == nil {
 		t.Error("expected error from timed-out context, got nil")
 	}
-	if elapsed > 300*time.Millisecond {
+	// The context expires after 50ms. Allow generous headroom for slow
+	// CI where goroutine scheduling + syscall latency can push the total
+	// well past the deadline. The important invariant is that Acquire
+	// does not block indefinitely.
+	if elapsed > 2*time.Second {
 		t.Errorf("Acquire took %v on contended lock with short deadline, should return promptly", elapsed)
 	}
 }

@@ -3,6 +3,7 @@ package textutil
 import "testing"
 
 func TestFormatSize(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   int64
 		want string
@@ -26,6 +27,7 @@ func TestFormatSize(t *testing.T) {
 }
 
 func TestUcFirst(t *testing.T) {
+	t.Parallel()
 	cases := []struct{ in, want string }{
 		{"", ""},
 		{"hello", "Hello"},
@@ -41,6 +43,7 @@ func TestUcFirst(t *testing.T) {
 }
 
 func TestSplitLines(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want []string
@@ -89,6 +92,7 @@ func TestSanitizeVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := SanitizeVersion(tt.in); got != tt.want {
 				t.Errorf("SanitizeVersion(%q) = %q, want %q", tt.in, got, tt.want)
 			}
@@ -97,6 +101,7 @@ func TestSanitizeVersion(t *testing.T) {
 }
 
 func TestExpandVersion(t *testing.T) {
+	t.Parallel()
 	cases := []struct{ template, version, want string }{
 		{"https://example.com/pkg_{version}.deb", "1.2.3", "https://example.com/pkg_1.2.3.deb"},
 		{"no placeholder", "1.0", "no placeholder"},
