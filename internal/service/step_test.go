@@ -42,7 +42,7 @@ func TestProcessOne_checkInstalledError(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, false, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from CheckInstalled")
 	}
@@ -71,7 +71,7 @@ func TestProcessOne_resolveError(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from Resolve")
 	}
@@ -103,7 +103,7 @@ func TestProcessOne_lookupInstallerError(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from LookupInstaller")
 	}
@@ -136,7 +136,7 @@ func TestProcessOne_noSaveDuringExecution(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	didWork, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	didWork, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestProcessOne_depAlreadyInstalled(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	didWork, err := svc.processOne(ctx, "parent", false, false, st, spinner, "install", "installed", nil)
+	didWork, err := svc.processOne(ctx, "parent", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestProcessOne_depCheckInstalledError(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "parent", false, false, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "parent", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from dep CheckInstalled")
 	}
@@ -258,7 +258,7 @@ func TestProcessOne_alreadyUpToDate(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	didWork, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	didWork, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestProcessAll_partialFailurePersistsCompleted(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"root-a", "root-b"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"root-a", "root-b"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from processAll due to root-b failure")
 	}

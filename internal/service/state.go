@@ -102,8 +102,8 @@ func (m *StateManager) Remove(st *State, name string) {
 	st.mu.Unlock()
 }
 
-// lookupVariant returns the variant saved in state for name, or "".
-func lookupVariant(st *State, name string) string {
+// LookupVariant returns the variant saved in state for name, or "".
+func (m *StateManager) LookupVariant(st *State, name string) string {
 	st.mu.RLock()
 	entry, ok := st.Packages[name]
 	st.mu.RUnlock()
@@ -113,8 +113,8 @@ func lookupVariant(st *State, name string) string {
 	return ""
 }
 
-// has reports whether name is present in the state (read-locked).
-func has(st *State, name string) bool {
+// Has reports whether name is present in the state (read-locked).
+func (m *StateManager) Has(st *State, name string) bool {
 	st.mu.RLock()
 	_, ok := st.Packages[name]
 	st.mu.RUnlock()
@@ -137,9 +137,9 @@ func newPkgEntry(p *pkg.Package) PkgEntry {
 // applyVariant clones p and applies the variant recorded in st so that
 // subsequent install/remove/update operations target the right system
 // packages. Returns p unchanged when no variant is stored.
-func applyVariant(p *pkg.Package, st *State, name string) *pkg.Package {
+func (m *StateManager) applyVariant(p *pkg.Package, st *State, name string) *pkg.Package {
 	if p.Apt != nil {
-		if v := lookupVariant(st, name); v != "" {
+		if v := m.LookupVariant(st, name); v != "" {
 			p = p.Clone()
 			p.Apt.Variant = v
 		}

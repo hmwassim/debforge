@@ -42,7 +42,7 @@ func TestProcessOne_variant_firstInstall(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestProcessOne_variant_reinstall(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestProcessOne_variant_update(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "update", "updated", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "update", pastTense: "updated"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestProcessOne_variant_switching(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}

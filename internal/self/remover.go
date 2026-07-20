@@ -51,7 +51,11 @@ func NewRemover(
 		// + remove + state bookkeeping) instead of Remover re-implementing
 		// that loop by hand. lockPath is unused here since RemoveOne is
 		// called while Remove already holds the lock.
-		removeSvc: service.NewRemoveService(registry, instReg, stateSvc, locker, cfg.LockPath, runner, fs, sys, aptUpdate, extrepo, pkgLister),
+		removeSvc: service.NewRemoveService(service.Deps{
+			Reg: registry, InstReg: instReg, State: stateSvc, Locker: locker,
+			LockPath: cfg.LockPath, Runner: runner, Fs: fs, Sys: sys,
+			AptUpd: aptUpdate, Extrepo: extrepo,
+		}, pkgLister),
 	}
 }
 

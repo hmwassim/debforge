@@ -9,25 +9,31 @@ import (
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
+// pipelineCtx groups the mutable state threaded through the install/update
+// pipeline so that processAll, processOne, processDep, shouldSkip,
+// nonBatchInstall, and flushAptBatch no longer need long parameter lists.
+type pipelineCtx struct {
+	st               *State
+	spinner          ports.Spinner
+	sessionProcessed map[string]bool
+	rerun            bool
+	force            bool
+	verb             string
+	pastTense        string
+}
+
 // processAll installs or updates every named package and its transitive
-// dependencies.
-//
-// Parameters:
-//   - force: when true, ForceInstall is set on every package (root + deps).
-//     Each installer should skip its own version-up-to-date check when
-//     ForceInstall is true, guaranteeing the install pipeline runs.
-//   - rerun: when true, the system-installed check and the root-package
-//     early-return gate are bypassed, so every package reaches the installer.
-//     The installer may still short-circuit unless force is also true.
-func (s *InstallService) processAll(ctx context.Context, names []string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string) error {
-	sessionProcessed := make(map[string]bool)
+// dependencies. The pctx carries the force/rerun flags, the spinner, and the
+// session-scoped bookkeeping that processOne and processDep mutate.
+func (s *InstallService) processAll(ctx context.Context, names []string, pctx *pipelineCtx) error {
+	pctx.sessionProcessed = make(map[string]bool)
 
 	var namesNeedingWork []string
-	if rerun {
+	if pctx.rerun {
 		namesNeedingWork = names
 	} else {
 		for _, name := range names {
-			satisfied, err := s.alreadySatisfied(ctx, name, st)
+			satisfied, err := s.alreadySatisfied(ctx, name, pctx.st)
 			if err != nil {
 				return err
 			}
@@ -37,20 +43,20 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 		}
 	}
 
-	if err := s.enableAllExtrepos(ctx, namesNeedingWork, spinner); err != nil {
+	if err := s.enableAllExtrepos(ctx, namesNeedingWork, pctx.spinner); err != nil {
 		return err
 	}
 
 	workDone := false
 	for _, name := range names {
-		didWork, err := s.processOne(ctx, name, force, rerun, st, spinner, verb, pastTense, sessionProcessed)
+		didWork, err := s.processOne(ctx, name, pctx)
 		if err != nil {
 			// Persist whatever state was accumulated before the
 			// failure so partially-installed packages are not lost.
-			if saveErr := s.state.Save(st); saveErr != nil {
+			if saveErr := s.state.Save(pctx.st); saveErr != nil {
 				return fmt.Errorf("save state: %w", saveErr)
 			}
-			spinner.Fail()
+			pctx.spinner.Fail()
 			return err
 		}
 		if didWork {
@@ -60,24 +66,24 @@ func (s *InstallService) processAll(ctx context.Context, names []string, force, 
 
 	// Persist state once at the end instead of per-package. The in-memory
 	// st tracks all mutations; only the final write needs disk I/O.
-	if err := s.state.Save(st); err != nil {
+	if err := s.state.Save(pctx.st); err != nil {
 		return fmt.Errorf("save state: %w", err)
 	}
 
 	if workDone {
 		if len(names) > 1 {
-			spinner.SetDesc("Packages " + pastTense)
+			pctx.spinner.SetDesc("Packages " + pctx.pastTense)
 		}
-		spinner.Done()
+		pctx.spinner.Done()
 	} else {
 		if len(names) > 1 {
-			if verb == "update" {
-				spinner.SetDesc("All packages up to date")
+			if pctx.verb == "update" {
+				pctx.spinner.SetDesc("All packages up to date")
 			} else {
-				spinner.SetDesc("Packages already installed")
+				pctx.spinner.SetDesc("Packages already installed")
 			}
 		}
-		spinner.DoneInfo()
+		pctx.spinner.DoneInfo()
 	}
 	return nil
 }
@@ -160,38 +166,38 @@ func (s *InstallService) alreadySatisfied(ctx context.Context, name string, st *
 // shouldSkip reports whether dep can be skipped in the current pass.
 // When it returns true the caller should mark the dep as processed and
 // continue to the next dependency without installing.
-func (s *InstallService) shouldSkip(ctx context.Context, dep *pkg.Package, verb string, rerun, exists bool, st *State, spinner ports.Spinner, sessionProcessed map[string]bool) (skip bool, err error) {
+func (s *InstallService) shouldSkip(ctx context.Context, dep *pkg.Package, exists bool, pctx *pipelineCtx) (skip bool, err error) {
 	if dep.SkipUpdate && !dep.ForceInstall && exists {
 		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
 		if err != nil {
 			return false, err
 		}
 		if ok {
-			if verb == "update" {
-				spinner.SetDesc(dep.Name + " already up to date")
+			if pctx.verb == "update" {
+				pctx.spinner.SetDesc(dep.Name + " already up to date")
 			} else {
-				spinner.SetDesc(dep.Name + " already installed")
+				pctx.spinner.SetDesc(dep.Name + " already installed")
 			}
-			sessionProcessed[dep.Name] = true
+			pctx.sessionProcessed[dep.Name] = true
 			return true, nil
 		}
 	}
 
-	if !rerun && exists {
+	if !pctx.rerun && exists {
 		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
 		if err != nil {
 			return false, err
 		}
 		if ok {
-			spinner.SetDesc(dep.Name + " already installed")
-			sessionProcessed[dep.Name] = true
+			pctx.spinner.SetDesc(dep.Name + " already installed")
+			pctx.sessionProcessed[dep.Name] = true
 			return true, nil
 		}
 	}
 
 	if dep.Apt != nil && dep.Apt.Variant == "__skip__" {
-		spinner.SetDesc(dep.Name + " skipped")
-		sessionProcessed[dep.Name] = true
+		pctx.spinner.SetDesc(dep.Name + " skipped")
+		pctx.sessionProcessed[dep.Name] = true
 		return true, nil
 	}
 
@@ -200,16 +206,16 @@ func (s *InstallService) shouldSkip(ctx context.Context, dep *pkg.Package, verb 
 
 // nonBatchInstall runs a non-batch installer for dep, updates state, and
 // returns whether any work was performed.
-func (s *InstallService) nonBatchInstall(ctx context.Context, inst installer.Installer, dep *pkg.Package, verb, pastTense string, exists bool, oldVersion string, st *State, spinner ports.Spinner) (didWork bool, err error) {
-	if err := inst.Install(ctx, dep, spinner); err != nil {
-		return false, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+func (s *InstallService) nonBatchInstall(ctx context.Context, inst installer.Installer, dep *pkg.Package, exists bool, oldVersion string, pctx *pipelineCtx) (didWork bool, err error) {
+	if err := inst.Install(ctx, dep, pctx.spinner); err != nil {
+		return false, fmt.Errorf("%s %s: %w", pctx.verb, dep.Name, err)
 	}
 	workDone := dep.ForceInstall || !exists || dep.Version != oldVersion
 	if workDone {
-		s.state.Add(st, dep.Name, newPkgEntry(dep))
-		spinner.SetDesc(dep.Name + " " + pastTense)
+		s.state.Add(pctx.st, dep.Name, newPkgEntry(dep))
+		pctx.spinner.SetDesc(dep.Name + " " + pctx.pastTense)
 	} else {
-		spinner.SetDesc(dep.Name + " already up to date")
+		pctx.spinner.SetDesc(dep.Name + " already up to date")
 	}
 	return workDone, nil
 }
@@ -232,19 +238,19 @@ type depResult struct {
 // installer, processDep returns needsFlush=true without performing the
 // install. The caller must flush the batch first, then call processDep
 // again.
-func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb, pastTense string, rerun, force, hasPendingBatch bool, st *State, spinner ports.Spinner, sessionProcessed map[string]bool) (depResult, error) {
-	if force {
+func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, hasPendingBatch bool, pctx *pipelineCtx) (depResult, error) {
+	if pctx.force {
 		dep.ForceInstall = true
 	}
 
-	exists, oldVersion := s.restoreDepState(dep, st)
+	exists, oldVersion := s.restoreDepState(dep, pctx.st)
 
-	if verb == "update" {
+	if pctx.verb == "update" {
 		dep = dep.Clone()
 		dep.SkipRepoSetup = true
 	}
 
-	skip, err := s.shouldSkip(ctx, dep, verb, rerun, exists, st, spinner, sessionProcessed)
+	skip, err := s.shouldSkip(ctx, dep, exists, pctx)
 	if err != nil {
 		return depResult{}, err
 	}
@@ -261,20 +267,20 @@ func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb,
 		if hasPendingBatch {
 			return depResult{needsFlush: true}, nil
 		}
-		didWork, err := s.nonBatchInstall(ctx, inst, dep, verb, pastTense, exists, oldVersion, st, spinner)
+		didWork, err := s.nonBatchInstall(ctx, inst, dep, exists, oldVersion, pctx)
 		if err != nil {
 			return depResult{}, err
 		}
-		sessionProcessed[dep.Name] = true
+		pctx.sessionProcessed[dep.Name] = true
 		return depResult{didWork: didWork}, nil
 	}
 
-	args, err := bi.Prepare(ctx, dep, spinner)
+	args, err := bi.Prepare(ctx, dep, pctx.spinner)
 	if err != nil {
-		return depResult{}, fmt.Errorf("%s %s: %w", verb, dep.Name, err)
+		return depResult{}, fmt.Errorf("%s %s: %w", pctx.verb, dep.Name, err)
 	}
 	if args.Skipped {
-		sessionProcessed[dep.Name] = true
+		pctx.sessionProcessed[dep.Name] = true
 		return depResult{}, nil
 	}
 
@@ -284,7 +290,7 @@ func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb,
 		exists:     exists,
 		oldVersion: oldVersion,
 	}
-	sessionProcessed[dep.Name] = true
+	pctx.sessionProcessed[dep.Name] = true
 	return depResult{
 		batchAdd: true,
 		entry:    entry,
@@ -295,22 +301,22 @@ func (s *InstallService) processDep(ctx context.Context, dep *pkg.Package, verb,
 
 // processOne processes a single named package and its transitive
 // dependencies. See processAll for the semantics of force and rerun.
-func (s *InstallService) processOne(ctx context.Context, name string, force, rerun bool, st *State, spinner ports.Spinner, verb, pastTense string, sessionProcessed map[string]bool) (bool, error) {
-	if sessionProcessed == nil {
-		sessionProcessed = make(map[string]bool)
+func (s *InstallService) processOne(ctx context.Context, name string, pctx *pipelineCtx) (bool, error) {
+	if pctx.sessionProcessed == nil {
+		pctx.sessionProcessed = make(map[string]bool)
 	}
 	p, err := LookupPackage(s.reg, name)
 	if err != nil {
 		return false, err
 	}
 
-	if !rerun {
-		satisfied, err := s.alreadySatisfied(ctx, name, st)
+	if !pctx.rerun {
+		satisfied, err := s.alreadySatisfied(ctx, name, pctx.st)
 		if err != nil {
 			return false, err
 		}
 		if satisfied {
-			spinner.SetDesc(name + " already installed")
+			pctx.spinner.SetDesc(name + " already installed")
 			return false, nil
 		}
 	}
@@ -324,23 +330,23 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	var batch aptBatch
 
 	for _, dep := range ordered {
-		if sessionProcessed[dep.Name] {
+		if pctx.sessionProcessed[dep.Name] {
 			continue
 		}
 
-		result, err := s.processDep(ctx, dep, verb, pastTense, rerun, force, batch.hasWork(), st, spinner, sessionProcessed)
+		result, err := s.processDep(ctx, dep, batch.hasWork(), pctx)
 		if err != nil {
 			return false, err
 		}
 		if result.needsFlush {
-			bw, err := s.flushAptBatch(ctx, &batch, st, spinner, verb, pastTense)
+			bw, err := s.flushAptBatch(ctx, &batch, pctx)
 			if err != nil {
 				return false, err
 			}
 			if bw {
 				didWork = true
 			}
-			result, err = s.processDep(ctx, dep, verb, pastTense, rerun, force, false, st, spinner, sessionProcessed)
+			result, err = s.processDep(ctx, dep, false, pctx)
 			if err != nil {
 				return false, err
 			}
@@ -359,7 +365,7 @@ func (s *InstallService) processOne(ctx context.Context, name string, force, rer
 	}
 
 	if batch.hasWork() {
-		bw, err := s.flushAptBatch(ctx, &batch, st, spinner, verb, pastTense)
+		bw, err := s.flushAptBatch(ctx, &batch, pctx)
 		if err != nil {
 			return false, err
 		}
@@ -380,7 +386,7 @@ func (s *InstallService) restoreDepState(dep *pkg.Package, st *State) (exists bo
 		dep.Version = entry.Version
 		dep.ConfigHashes = entry.ConfigHashes
 		oldVersion = entry.Version
-		if v := lookupVariant(st, dep.Name); v != "" && dep.Apt != nil && dep.Apt.Variant == "" {
+		if v := s.state.LookupVariant(st, dep.Name); v != "" && dep.Apt != nil && dep.Apt.Variant == "" {
 			dep.Apt.Variant = v
 		}
 	}

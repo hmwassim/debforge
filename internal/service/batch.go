@@ -7,7 +7,6 @@ import (
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
-	"github.com/hmwassim/debforge/internal/ports"
 )
 
 // batchEntry holds per-package metadata collected during the prepare phase
@@ -48,7 +47,7 @@ func (b *aptBatch) reset() {
 
 // flushAptBatch runs a single apt-get install -y for all collected packages,
 // then finalizes each package (version recording, configs, scripts, state).
-func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *State, spinner ports.Spinner, verb, pastTense string) (bool, error) {
+func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, pctx *pipelineCtx) (bool, error) {
 	if !b.hasWork() {
 		return false, nil
 	}
@@ -57,8 +56,8 @@ func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *Sta
 	args = append(args, b.aptPkgs...)
 	args = append(args, b.debPaths...)
 
-	spinner.SetDesc("installing packages...")
-	if err := s.execApt(ctx, s.runner, args, spinner); err != nil {
+	pctx.spinner.SetDesc("installing packages...")
+	if err := s.execApt(ctx, s.runner, args, pctx.spinner); err != nil {
 		for _, e := range b.entries {
 			if ab, ok := e.bi.(installer.BatchAborter); ok {
 				ab.Abort(e.pkg)
@@ -70,17 +69,17 @@ func (s *InstallService) flushAptBatch(ctx context.Context, b *aptBatch, st *Sta
 	didWork := false
 	var finalizeErrs []error
 	for _, e := range b.entries {
-		if err := e.bi.Finalize(ctx, e.pkg, spinner); err != nil {
-			finalizeErrs = append(finalizeErrs, fmt.Errorf("%s %s: %w", verb, e.pkg.Name, err))
+		if err := e.bi.Finalize(ctx, e.pkg, pctx.spinner); err != nil {
+			finalizeErrs = append(finalizeErrs, fmt.Errorf("%s %s: %w", pctx.verb, e.pkg.Name, err))
 			continue
 		}
 
 		if e.pkg.ForceInstall || !e.exists || e.pkg.Version != e.oldVersion {
-			s.state.Add(st, e.pkg.Name, newPkgEntry(e.pkg))
-			spinner.SetDesc(e.pkg.Name + " " + pastTense)
+			s.state.Add(pctx.st, e.pkg.Name, newPkgEntry(e.pkg))
+			pctx.spinner.SetDesc(e.pkg.Name + " " + pctx.pastTense)
 			didWork = true
 		} else {
-			spinner.SetDesc(e.pkg.Name + " already up to date")
+			pctx.spinner.SetDesc(e.pkg.Name + " already up to date")
 		}
 	}
 

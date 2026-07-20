@@ -209,7 +209,7 @@ func TestProcessOne_rerunBypassesInstalledCheck(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	updated, err := svc.processOne(ctx, "test-pkg", true, true, st, spinner, "install", "installed", nil)
+	updated, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: true, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestProcessOne_skipVariantDoesNothing(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	updated, err := svc.processOne(ctx, "test-pkg", false, true, st, spinner, "install", "installed", nil)
+	updated, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestProcessOne_alreadyInstalledReturnsFalse(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	updated, err := svc.processOne(ctx, "test-pkg", false, false, st, spinner, "install", "installed", nil)
+	updated, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestProcessOne_installedButRemovedReinstalls(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	updated, err := svc.processOne(ctx, "test-pkg", true, false, st, spinner, "install", "installed", nil)
+	updated, err := svc.processOne(ctx, "test-pkg", &pipelineCtx{st: st, spinner: spinner, force: true, rerun: false, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestProcessAll_emptyNames(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll with empty names: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestProcessAll_unknownName(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"nonexistent"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"nonexistent"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error for unknown package name")
 	}
@@ -441,7 +441,7 @@ func TestProcessAll_workDoneMultiple(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"pkg-a", "pkg-b"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"pkg-a", "pkg-b"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}
@@ -485,7 +485,7 @@ func TestProcessAll_nothingToDoMultiple(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"pkg-a", "pkg-b"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"pkg-a", "pkg-b"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}
@@ -523,7 +523,7 @@ func TestProcessAll_nothingToDoMultipleUpdate(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"pkg-a", "pkg-b"}, false, true, st, spinner, "update", "updated")
+	err := svc.processAll(ctx, []string{"pkg-a", "pkg-b"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "update", pastTense: "updated"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}
@@ -547,7 +547,7 @@ func TestInstallServiceRun_success(t *testing.T) {
 	runner := &nopRunner{}
 	mfs := testutil.NewMockFileSystem()
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath, runner, mfs, nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{})
+	svc := NewInstallService(Deps{Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker, LockPath: lockPath, Runner: runner, Fs: mfs}, NewResolver(reg))
 
 	ctx := context.Background()
 	spinner := &mockSpinner{}
@@ -569,12 +569,11 @@ func TestInstallServiceRun_loadError(t *testing.T) {
 		t.Fatalf("write corrupt state: %v", err)
 	}
 
-	svc := NewInstallService(
-		pkg.NewRegistry(), installer.NewRegistry(), NewResolver(pkg.NewRegistry()),
-		stateSvc, &testutil.MockLocker{}, filepath.Join(t.TempDir(), "lock"),
-		&nopRunner{}, testutil.NewMockFileSystem(), nil,
-		testutil.NopAptUpdater{}, testutil.NopExtrepoManager{},
-	)
+	svc := NewInstallService(Deps{
+		Reg: pkg.NewRegistry(), InstReg: installer.NewRegistry(), State: stateSvc,
+		Locker: &testutil.MockLocker{}, LockPath: filepath.Join(t.TempDir(), "lock"),
+		Runner: &nopRunner{}, Fs: testutil.NewMockFileSystem(),
+	}, NewResolver(pkg.NewRegistry()))
 
 	err := svc.Run(context.Background(), []string{"test-pkg"}, false, &mockSpinner{})
 	if err == nil {
@@ -613,7 +612,7 @@ func TestShouldSkip_skipUpdateAlreadyInstalled(t *testing.T) {
 	st := &State{Packages: map[string]PkgEntry{"test-pkg": {Type: "apt"}}}
 	processed := map[string]bool{}
 
-	skip, err := svc.shouldSkip(context.Background(), dep, "install", false, true, st, &mockSpinner{}, processed)
+	skip, err := svc.shouldSkip(context.Background(), dep, true, &pipelineCtx{st: st, spinner: &mockSpinner{}, rerun: false, verb: "install", sessionProcessed: processed})
 	if err != nil {
 		t.Fatalf("shouldSkip: %v", err)
 	}
@@ -651,7 +650,7 @@ func TestShouldSkip_skipUpdateNotInstalled(t *testing.T) {
 	st := &State{Packages: map[string]PkgEntry{}}
 	processed := map[string]bool{}
 
-	skip, err := svc.shouldSkip(context.Background(), dep, "install", false, false, st, &mockSpinner{}, processed)
+	skip, err := svc.shouldSkip(context.Background(), dep, false, &pipelineCtx{st: st, spinner: &mockSpinner{}, rerun: false, verb: "install", sessionProcessed: processed})
 	if err != nil {
 		t.Fatalf("shouldSkip: %v", err)
 	}
@@ -683,7 +682,7 @@ func TestShouldSkip_variantSkip(t *testing.T) {
 	st := &State{Packages: map[string]PkgEntry{}}
 	processed := map[string]bool{}
 
-	skip, err := svc.shouldSkip(context.Background(), dep, "install", false, false, st, &mockSpinner{}, processed)
+	skip, err := svc.shouldSkip(context.Background(), dep, false, &pipelineCtx{st: st, spinner: &mockSpinner{}, rerun: false, verb: "install", sessionProcessed: processed})
 	if err != nil {
 		t.Fatalf("shouldSkip: %v", err)
 	}
@@ -723,7 +722,7 @@ func TestProcessAll_cancelledContext(t *testing.T) {
 	cancel()
 
 	st := &State{Packages: map[string]PkgEntry{"test-pkg": {Type: "apt", Version: "1.0"}}}
-	err := svc.processAll(ctx, []string{"test-pkg"}, false, false, st, &mockSpinner{}, "install", "installed")
+	err := svc.processAll(ctx, []string{"test-pkg"}, &pipelineCtx{st: st, spinner: &mockSpinner{}, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
 	}
@@ -752,9 +751,10 @@ func TestUpdate_namedPackages(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath,
-		&successRunner{}, testutil.NewMockFileSystem(), &mockSystem{homeDir: "/home/test"},
-		testutil.NopAptUpdater{}, testutil.NopExtrepoManager{})
+	svc := NewInstallService(Deps{
+		Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker, LockPath: lockPath,
+		Runner: &successRunner{}, Fs: testutil.NewMockFileSystem(), Sys: &mockSystem{homeDir: "/home/test"},
+	}, NewResolver(reg))
 
 	st := &State{Packages: map[string]PkgEntry{
 		"pkg-a": {Type: "apt", Version: "1.0"},

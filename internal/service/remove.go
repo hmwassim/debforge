@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/hmwassim/debforge/internal/domain/installer"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -19,24 +18,12 @@ type RemoveService struct {
 }
 
 // NewRemoveService returns a new RemoveService.
-func NewRemoveService(
-	reg *pkg.Registry,
-	instReg *installer.Registry,
-	state *StateManager,
-	locker ports.Locker,
-	lockPath string,
-	runner ports.CommandRunner,
-	fs ports.FileSystem,
-	sys ports.System,
-	aptUpdate ports.AptUpdater,
-	extrepo ports.ExtrepoManager,
-	pkgLister ports.PackageLister,
-) *RemoveService {
+func NewRemoveService(deps Deps, pkgLister ports.PackageLister) *RemoveService {
 	return &RemoveService{
 		baseService: baseService{
-			reg: reg, instReg: instReg, state: state, locker: locker,
-			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
-			aptUpdate: aptUpdate, extrepo: extrepo,
+			reg: deps.Reg, instReg: deps.InstReg, state: deps.State, locker: deps.Locker,
+			lockPath: deps.LockPath, runner: deps.Runner, fs: deps.Fs, sys: deps.Sys,
+			aptUpdate: deps.AptUpd, extrepo: deps.Extrepo,
 		},
 		pkgLister: pkgLister,
 	}
@@ -86,7 +73,7 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 		return err
 	}
 
-	p = applyVariant(p, st, name)
+	p = s.state.applyVariant(p, st, name)
 
 	if _, err := s.checkInstalled(ctx, st, name, p, spinner); err != nil {
 		return err
@@ -130,7 +117,7 @@ func (s *RemoveService) removeDependents(ctx context.Context, st *State, spinner
 		for _, name := range names {
 			// Re-check existence — a prior iteration may have removed
 			// a dependency that makes this package now satisfy its deps.
-			if !has(st, name) {
+			if !s.state.Has(st, name) {
 				continue
 			}
 			p, err := LookupPackage(s.reg, name)
@@ -156,7 +143,7 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 	orig := make(map[string]bool)
 	gone := make(map[string]bool)
 	for _, n := range names {
-		if has(st, n) {
+		if s.state.Has(st, n) {
 			orig[n] = true
 			gone[n] = true
 		}
@@ -181,7 +168,7 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 				continue
 			}
 			for _, dep := range p.Depends {
-				if !has(st, dep) {
+				if !s.state.Has(st, dep) {
 					gone[name] = true
 					added = true
 					break
@@ -214,7 +201,7 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 // depUnsatisfied reports whether any of p's Depends are missing from st.
 func (s *RemoveService) depUnsatisfied(p *pkg.Package, st *State) bool {
 	for _, dep := range p.Depends {
-		if !has(st, dep) {
+		if !s.state.Has(st, dep) {
 			return true
 		}
 	}
@@ -236,7 +223,7 @@ func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner p
 	st.mu.RUnlock()
 
 	for _, name := range names {
-		if !has(st, name) {
+		if !s.state.Has(st, name) {
 			continue
 		}
 		p, err := LookupPackage(s.reg, name)

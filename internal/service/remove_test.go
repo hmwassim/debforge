@@ -301,7 +301,7 @@ func TestRemoveServiceRun_multipleSuccess(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &successRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
+	svc := NewRemoveService(Deps{Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker, LockPath: lockPath, Runner: &successRunner{}, Fs: testutil.NewMockFileSystem()}, testutil.NopPackageLister{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"pkg-a": {Type: "apt"},
@@ -341,7 +341,7 @@ func TestRemoveServiceRun_success(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &successRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
+	svc := NewRemoveService(Deps{Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker, LockPath: lockPath, Runner: &successRunner{}, Fs: testutil.NewMockFileSystem()}, testutil.NopPackageLister{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -380,7 +380,7 @@ func TestRemoveServiceRun_notInstalled(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &nopRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
+	svc := NewRemoveService(Deps{Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker, LockPath: lockPath, Runner: &nopRunner{}, Fs: testutil.NewMockFileSystem()}, testutil.NopPackageLister{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -408,7 +408,7 @@ func TestRemoveServiceRun_error(t *testing.T) {
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
 
-	svc := NewRemoveService(reg, instReg, stateSvc, locker, lockPath, &nopRunner{}, testutil.NewMockFileSystem(), nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
+	svc := NewRemoveService(Deps{Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker, LockPath: lockPath, Runner: &nopRunner{}, Fs: testutil.NewMockFileSystem()}, testutil.NopPackageLister{})
 
 	ctx := context.Background()
 	spinner := &mockSpinner{}

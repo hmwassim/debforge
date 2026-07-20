@@ -20,6 +20,21 @@ type variantSelector interface {
 	SelectVariant(ctx context.Context, p *pkg.Package) error
 }
 
+// Deps groups the infrastructure dependencies shared by InstallService and
+// RemoveService so callers pass one struct instead of 10+ positional params.
+type Deps struct {
+	Reg      *pkg.Registry
+	InstReg  *installer.Registry
+	State    *StateManager
+	Locker   ports.Locker
+	LockPath string
+	Runner   ports.CommandRunner
+	Fs       ports.FileSystem
+	Sys      ports.System
+	AptUpd   ports.AptUpdater
+	Extrepo  ports.ExtrepoManager
+}
+
 type baseService struct {
 	reg      *pkg.Registry
 	instReg  *installer.Registry
@@ -42,24 +57,12 @@ type InstallService struct {
 }
 
 // NewInstallService returns a new InstallService.
-func NewInstallService(
-	reg *pkg.Registry,
-	instReg *installer.Registry,
-	resolver *Resolver,
-	state *StateManager,
-	locker ports.Locker,
-	lockPath string,
-	runner ports.CommandRunner,
-	fs ports.FileSystem,
-	sys ports.System,
-	aptUpdate ports.AptUpdater,
-	extrepo ports.ExtrepoManager,
-) *InstallService {
+func NewInstallService(deps Deps, resolver *Resolver) *InstallService {
 	return &InstallService{
 		baseService: baseService{
-			reg: reg, instReg: instReg, state: state, locker: locker,
-			lockPath: lockPath, runner: runner, fs: fs, sys: sys,
-			aptUpdate: aptUpdate, extrepo: extrepo,
+			reg: deps.Reg, instReg: deps.InstReg, state: deps.State, locker: deps.Locker,
+			lockPath: deps.LockPath, runner: deps.Runner, fs: deps.Fs, sys: deps.Sys,
+			aptUpdate: deps.AptUpd, extrepo: deps.Extrepo,
 		},
 		resolver: resolver,
 		execApt:  aptpty.AptExec,

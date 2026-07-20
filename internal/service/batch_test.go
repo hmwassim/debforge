@@ -109,7 +109,7 @@ func TestFlushAptBatch_aptGetFailureCallsAbort(t *testing.T) {
 	b.addApt([]string{"pkg-a"}, batchEntry{pkg: &pkg.Package{Name: "pkg-a", Type: pkg.TypeApt}, bi: recA})
 	b.addApt([]string{"pkg-b"}, batchEntry{pkg: &pkg.Package{Name: "pkg-b", Type: pkg.TypeApt}, bi: recA})
 
-	_, err := svc.flushAptBatch(ctx, b, st, spinner, "install", "installed")
+	_, err := svc.flushAptBatch(ctx, b, &pipelineCtx{st: st, spinner: spinner, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from flushAptBatch when apt-get fails")
 	}
@@ -172,7 +172,7 @@ func TestFlushAptBatch_partialFinalizeErrorContinues(t *testing.T) {
 	b.addApt([]string{"pkg-b"}, batchEntry{pkg: &pkg.Package{Name: "pkg-b", Type: pkg.TypeApt, ForceInstall: true}, bi: rec, exists: true})
 	b.addApt([]string{"pkg-c"}, batchEntry{pkg: &pkg.Package{Name: "pkg-c", Type: pkg.TypeApt, ForceInstall: true}, bi: rec, exists: true})
 
-	_, err := svc.flushAptBatch(ctx, b, st, spinner, "install", "installed")
+	_, err := svc.flushAptBatch(ctx, b, &pipelineCtx{st: st, spinner: spinner, verb: "install", pastTense: "installed"})
 
 	// All three should have been finalized despite pkg-b's error
 	if len(rec.finalized) != 3 {
@@ -222,7 +222,7 @@ func TestProcessOne_batchAptPackages(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "pkg-a", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "pkg-a", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestProcessOne_batchBrokenBySource(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "apt-pkg", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "apt-pkg", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestProcessOne_batchSkippedPackage(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	didWork, err := svc.processOne(ctx, "pkg-a", false, true, st, spinner, "install", "installed", nil)
+	didWork, err := svc.processOne(ctx, "pkg-a", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestProcessAll_skipsExtrepoWhenAlreadyInstalled(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"pkg-a"}, false, false, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"pkg-a"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"pkg-a"}, false, false, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"pkg-a"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: false, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}

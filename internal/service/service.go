@@ -36,7 +36,7 @@ func (s *InstallService) SelectVariants(ctx context.Context, names []string, for
 			if dep.Apt == nil || len(dep.Apt.Variants) == 0 {
 				continue
 			}
-			if !force && lookupVariant(st, dep.Name) != "" {
+			if !force && s.state.LookupVariant(st, dep.Name) != "" {
 				continue
 			}
 			inst, err := LookupInstaller(s.instReg, dep.Type)
@@ -60,7 +60,15 @@ func (s *InstallService) SelectVariants(ctx context.Context, names []string, for
 
 func (s *InstallService) Run(ctx context.Context, names []string, force bool, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
-		return s.processAll(ctx, names, force, force, st, spinner, "install", "installed")
+		pctx := &pipelineCtx{
+			st:        st,
+			spinner:   spinner,
+			force:     force,
+			rerun:     force,
+			verb:      "install",
+			pastTense: "installed",
+		}
+		return s.processAll(ctx, names, pctx)
 	})
 }
 

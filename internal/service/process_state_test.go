@@ -70,7 +70,7 @@ func TestProcessOne_successPersistsState(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"test-pkg"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"test-pkg"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"root-pkg"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"root-pkg"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err == nil {
 		t.Fatal("expected error from processAll due to root-pkg failure")
 	}

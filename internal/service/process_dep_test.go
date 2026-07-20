@@ -61,7 +61,7 @@ func TestProcessOne_forcePropagatesToDeps(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "root", true, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "root", &pipelineCtx{st: st, spinner: spinner, force: true, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestProcessOne_forceFalseDoesNotSetForceInstall(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "root", false, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "root", &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestProcessOne_forceStateUpdateOnUnchangedDep(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	_, err := svc.processOne(ctx, "root", true, true, st, spinner, "install", "installed", nil)
+	_, err := svc.processOne(ctx, "root", &pipelineCtx{st: st, spinner: spinner, force: true, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processOne: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestProcessAll_sharedDepProcessedOnce(t *testing.T) {
 	ctx := context.Background()
 	spinner := &mockSpinner{}
 
-	err := svc.processAll(ctx, []string{"root-a", "root-b"}, false, true, st, spinner, "install", "installed")
+	err := svc.processAll(ctx, []string{"root-a", "root-b"}, &pipelineCtx{st: st, spinner: spinner, force: false, rerun: true, verb: "install", pastTense: "installed"})
 	if err != nil {
 		t.Fatalf("processAll: %v", err)
 	}

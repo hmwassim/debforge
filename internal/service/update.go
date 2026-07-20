@@ -22,14 +22,21 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 			if err != nil {
 				return err
 			}
-			p = applyVariant(p, st, name)
+			p = s.state.applyVariant(p, st, name)
 			if _, err := s.checkInstalled(ctx, st, name, p, spinner); err != nil {
 				spinner.DoneInfo()
 				return err
 			}
 		}
 
-		return s.processAll(ctx, names, force, true, st, spinner, "update", "updated")
+		return s.processAll(ctx, names, &pipelineCtx{
+			st:        st,
+			spinner:   spinner,
+			force:     force,
+			rerun:     true,
+			verb:      "update",
+			pastTense: "updated",
+		})
 	})
 }
 
