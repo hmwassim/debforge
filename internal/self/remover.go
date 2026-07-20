@@ -18,7 +18,10 @@ import (
 type Remover struct {
 	cfg       *Config
 	logger    ports.UI
-	deps      service.Deps
+	stateSvc  *service.StateManager
+	sys       ports.System
+	locker    ports.Locker
+	fs        ports.FileSystem
 	removeSvc *service.RemoveService
 }
 
@@ -26,19 +29,22 @@ type Remover struct {
 func NewRemover(
 	cfg *Config,
 	logger ports.UI,
-	factory *service.ServiceFactory,
-	pkgLister ports.PackageLister,
+	removeSvc *service.RemoveService,
+	stateSvc *service.StateManager,
+	sys ports.System,
+	locker ports.Locker,
+	fs ports.FileSystem,
 ) *Remover {
 	return &Remover{
-		cfg: cfg, logger: logger, deps: factory.Deps(),
-		removeSvc: factory.Remove(pkgLister),
+		cfg: cfg, logger: logger, stateSvc: stateSvc,
+		sys: sys, locker: locker, fs: fs, removeSvc: removeSvc,
 	}
 }
 
 // Remove runs the self-remove flow: confirmation prompt, removal of
 // managed packages, then deletion of the root directory and symlink.
 func (r *Remover) Remove(ctx context.Context) error {
-	return withRootAndLock(ctx, "self-remove", r.deps.Sys, r.deps.Locker, r.cfg.LockPath, r.remove)
+	return withRootAndLock(ctx, "self-remove", r.sys, r.locker, r.cfg.LockPath, r.remove)
 }
 
 func (r *Remover) remove(ctx context.Context) error {
@@ -48,12 +54,12 @@ func (r *Remover) remove(ctx context.Context) error {
 		return nil
 	}
 
-	st, err := r.deps.State.Load()
+	st, err := r.stateSvc.Load()
 	var names []string
 	if err != nil {
 		r.logger.Warn("could not load state, skipping managed package removal: %s", err)
 	} else {
-		names = r.deps.State.ListPackages(st)
+		names = r.stateSvc.ListPackages(st)
 		if len(names) > 0 {
 			names = r.selectPackages(names)
 		}
@@ -78,12 +84,12 @@ func (r *Remover) remove(ctx context.Context) error {
 	}
 
 	spinner.SetDesc("Removing debforge files")
-	if err := r.deps.Fs.RemoveAll(r.cfg.RootDir); err != nil {
+	if err := r.fs.RemoveAll(r.cfg.RootDir); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("remove %s: %w", r.cfg.RootDir, err)
 	}
 
-	if err := r.deps.Fs.RemoveAll(r.cfg.LinkPath); err != nil {
+	if err := r.fs.RemoveAll(r.cfg.LinkPath); err != nil {
 		r.logger.Warn("could not remove %s: %s", r.cfg.LinkPath, err)
 	}
 
@@ -157,7 +163,7 @@ func (r *Remover) selectPackages(names []string) []string {
 // abort partway.
 func (r *Remover) removeManagedPackages(ctx context.Context, names []string, st *service.State, spinner ports.Spinner) {
 	for _, name := range names {
-		if !r.deps.State.IsInstalled(st, name) {
+		if !r.stateSvc.IsInstalled(st, name) {
 			continue
 		}
 		spinner.SetDesc("Removing " + name)

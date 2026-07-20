@@ -13,7 +13,8 @@ import (
 )
 
 func (h *commandHandler) selfRemove(ctx context.Context, u ports.UI) int {
-	remover := self.NewRemover(h.cfg, u, h.factory, h.pkgList)
+	removeSvc := h.factory.Remove(h.pkgList)
+	remover := self.NewRemover(h.cfg, u, removeSvc, h.stateSvc, h.sys, h.locker, h.fsys)
 	if err := remover.Remove(ctx); err != nil {
 		u.Error("self-remove failed: %s", err)
 		return 1

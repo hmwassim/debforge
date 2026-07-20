@@ -13,10 +13,6 @@ func NewServiceFactory(deps Deps) *ServiceFactory {
 	return &ServiceFactory{deps: deps}
 }
 
-// Deps returns the underlying Deps for callers that need direct access
-// (e.g. self-remove which constructs a Remover with its own parameters).
-func (f *ServiceFactory) Deps() Deps { return f.deps }
-
 // Install returns an InstallService wired with the factory's deps.
 func (f *ServiceFactory) Install() *InstallService {
 	return NewInstallService(f.deps, NewResolver(f.deps.Reg))

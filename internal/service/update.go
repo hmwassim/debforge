@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
 
@@ -14,7 +13,7 @@ import (
 func (s *InstallService) Update(ctx context.Context, names []string, force, all bool, spinner ports.Spinner) error {
 	return withState(ctx, s.locker, s.lockPath, s.state, func(st *State) error {
 		if all {
-			names = allManagedPackageNames(s.reg, st, s.state)
+			names = s.allManagedPackageNames(st)
 		}
 
 		for _, name := range names {
@@ -47,11 +46,11 @@ func (s *InstallService) Update(ctx context.Context, names []string, force, all 
 // wasted work in sweeping them here. This also keeps each apt package's
 // recorded Version in state.json from going stale after `update --all`'s
 // system-wide apt-get upgrade bumps installed versions out from under it.
-func allManagedPackageNames(reg *pkg.Registry, st *State, stateSvc *StateManager) []string {
-	allNames := stateSvc.ListPackages(st)
+func (s *InstallService) allManagedPackageNames(st *State) []string {
+	allNames := s.state.ListPackages(st)
 	names := make([]string, 0, len(allNames))
 	for _, name := range allNames {
-		if _, ok := reg.Lookup(name); !ok {
+		if _, ok := s.reg.Lookup(name); !ok {
 			continue
 		}
 		names = append(names, name)

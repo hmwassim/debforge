@@ -39,7 +39,8 @@ func newRemoverForTest(t *testing.T) (*Remover, *removerTestDeps) {
 		LockPath: cfg.LockPath, Runner: runner, Fs: fs, Sys: sys,
 		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
 	})
-	rm := NewRemover(cfg, ui, factory, testutil.NopPackageLister{})
+	removeSvc := factory.Remove(testutil.NopPackageLister{})
+	rm := NewRemover(cfg, ui, removeSvc, stateSvc, sys, locker, fs)
 	return rm, &removerTestDeps{cfg: cfg, fs: fs, ui: ui, stateSvc: stateSvc}
 }
 
@@ -158,7 +159,8 @@ func TestRemoverRemove_publicMethod_notRoot(t *testing.T) {
 		Runner: testutil.RunnerReturning(nil, nil), Fs: deps.fs, Sys: &mockSystem{privileged: false},
 		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
 	})
-	rm2 := NewRemover(cfg, deps.ui, factory, testutil.NopPackageLister{})
+	removeSvc := factory.Remove(testutil.NopPackageLister{})
+	rm2 := NewRemover(cfg, deps.ui, removeSvc, deps.stateSvc, &mockSystem{privileged: false}, &testutil.MockLocker{}, deps.fs)
 	if err := rm2.Remove(ctx); err == nil {
 		t.Fatal("expected error when not root")
 	}
