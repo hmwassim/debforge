@@ -7,160 +7,111 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 )
 
-func TestResolve_detectsCycle(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name:    "a",
-		Type:    pkg.TypeApt,
-		Depends: []string{"b"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "b",
-		Type:    pkg.TypeApt,
-		Depends: []string{"a"},
-	})
-
-	r := NewResolver(reg)
-	a, _ := reg.Lookup("a")
-	_, err := r.Resolve(a)
-	if err == nil {
-		t.Fatal("expected error for dependency cycle a -> b -> a, got nil")
-	}
-	if !strings.Contains(err.Error(), "dependency cycle") {
-		t.Errorf("expected cycle error, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "a") || !strings.Contains(err.Error(), "b") {
-		t.Errorf("cycle error should name the packages in the cycle, got: %v", err)
-	}
-}
-
-func TestResolve_detectsTransitiveCycle(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name:    "a",
-		Type:    pkg.TypeApt,
-		Depends: []string{"b"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "b",
-		Type:    pkg.TypeApt,
-		Depends: []string{"c"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "c",
-		Type:    pkg.TypeApt,
-		Depends: []string{"a"},
-	})
-
-	r := NewResolver(reg)
-	a, _ := reg.Lookup("a")
-	_, err := r.Resolve(a)
-	if err == nil {
-		t.Fatal("expected error for dependency cycle a -> b -> c -> a, got nil")
-	}
-}
-
-func TestResolve_detectsCycleAmongNonRootDeps(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name:    "root",
-		Type:    pkg.TypeApt,
-		Depends: []string{"a"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "a",
-		Type:    pkg.TypeApt,
-		Depends: []string{"b"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "b",
-		Type:    pkg.TypeApt,
-		Depends: []string{"a"},
-	})
-
-	r := NewResolver(reg)
-	root, _ := reg.Lookup("root")
-	_, err := r.Resolve(root)
-	if err == nil {
-		t.Fatal("expected error for dependency cycle a -> b -> a (root not in cycle), got nil")
-	}
-	if !strings.Contains(err.Error(), "dependency cycle") {
-		t.Errorf("expected cycle error, got: %v", err)
-	}
-}
-
-func TestResolve_noCycleForSharedDep(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name:    "a",
-		Type:    pkg.TypeApt,
-		Depends: []string{"c"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "b",
-		Type:    pkg.TypeApt,
-		Depends: []string{"c"},
-	})
-	reg.Register(&pkg.Package{
-		Name: "c",
-		Type: pkg.TypeApt,
-	})
-
-	r := NewResolver(reg)
-	a, _ := reg.Lookup("a")
-	ordered, err := r.Resolve(a)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(ordered) != 2 {
-		t.Errorf("expected 2 packages (c then a), got %d", len(ordered))
-	}
-}
-
-func TestResolve_topologicalOrder(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name:    "a",
-		Type:    pkg.TypeApt,
-		Depends: []string{"b", "c"},
-	})
-	reg.Register(&pkg.Package{
-		Name:    "b",
-		Type:    pkg.TypeApt,
-		Depends: []string{"d"},
-	})
-	reg.Register(&pkg.Package{
-		Name: "c",
-		Type: pkg.TypeApt,
-	})
-	reg.Register(&pkg.Package{
-		Name: "d",
-		Type: pkg.TypeApt,
-	})
-
-	r := NewResolver(reg)
-	a, _ := reg.Lookup("a")
-	ordered, err := r.Resolve(a)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestResolve(t *testing.T) {
+	tests := []struct {
+		name           string
+		packages       []pkg.Package
+		resolvePkg     string
+		wantErr        bool
+		wantErrContains []string
+		wantOrder      []string
+	}{
+		{
+			name: "detects cycle",
+			packages: []pkg.Package{
+				{Name: "a", Type: pkg.TypeApt, Depends: []string{"b"}},
+				{Name: "b", Type: pkg.TypeApt, Depends: []string{"a"}},
+			},
+			resolvePkg:     "a",
+			wantErr:        true,
+			wantErrContains: []string{"dependency cycle", "a", "b"},
+		},
+		{
+			name: "detects transitive cycle",
+			packages: []pkg.Package{
+				{Name: "a", Type: pkg.TypeApt, Depends: []string{"b"}},
+				{Name: "b", Type: pkg.TypeApt, Depends: []string{"c"}},
+				{Name: "c", Type: pkg.TypeApt, Depends: []string{"a"}},
+			},
+			resolvePkg: "a",
+			wantErr:    true,
+		},
+		{
+			name: "detects cycle among non-root deps",
+			packages: []pkg.Package{
+				{Name: "root", Type: pkg.TypeApt, Depends: []string{"a"}},
+				{Name: "a", Type: pkg.TypeApt, Depends: []string{"b"}},
+				{Name: "b", Type: pkg.TypeApt, Depends: []string{"a"}},
+			},
+			resolvePkg:     "root",
+			wantErr:        true,
+			wantErrContains: []string{"dependency cycle"},
+		},
+		{
+			name: "no cycle for shared dep",
+			packages: []pkg.Package{
+				{Name: "a", Type: pkg.TypeApt, Depends: []string{"c"}},
+				{Name: "b", Type: pkg.TypeApt, Depends: []string{"c"}},
+				{Name: "c", Type: pkg.TypeApt},
+			},
+			resolvePkg: "a",
+			wantOrder:  []string{"c", "a"},
+		},
+		{
+			name: "topological order",
+			packages: []pkg.Package{
+				{Name: "a", Type: pkg.TypeApt, Depends: []string{"b", "c"}},
+				{Name: "b", Type: pkg.TypeApt, Depends: []string{"d"}},
+				{Name: "c", Type: pkg.TypeApt},
+				{Name: "d", Type: pkg.TypeApt},
+			},
+			resolvePkg: "a",
+			wantOrder:  []string{"d", "b", "c", "a"},
+		},
 	}
 
-	names := make([]string, len(ordered))
-	for i, p := range ordered {
-		names[i] = p.Name
-	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reg := pkg.NewRegistry()
+			for i := range tc.packages {
+				reg.Register(&tc.packages[i])
+			}
 
-	// d must come before b, b,c before a
-	dIdx := indexOf(names, "d")
-	bIdx := indexOf(names, "b")
-	cIdx := indexOf(names, "c")
-	aIdx := indexOf(names, "a")
+			r := NewResolver(reg)
+			p, _ := reg.Lookup(tc.resolvePkg)
+			ordered, err := r.Resolve(p)
 
-	if dIdx > bIdx {
-		t.Errorf("d (index %d) should come before b (index %d)", dIdx, bIdx)
-	}
-	if bIdx > aIdx || (cIdx > aIdx) {
-		t.Errorf("deps should come before a (index %d), got b=%d c=%d", aIdx, bIdx, cIdx)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				for _, substr := range tc.wantErrContains {
+					if !strings.Contains(err.Error(), substr) {
+						t.Errorf("expected error containing %q, got: %v", substr, err)
+					}
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if tc.wantOrder != nil {
+				names := make([]string, len(ordered))
+				for i, p := range ordered {
+					names[i] = p.Name
+				}
+				if len(names) != len(tc.wantOrder) {
+					t.Fatalf("expected %d packages, got %d", len(tc.wantOrder), len(names))
+				}
+				for i, want := range tc.wantOrder {
+					if names[i] != want {
+						t.Errorf("ordered[%d] = %q, want %q", i, names[i], want)
+					}
+				}
+			}
+		})
 	}
 }
 

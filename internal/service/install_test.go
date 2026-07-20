@@ -12,241 +12,168 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-// ---- SelectVariants tests ---------------------------------------------------
-
-func TestSelectVariants_noVariantsSkips(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "test-pkg",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{},
-	})
-
-	instReg := installer.NewRegistry()
-	instReg.Register(pkg.TypeApt, &mockVariantSelector{})
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
-		resolver:    NewResolver(reg),
-	}
-
-	if err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false); err != nil {
-		t.Fatalf("SelectVariants: %v", err)
-	}
-}
-
-func TestSelectVariants_appliesVariant(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "test-pkg",
-		Type: pkg.TypeApt,
-		Apt: &pkg.AptConfig{
-			Variants: map[string][]string{"stable": {"pkg-stable"}, "beta": {"pkg-beta"}},
+func TestSelectVariants(t *testing.T) {
+	tests := []struct {
+		name            string
+		pkgDefs         []pkg.Package
+		instSelector    installer.Installer
+		statePkgs       map[string]PkgEntry
+		corruptState    bool
+		wantErr         bool
+		wantErrContains []string
+		wantVariant     string
+	}{
+		{
+			name:    "no variants skips",
+			pkgDefs: []pkg.Package{{Name: "test-pkg", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}}},
+			instSelector: &mockVariantSelector{},
 		},
-	})
-
-	instReg := installer.NewRegistry()
-	sel := &mockVariantSelector{selectedVariant: "beta"}
-	instReg.Register(pkg.TypeApt, sel)
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
-		resolver:    NewResolver(reg),
-	}
-
-	if err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false); err != nil {
-		t.Fatalf("SelectVariants: %v", err)
-	}
-
-	p, _ := reg.Lookup("test-pkg")
-	if p.Apt.Variant != "beta" {
-		t.Errorf("expected variant 'beta', got %q", p.Apt.Variant)
-	}
-}
-
-func TestSelectVariants_skipsWhenInStateAndNotForce(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "test-pkg",
-		Type: pkg.TypeApt,
-		Apt: &pkg.AptConfig{
-			Variants: map[string][]string{"stable": {"pkg-stable"}},
+		{
+			name: "applies variant",
+			pkgDefs: []pkg.Package{{
+				Name: "test-pkg",
+				Type: pkg.TypeApt,
+				Apt:  &pkg.AptConfig{Variants: map[string][]string{"stable": {"pkg-stable"}, "beta": {"pkg-beta"}}},
+			}},
+			instSelector: &mockVariantSelector{selectedVariant: "beta"},
+			wantVariant:  "beta",
 		},
-	})
-
-	instReg := installer.NewRegistry()
-	sel := &mockVariantSelector{selectedVariant: "beta"}
-	instReg.Register(pkg.TypeApt, sel)
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	st := &State{Packages: map[string]PkgEntry{
-		"test-pkg": {Type: "apt", Variant: "stable"},
-	}}
-	if err := stateSvc.Save(st); err != nil {
-		t.Fatalf("save state: %v", err)
-	}
-
-	svc := &InstallService{
-		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
-		resolver:    NewResolver(reg),
-	}
-
-	if err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false); err != nil {
-		t.Fatalf("SelectVariants: %v", err)
-	}
-
-	p, _ := reg.Lookup("test-pkg")
-	if p.Apt.Variant != "" {
-		t.Errorf("expected variant unchanged (empty), got %q", p.Apt.Variant)
-	}
-}
-
-func TestSelectVariants_loadError(t *testing.T) {
-	stateSvc, statePath := newStateManagerForTest(t)
-	if err := os.WriteFile(statePath, []byte("{invalid json"), 0644); err != nil {
-		t.Fatalf("write corrupt state: %v", err)
-	}
-
-	svc := &InstallService{
-		baseService: baseService{state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
-	}
-
-	err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false)
-	if err == nil || !strings.Contains(err.Error(), "load state") {
-		t.Fatalf("expected 'load state' error, got: %v", err)
-	}
-}
-
-func TestSelectVariants_lookupError(t *testing.T) {
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg:   pkg.NewRegistry(),
-			state: stateSvc,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+		{
+			name: "skips when in state and not force",
+			pkgDefs: []pkg.Package{{
+				Name: "test-pkg",
+				Type: pkg.TypeApt,
+				Apt:  &pkg.AptConfig{Variants: map[string][]string{"stable": {"pkg-stable"}}},
+			}},
+			instSelector: &mockVariantSelector{selectedVariant: "beta"},
+			statePkgs:    map[string]PkgEntry{"test-pkg": {Type: "apt", Variant: "stable"}},
+			wantVariant:  "",
 		},
-		resolver: NewResolver(pkg.NewRegistry()),
-	}
-
-	err := svc.SelectVariants(context.Background(), []string{"nonexistent"}, false)
-	if err == nil || !strings.Contains(err.Error(), "unknown package") {
-		t.Fatalf("expected 'unknown package' error, got: %v", err)
-	}
-}
-
-func TestSelectVariants_resolveError(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name:    "self-loop",
-		Type:    pkg.TypeApt,
-		Apt:     &pkg.AptConfig{},
-		Depends: []string{"self-loop"},
-	})
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg:   reg,
-			state: stateSvc,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+		{
+			name:         "load error",
+			corruptState: true,
+			wantErr:      true,
+			wantErrContains: []string{"load state"},
 		},
-		resolver: NewResolver(reg),
-	}
-
-	err := svc.SelectVariants(context.Background(), []string{"self-loop"}, false)
-	if err == nil || !strings.Contains(err.Error(), "dependency cycle") {
-		t.Fatalf("expected cycle error, got: %v", err)
-	}
-}
-
-func TestSelectVariants_lookupInstallerError(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "test-pkg",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
-	})
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg:     reg,
-			instReg: installer.NewRegistry(),
-			state:   stateSvc,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+		{
+			name:            "lookup error",
+			pkgDefs:         nil,
+			wantErr:         true,
+			wantErrContains: []string{"unknown package"},
 		},
-		resolver: NewResolver(reg),
-	}
-
-	err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false)
-	if err == nil || !strings.Contains(err.Error(), "no installer for type") {
-		t.Fatalf("expected 'no installer for type' error, got: %v", err)
-	}
-}
-
-func TestSelectVariants_notAVariantSelector(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "test-pkg",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
-	})
-
-	instReg := installer.NewRegistry()
-	instReg.Register(pkg.TypeApt, &variantRecorder{})
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, instReg: instReg, state: stateSvc,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+		{
+			name: "resolve error",
+			pkgDefs: []pkg.Package{{
+				Name:    "self-loop",
+				Type:    pkg.TypeApt,
+				Apt:     &pkg.AptConfig{},
+				Depends: []string{"self-loop"},
+			}},
+			wantErr:         true,
+			wantErrContains: []string{"dependency cycle"},
 		},
-		resolver: NewResolver(reg),
-	}
-
-	if err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestSelectVariants_selectError(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "test-pkg",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
-	})
-
-	instReg := installer.NewRegistry()
-	instReg.Register(pkg.TypeApt, &mockVariantSelector{selectedVariant: "", selectErr: os.ErrInvalid})
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, instReg: instReg, state: stateSvc,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+		{
+			name: "lookup installer error",
+			pkgDefs: []pkg.Package{{
+				Name: "test-pkg",
+				Type: pkg.TypeApt,
+				Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
+			}},
+			wantErr:         true,
+			wantErrContains: []string{"no installer for type"},
 		},
-		resolver: NewResolver(reg),
+		{
+			name: "not a variant selector",
+			pkgDefs: []pkg.Package{{
+				Name: "test-pkg",
+				Type: pkg.TypeApt,
+				Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
+			}},
+			instSelector: &variantRecorder{},
+		},
+		{
+			name: "select error",
+			pkgDefs: []pkg.Package{{
+				Name: "test-pkg",
+				Type: pkg.TypeApt,
+				Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
+			}},
+			instSelector: &mockVariantSelector{selectedVariant: "", selectErr: os.ErrInvalid},
+			wantErr:      true,
+		},
 	}
 
-	err := svc.SelectVariants(context.Background(), []string{"test-pkg"}, false)
-	if err == nil {
-		t.Fatal("expected error from SelectVariant")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reg := pkg.NewRegistry()
+			for i := range tc.pkgDefs {
+				p := tc.pkgDefs[i]
+				reg.Register(&p)
+			}
+
+			instReg := installer.NewRegistry()
+			if tc.instSelector != nil {
+				instReg.Register(pkg.TypeApt, tc.instSelector)
+			}
+
+			stateSvc, statePath := newStateManagerForTest(t)
+
+			if tc.corruptState {
+				if err := os.WriteFile(statePath, []byte("{invalid json"), 0644); err != nil {
+					t.Fatalf("write corrupt state: %v", err)
+				}
+			}
+
+			if tc.statePkgs != nil {
+				st := &State{Packages: tc.statePkgs}
+				if err := stateSvc.Save(st); err != nil {
+					t.Fatalf("save state: %v", err)
+				}
+			}
+
+			svc := &InstallService{
+				baseService: baseService{
+					reg:       reg,
+					instReg:   instReg,
+					state:     stateSvc,
+					aptUpdate: testutil.NopAptUpdater{},
+					extrepo:   testutil.NopExtrepoManager{},
+				},
+				resolver: NewResolver(reg),
+			}
+
+			var names []string
+			for _, p := range tc.pkgDefs {
+				names = append(names, p.Name)
+			}
+			if len(names) == 0 {
+				names = []string{"nonexistent"}
+			}
+
+			err := svc.SelectVariants(context.Background(), names, false)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				for _, substr := range tc.wantErrContains {
+					if !strings.Contains(err.Error(), substr) {
+						t.Errorf("expected error containing %q, got: %v", substr, err)
+					}
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if tc.wantVariant != "" {
+				p, _ := reg.Lookup(names[0])
+				if p.Apt.Variant != tc.wantVariant {
+					t.Errorf("expected variant %q, got %q", tc.wantVariant, p.Apt.Variant)
+				}
+			}
+		})
 	}
 }
 
@@ -655,5 +582,195 @@ func TestInstallServiceRun_loadError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "load state") {
 		t.Errorf("expected 'load state' error, got: %v", err)
+	}
+}
+
+// ---- shouldSkip tests -------------------------------------------------------
+
+func TestShouldSkip_skipUpdateAlreadyInstalled(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "test-pkg",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, &variantRecorder{})
+	stateSvc, _ := newStateManagerForTest(t)
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			runner: &successRunner{},
+			fs:     testutil.NewMockFileSystem(),
+			sys:    &mockSystem{homeDir: "/home/test"},
+			aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{},
+		},
+		resolver: NewResolver(reg),
+	}
+
+	dep := &pkg.Package{Name: "test-pkg", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}, SkipUpdate: true}
+	st := &State{Packages: map[string]PkgEntry{"test-pkg": {Type: "apt"}}}
+	processed := map[string]bool{}
+
+	skip, err := svc.shouldSkip(context.Background(), dep, "install", false, true, st, &mockSpinner{}, processed)
+	if err != nil {
+		t.Fatalf("shouldSkip: %v", err)
+	}
+	if !skip {
+		t.Error("expected skip=true when SkipUpdate=true and package is installed")
+	}
+	if !processed["test-pkg"] {
+		t.Error("expected test-pkg to be marked as processed")
+	}
+}
+
+func TestShouldSkip_skipUpdateNotInstalled(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "test-pkg",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, &variantRecorder{})
+	stateSvc, _ := newStateManagerForTest(t)
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			runner: &nopRunner{},
+			fs:     testutil.NewMockFileSystem(),
+			sys:    &mockSystem{homeDir: "/home/test"},
+			aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{},
+		},
+		resolver: NewResolver(reg),
+	}
+
+	dep := &pkg.Package{Name: "test-pkg", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}, SkipUpdate: true}
+	st := &State{Packages: map[string]PkgEntry{}}
+	processed := map[string]bool{}
+
+	skip, err := svc.shouldSkip(context.Background(), dep, "install", false, false, st, &mockSpinner{}, processed)
+	if err != nil {
+		t.Fatalf("shouldSkip: %v", err)
+	}
+	if skip {
+		t.Error("expected skip=false when SkipUpdate=true but package is not installed")
+	}
+}
+
+func TestShouldSkip_variantSkip(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "test-pkg",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{Variant: "__skip__"},
+	})
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, &variantRecorder{})
+	stateSvc, _ := newStateManagerForTest(t)
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{},
+		},
+		resolver: NewResolver(reg),
+	}
+
+	dep := &pkg.Package{Name: "test-pkg", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Variant: "__skip__"}}
+	st := &State{Packages: map[string]PkgEntry{}}
+	processed := map[string]bool{}
+
+	skip, err := svc.shouldSkip(context.Background(), dep, "install", false, false, st, &mockSpinner{}, processed)
+	if err != nil {
+		t.Fatalf("shouldSkip: %v", err)
+	}
+	if !skip {
+		t.Error("expected skip=true when variant is __skip__")
+	}
+}
+
+// ---- context cancellation tests ---------------------------------------------
+
+func TestProcessAll_cancelledContext(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "test-pkg",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, &variantRecorder{})
+	stateSvc, _ := newStateManagerForTest(t)
+
+	svc := &InstallService{
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			runner: &testutil.MockRunner{
+				RunFunc: func(ctx context.Context, _ string, _ ...string) ([]byte, []byte, error) {
+					return nil, nil, ctx.Err()
+				},
+			},
+			fs:     testutil.NewMockFileSystem(),
+			aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{},
+		},
+		resolver: NewResolver(reg),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	st := &State{Packages: map[string]PkgEntry{"test-pkg": {Type: "apt", Version: "1.0"}}}
+	err := svc.processAll(ctx, []string{"test-pkg"}, false, false, st, &mockSpinner{}, "install", "installed")
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
+// ---- Update with named packages tests ----------------------------------------
+
+func TestUpdate_namedPackages(t *testing.T) {
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name: "pkg-a",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+	reg.Register(&pkg.Package{
+		Name: "pkg-b",
+		Type: pkg.TypeApt,
+		Apt:  &pkg.AptConfig{},
+	})
+
+	recorder := &variantRecorder{}
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeApt, recorder)
+
+	stateSvc, _ := newStateManagerForTest(t)
+	locker := &testutil.MockLocker{}
+	lockPath := filepath.Join(t.TempDir(), "lock")
+
+	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, locker, lockPath,
+		&successRunner{}, testutil.NewMockFileSystem(), &mockSystem{homeDir: "/home/test"},
+		testutil.NopAptUpdater{}, testutil.NopExtrepoManager{})
+
+	st := &State{Packages: map[string]PkgEntry{
+		"pkg-a": {Type: "apt", Version: "1.0"},
+	}}
+	if err := stateSvc.Save(st); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+
+	ctx := context.Background()
+	spinner := &mockSpinner{}
+
+	if err := svc.Update(ctx, []string{"pkg-a"}, false, false, spinner); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if len(recorder.forceFlags) != 1 {
+		t.Errorf("expected 1 install call for pkg-a only, got %d", len(recorder.forceFlags))
 	}
 }

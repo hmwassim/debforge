@@ -164,3 +164,19 @@ type testPackageLister struct {
 func (m *testPackageLister) ListInstalled(ctx context.Context) (map[string]bool, error) {
 	return dpkg.ListInstalled(ctx, m.runner)
 }
+
+type mockSystem struct {
+	privileged bool
+	homeDir    string
+	sudoUser   string
+}
+
+func (m *mockSystem) Getenv(key string) string {
+	if key == "SUDO_USER" {
+		return m.sudoUser
+	}
+	return ""
+}
+func (m *mockSystem) UserHomeDir() (string, error)            { return m.homeDir, nil }
+func (m *mockSystem) IsPrivileged() bool                      { return m.privileged }
+func (m *mockSystem) LookupUser(_ string) (*ports.UserInfo, error) { return nil, nil }

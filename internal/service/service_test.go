@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
@@ -64,7 +65,7 @@ func TestLookupInstaller_unregisteredType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unregistered type")
 	}
-	if !contains(err.Error(), "no installer for type") {
+	if !strings.Contains(err.Error(), "no installer for type") {
 		t.Errorf("expected 'no installer for type', got: %v", err)
 	}
 }
@@ -85,15 +86,4 @@ func (m *mockVariantSelector) SelectVariant(_ context.Context, p *pkg.Package) e
 	return nil
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && containsStr(s, substr)
-}
 
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}

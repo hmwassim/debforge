@@ -453,308 +453,138 @@ func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
 
 // ---- enableAllExtrepos tests -----------------------------------------------
 
-func TestEnableAllExtrepos_collectsAndEnables(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "pkg-a",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"repo1"}},
-	})
-	reg.Register(&pkg.Package{
-		Name: "pkg-b",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"repo2"}},
-	})
-
-	var calls []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			calls = append(calls, name+" "+strings.Join(args, " "))
-			return nil, nil, nil
+func TestEnableAllExtrepos(t *testing.T) {
+	tests := []struct {
+		name            string
+		pkgs            []pkg.Package
+		statePkgs       map[string]PkgEntry
+		fsFiles         map[string][]byte
+		wantEnableCount int
+		wantUpdateCount int
+		wantErr         bool
+	}{
+		{
+			name: "collectsAndEnables",
+			pkgs: []pkg.Package{
+				{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo1"}}},
+				{Name: "pkg-b", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"repo2"}}},
+			},
+			wantEnableCount: 2,
+			wantUpdateCount: 1,
+		},
+		{
+			name: "deduplicates",
+			pkgs: []pkg.Package{
+				{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"shared-repo"}}},
+				{Name: "pkg-b", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"shared-repo"}}},
+			},
+			wantEnableCount: 1,
+			wantUpdateCount: 1,
+		},
+		{
+			name: "noRepos",
+			pkgs: []pkg.Package{
+				{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{}},
+			},
+		},
+		{
+			name: "skipsAlreadyEnabled",
+			pkgs: []pkg.Package{
+				{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"my-repo"}}},
+			},
+			fsFiles: map[string][]byte{
+				"/etc/apt/sources.list.d/extrepo_my-repo.sources": []byte("Enabled: yes\n"),
+			},
+		},
+		{
+			name: "enablesDisabledRepo",
+			pkgs: []pkg.Package{
+				{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"my-repo"}}},
+			},
+			fsFiles: map[string][]byte{
+				"/etc/apt/sources.list.d/extrepo_my-repo.sources": []byte("Enabled: no\n"),
+			},
+			wantEnableCount: 1,
+			wantUpdateCount: 1,
+		},
+		{
+			name: "enablesWhenNoFile",
+			pkgs: []pkg.Package{
+				{Name: "pkg-a", Type: pkg.TypeApt, Apt: &pkg.AptConfig{Extrepo: []string{"my-repo"}}},
+			},
+			wantEnableCount: 1,
+			wantUpdateCount: 1,
 		},
 	}
 
-	stateSvc, _ := newStateManagerForTest(t)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reg := pkg.NewRegistry()
+			for i := range tc.pkgs {
+				reg.Register(&tc.pkgs[i])
+			}
 
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, state: stateSvc,
-			runner: runner,
-			fs:     testutil.NewMockFileSystem(),
-			aptUpdate:  &testAptUpdater{runner: runner},
-			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
-		},
-		resolver: NewResolver(reg),
-	}
+			var calls []string
+			runner := &testutil.MockRunner{
+				RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+					calls = append(calls, name+" "+strings.Join(args, " "))
+					return nil, nil, nil
+				},
+			}
 
-	ctx := context.Background()
-	spinner := &mockSpinner{}
+			stateSvc, _ := newStateManagerForTest(t)
 
-	if err := svc.enableAllExtrepos(ctx, []string{"pkg-a", "pkg-b"}, spinner); err != nil {
-		t.Fatalf("enableAllExtrepos: %v", err)
-	}
+			mockFs := testutil.NewMockFileSystem()
+			for k, v := range tc.fsFiles {
+				mockFs.Files[k] = v
+			}
 
-	enabledCount := 0
-	updateCount := 0
-	for _, c := range calls {
-		if strings.Contains(c, "extrepo enable") {
-			enabledCount++
-		}
-		if strings.Contains(c, "apt-get update") {
-			updateCount++
-		}
-	}
-	if enabledCount != 2 {
-		t.Errorf("expected 2 extrepo enable calls, got %d", enabledCount)
-	}
-	if updateCount != 1 {
-		t.Errorf("expected 1 apt-get update, got %d", updateCount)
-	}
-}
+			svc := &InstallService{
+				baseService: baseService{
+					reg: reg, state: stateSvc,
+					runner: runner,
+					fs:     mockFs,
+					aptUpdate:  &testAptUpdater{runner: runner},
+					extrepo:    &testExtrepoManager{runner: runner, fs: mockFs},
+				},
+				resolver: NewResolver(reg),
+			}
 
-func TestEnableAllExtrepos_deduplicates(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "pkg-a",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"shared-repo"}},
-	})
-	reg.Register(&pkg.Package{
-		Name: "pkg-b",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"shared-repo"}},
-	})
+			names := make([]string, len(tc.pkgs))
+			for i := range tc.pkgs {
+				names[i] = tc.pkgs[i].Name
+			}
 
-	var calls []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			calls = append(calls, name+" "+strings.Join(args, " "))
-			return nil, nil, nil
-		},
-	}
+			ctx := context.Background()
+			spinner := &mockSpinner{}
 
-	stateSvc, _ := newStateManagerForTest(t)
+			err := svc.enableAllExtrepos(ctx, names, spinner)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("enableAllExtrepos: %v", err)
+			}
 
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, state: stateSvc,
-			runner: runner,
-			fs:     testutil.NewMockFileSystem(),
-			aptUpdate:  &testAptUpdater{runner: runner},
-			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
-		},
-		resolver: NewResolver(reg),
-	}
-
-	ctx := context.Background()
-	spinner := &mockSpinner{}
-
-	if err := svc.enableAllExtrepos(ctx, []string{"pkg-a", "pkg-b"}, spinner); err != nil {
-		t.Fatalf("enableAllExtrepos: %v", err)
-	}
-
-	enableCount := 0
-	for _, c := range calls {
-		if strings.Contains(c, "extrepo enable") {
-			enableCount++
-		}
-	}
-	if enableCount != 1 {
-		t.Errorf("expected 1 extrepo enable (deduplicated), got %d", enableCount)
-	}
-}
-
-func TestEnableAllExtrepos_noRepos(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "pkg-a",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{},
-	})
-
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, _ string, _ ...string) ([]byte, []byte, error) {
-			t.Fatal("should not call any commands when no extrepos")
-			return nil, nil, nil
-		},
-	}
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, state: stateSvc,
-			runner: runner,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
-		},
-		resolver: NewResolver(reg),
-	}
-
-	ctx := context.Background()
-	spinner := &mockSpinner{}
-
-	if err := svc.enableAllExtrepos(ctx, []string{"pkg-a"}, spinner); err != nil {
-		t.Fatalf("enableAllExtrepos: %v", err)
-	}
-}
-
-func TestEnableAllExtrepos_skipsAlreadyEnabled(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "pkg-a",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"my-repo"}},
-	})
-
-	var calls []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			calls = append(calls, name+" "+strings.Join(args, " "))
-			return nil, nil, nil
-		},
-	}
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	fs := testutil.NewMockFileSystem()
-	fs.Files["/etc/apt/sources.list.d/extrepo_my-repo.sources"] = []byte("Enabled: yes\n")
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, state: stateSvc,
-			runner: runner,
-			fs:     fs,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
-		},
-		resolver: NewResolver(reg),
-	}
-
-	ctx := context.Background()
-	spinner := &mockSpinner{}
-
-	if err := svc.enableAllExtrepos(ctx, []string{"pkg-a"}, spinner); err != nil {
-		t.Fatalf("enableAllExtrepos: %v", err)
-	}
-
-	for _, c := range calls {
-		if strings.Contains(c, "extrepo enable") {
-			t.Error("should not call extrepo enable when repo is already enabled")
-		}
-		if strings.Contains(c, "apt-get update") {
-			t.Error("should not call apt-get update when no repos were newly enabled")
-		}
-	}
-}
-
-func TestEnableAllExtrepos_enablesDisabledRepo(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "pkg-a",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"my-repo"}},
-	})
-
-	var calls []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			calls = append(calls, name+" "+strings.Join(args, " "))
-			return nil, nil, nil
-		},
-	}
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	fs := testutil.NewMockFileSystem()
-	fs.Files["/etc/apt/sources.list.d/extrepo_my-repo.sources"] = []byte("Enabled: no\n")
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, state: stateSvc,
-			runner: runner,
-			fs:     fs,
-			aptUpdate:  &testAptUpdater{runner: runner},
-			extrepo:    &testExtrepoManager{runner: runner, fs: fs},
-		},
-		resolver: NewResolver(reg),
-	}
-
-	ctx := context.Background()
-	spinner := &mockSpinner{}
-
-	if err := svc.enableAllExtrepos(ctx, []string{"pkg-a"}, spinner); err != nil {
-		t.Fatalf("enableAllExtrepos: %v", err)
-	}
-
-	enabledCount := 0
-	updateCount := 0
-	for _, c := range calls {
-		if strings.Contains(c, "extrepo enable") {
-			enabledCount++
-		}
-		if strings.Contains(c, "apt-get update") {
-			updateCount++
-		}
-	}
-	if enabledCount != 1 {
-		t.Errorf("expected 1 extrepo enable call for disabled repo, got %d", enabledCount)
-	}
-	if updateCount != 1 {
-		t.Errorf("expected 1 apt-get update after enabling, got %d", updateCount)
-	}
-}
-
-func TestEnableAllExtrepos_enablesWhenNoFile(t *testing.T) {
-	reg := pkg.NewRegistry()
-	reg.Register(&pkg.Package{
-		Name: "pkg-a",
-		Type: pkg.TypeApt,
-		Apt:  &pkg.AptConfig{Extrepo: []string{"my-repo"}},
-	})
-
-	var calls []string
-	runner := &testutil.MockRunner{
-		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			calls = append(calls, name+" "+strings.Join(args, " "))
-			return nil, nil, nil
-		},
-	}
-
-	stateSvc, _ := newStateManagerForTest(t)
-
-	svc := &InstallService{
-		baseService: baseService{
-			reg: reg, state: stateSvc,
-			runner: runner,
-			fs:     testutil.NewMockFileSystem(),
-			aptUpdate:  &testAptUpdater{runner: runner},
-			extrepo:    &testExtrepoManager{runner: runner, fs: testutil.NewMockFileSystem()},
-		},
-		resolver: NewResolver(reg),
-	}
-
-	ctx := context.Background()
-	spinner := &mockSpinner{}
-
-	if err := svc.enableAllExtrepos(ctx, []string{"pkg-a"}, spinner); err != nil {
-		t.Fatalf("enableAllExtrepos: %v", err)
-	}
-
-	enabledCount := 0
-	updateCount := 0
-	for _, c := range calls {
-		if strings.Contains(c, "extrepo enable") {
-			enabledCount++
-		}
-		if strings.Contains(c, "apt-get update") {
-			updateCount++
-		}
-	}
-	if enabledCount != 1 {
-		t.Errorf("expected 1 extrepo enable call when no sources file, got %d", enabledCount)
-	}
-	if updateCount != 1 {
-		t.Errorf("expected 1 apt-get update after enabling, got %d", updateCount)
+			enableCount := 0
+			updateCount := 0
+			for _, c := range calls {
+				if strings.Contains(c, "extrepo enable") {
+					enableCount++
+				}
+				if strings.Contains(c, "apt-get update") {
+					updateCount++
+				}
+			}
+			if enableCount != tc.wantEnableCount {
+				t.Errorf("expected %d extrepo enable calls, got %d", tc.wantEnableCount, enableCount)
+			}
+			if updateCount != tc.wantUpdateCount {
+				t.Errorf("expected %d apt-get update calls, got %d", tc.wantUpdateCount, updateCount)
+			}
+		})
 	}
 }

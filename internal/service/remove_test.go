@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -259,15 +260,13 @@ func TestRemoveOrphaned_listInstalledError(t *testing.T) {
 
 	stateSvc, _ := newStateManagerForTest(t)
 
-	failRunner := &failOnDpkgRunner{}
 	svc := &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			runner: failRunner,
 			aptUpdate:  testutil.NopAptUpdater{},
 			extrepo:    testutil.NopExtrepoManager{},
 		},
-		pkgLister: testutil.NopPackageLister{},
+		pkgLister: &testPackageLister{runner: &failOnDpkgRunner{}},
 	}
 
 	st := &State{Packages: map[string]PkgEntry{
@@ -276,9 +275,8 @@ func TestRemoveOrphaned_listInstalledError(t *testing.T) {
 	}}
 	spinner := &mockSpinner{}
 
-	svc.removeOrphaned(context.Background(), st, spinner)
-	if failRunner.called {
-		t.Log("removeOrphaned logged error to spinner as expected")
+	if err := svc.removeOrphaned(context.Background(), st, spinner); err == nil {
+		t.Fatal("expected error from removeOrphaned when ListInstalled fails")
 	}
 }
 
@@ -666,8 +664,8 @@ func TestDisableOrphanedExtrepos_error(t *testing.T) {
 
 	runner := &testutil.MockRunner{
 		RunFunc: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
-			if name == "extrepo" {
-				return nil, nil, nil
+			if name == "extrepo" && len(args) > 0 && args[0] == "disable" {
+				return nil, nil, errors.New("extrepo disable failed")
 			}
 			return nil, nil, nil
 		},
@@ -677,17 +675,13 @@ func TestDisableOrphanedExtrepos_error(t *testing.T) {
 	p := &pkg.Package{Name: "pkg-a", Apt: &pkg.AptConfig{Extrepo: []string{"repo-1"}}}
 	st := &State{Packages: map[string]PkgEntry{"pkg-a": {}}}
 
-	if err := svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{}); err != nil {
-		t.Fatalf("disableOrphanedExtrepos: %v", err)
+	if err := svc.disableOrphanedExtrepos(context.Background(), p, st, &mockSpinner{}); err == nil {
+		t.Fatal("expected error from disableOrphanedExtrepos when extrepo disable fails")
 	}
 }
 
 func TestRemoveOne_saveStateError(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "debforge-test-*")
-	if err != nil {
-		t.Fatalf("create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	statePath := filepath.Join(tmpDir, "state.json")
 	if err := os.WriteFile(statePath, []byte("{}\n"), 0644); err != nil {
@@ -700,6 +694,7 @@ func TestRemoveOne_saveStateError(t *testing.T) {
 	if err := os.Chmod(tmpDir, 0500); err != nil {
 		t.Fatalf("chmod dir: %v", err)
 	}
+	t.Cleanup(func() { os.Chmod(tmpDir, 0700) })
 
 	reg := pkg.NewRegistry()
 	reg.Register(&pkg.Package{
@@ -731,7 +726,7 @@ func TestRemoveOne_saveStateError(t *testing.T) {
 		t.Fatalf("RemoveOne: %v", err)
 	}
 
-	err = svc.state.Save(st)
+	err := svc.state.Save(st)
 	if err == nil {
 		t.Fatal("expected error from saveState")
 	}
