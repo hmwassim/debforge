@@ -177,7 +177,8 @@ func TestNewInstaller(t *testing.T) {
 	fs := testutil.NewMockFileSystem()
 	ui := &testutil.MockUI{}
 	sys := &testutil.MockSystem{}
-	inst := NewInstaller(runner, fs, ui, sys)
+	extrepo := &testutil.NopExtrepoManager{}
+	inst := NewInstaller(runner, fs, ui, sys, extrepo)
 	if inst.runner != runner {
 		t.Error("runner not set")
 	}

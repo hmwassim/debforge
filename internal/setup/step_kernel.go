@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
+	"github.com/hmwassim/debforge/internal/domain/installer/apt"
 )
 
 var kernelPackages = []string{"linux-image-amd64", "linux-headers-amd64"}
@@ -21,5 +22,5 @@ func (s *KernelStep) Check(ctx context.Context, cx *Context) CheckResult {
 func (s *KernelStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
 	spinner := cx.UI.Spinner(ctx, "Installing backported kernel")
 	defer spinner.Stop()
-	return aptpty.RunInstallBackports(ctx, cx.Runner, kernelPackages, aptpty.DefaultBackportSuite, spinner)
+	return aptpty.RunInstallBackports(ctx, cx.Runner, kernelPackages, apt.DefaultBackportSuite, spinner)
 }

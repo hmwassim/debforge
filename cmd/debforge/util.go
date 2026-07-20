@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/definition"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
@@ -49,7 +48,7 @@ func (h *commandHandler) checkConflicts(ctx context.Context, u ports.UI, names [
 			continue
 		}
 		if p.Apt != nil {
-			found, err := aptpty.FindInstalledConflicts(ctx, h.runner, p.Apt.Conflicts)
+			found, err := aptInst.FindInstalledConflicts(ctx, h.runner, p.Apt.Conflicts)
 			if err != nil {
 				return nil, fmt.Errorf("check conflicts for %q: %w", name, err)
 			}

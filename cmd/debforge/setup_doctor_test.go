@@ -46,7 +46,12 @@ func newSetupHandler(t *testing.T, sys ports.System, cfg *self.Config, fsys *tes
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
 		locker: &testutil.MockLocker{}, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
-		aptUpd: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgList: testutil.NopPackageLister{},
+		factory: service.NewServiceFactory(service.Deps{
+			Reg: reg, InstReg: instReg, State: stateSvc, Locker: &testutil.MockLocker{},
+			LockPath: cfg.LockPath, Runner: runner, Fs: fsys, Sys: sys,
+			AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
+		}),
+		pkgList: testutil.NopPackageLister{},
 	}
 }
 
@@ -342,7 +347,7 @@ func TestDoctor_loadStateError(t *testing.T) {
 				return nil, nil, nil
 			},
 		},
-		aptUpd: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgList: testutil.NopPackageLister{},
+		pkgList: testutil.NopPackageLister{},
 	}
 	// LoadState swallows errors, so doctor proceeds to CheckAll.
 	// Verify it runs without panic and returns the expected result.

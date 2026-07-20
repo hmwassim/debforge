@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/installer"
-	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/service"
 )
@@ -18,51 +17,28 @@ import (
 // packages, then deleting debforge's root directory and link.
 type Remover struct {
 	cfg       *Config
-	runner    ports.CommandRunner
-	fs        ports.FileSystem
 	logger    ports.UI
-	locker    ports.Locker
-	sys       ports.System
-	registry  *pkg.Registry
-	instReg   *installer.Registry
-	stateSvc  *service.StateManager
+	deps      service.Deps
 	removeSvc *service.RemoveService
 }
 
 // NewRemover returns a new Remover with the given dependencies.
 func NewRemover(
 	cfg *Config,
-	runner ports.CommandRunner,
-	fs ports.FileSystem,
 	logger ports.UI,
-	locker ports.Locker,
-	sys ports.System,
-	registry *pkg.Registry,
-	instReg *installer.Registry,
-	stateSvc *service.StateManager,
-	aptUpdate ports.AptUpdater,
-	extrepo ports.ExtrepoManager,
+	factory *service.ServiceFactory,
 	pkgLister ports.PackageLister,
 ) *Remover {
 	return &Remover{
-		cfg: cfg, runner: runner, fs: fs, logger: logger, locker: locker, sys: sys,
-		registry: registry, instReg: instReg, stateSvc: stateSvc,
-		// removeSvc reuses InstallService's sibling RemoveOne logic (lookup
-		// + remove + state bookkeeping) instead of Remover re-implementing
-		// that loop by hand. lockPath is unused here since RemoveOne is
-		// called while Remove already holds the lock.
-		removeSvc: service.NewRemoveService(service.Deps{
-			Reg: registry, InstReg: instReg, State: stateSvc, Locker: locker,
-			LockPath: cfg.LockPath, Runner: runner, Fs: fs, Sys: sys,
-			AptUpd: aptUpdate, Extrepo: extrepo,
-		}, pkgLister),
+		cfg: cfg, logger: logger, deps: factory.Deps(),
+		removeSvc: factory.Remove(pkgLister),
 	}
 }
 
 // Remove runs the self-remove flow: confirmation prompt, removal of
 // managed packages, then deletion of the root directory and symlink.
 func (r *Remover) Remove(ctx context.Context) error {
-	return withRootAndLock(ctx, "self-remove", r.sys, r.locker, r.cfg.LockPath, r.remove)
+	return withRootAndLock(ctx, "self-remove", r.deps.Sys, r.deps.Locker, r.cfg.LockPath, r.remove)
 }
 
 func (r *Remover) remove(ctx context.Context) error {
@@ -72,12 +48,12 @@ func (r *Remover) remove(ctx context.Context) error {
 		return nil
 	}
 
-	st, err := r.stateSvc.Load()
+	st, err := r.deps.State.Load()
 	var names []string
 	if err != nil {
 		r.logger.Warn("could not load state, skipping managed package removal: %s", err)
 	} else {
-		names = r.stateSvc.ListPackages(st)
+		names = r.deps.State.ListPackages(st)
 		if len(names) > 0 {
 			names = r.selectPackages(names)
 		}
@@ -102,12 +78,12 @@ func (r *Remover) remove(ctx context.Context) error {
 	}
 
 	spinner.SetDesc("Removing debforge files")
-	if err := r.fs.RemoveAll(r.cfg.RootDir); err != nil {
+	if err := r.deps.Fs.RemoveAll(r.cfg.RootDir); err != nil {
 		spinner.Fail()
 		return fmt.Errorf("remove %s: %w", r.cfg.RootDir, err)
 	}
 
-	if err := r.fs.RemoveAll(r.cfg.LinkPath); err != nil {
+	if err := r.deps.Fs.RemoveAll(r.cfg.LinkPath); err != nil {
 		r.logger.Warn("could not remove %s: %s", r.cfg.LinkPath, err)
 	}
 
@@ -181,7 +157,7 @@ func (r *Remover) selectPackages(names []string) []string {
 // abort partway.
 func (r *Remover) removeManagedPackages(ctx context.Context, names []string, st *service.State, spinner ports.Spinner) {
 	for _, name := range names {
-		if !r.stateSvc.IsInstalled(st, name) {
+		if !r.deps.State.IsInstalled(st, name) {
 			continue
 		}
 		spinner.SetDesc("Removing " + name)

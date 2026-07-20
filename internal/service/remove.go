@@ -259,7 +259,7 @@ func (s *RemoveService) disableOrphanedExtrepos(ctx context.Context, p *pkg.Pack
 // extrepoNeeded checks whether any installed package other than except needs
 // the given extrepo.
 func (s *RemoveService) extrepoNeeded(ctx context.Context, repo, except string, st *State) bool {
-	for name := range st.Packages {
+	for _, name := range s.state.ListPackages(st) {
 		if name == except {
 			continue
 		}

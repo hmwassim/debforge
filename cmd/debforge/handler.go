@@ -39,8 +39,7 @@ type commandHandler struct {
 	runner   ports.CommandRunner
 	fsys     ports.FileSystem
 	sys      ports.System
-	aptUpd   ports.AptUpdater
-	extrepo  ports.ExtrepoManager
+	factory  *service.ServiceFactory
 	pkgList  ports.PackageLister
 }
 
@@ -49,7 +48,8 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui, sys))
+	extrepoMgr := &adpExtrepo.Manager{Runner: runner, Fs: fsys}
+	instReg.Register(pkg.TypeApt, aptInst.NewInstaller(runner, fsys, ui, sys, extrepoMgr))
 	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui, sys))
 	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui, sys))
@@ -67,8 +67,12 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
 		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
-		aptUpd:  &apt.Updater{Runner: runner},
-		extrepo: &adpExtrepo.Manager{Runner: runner, Fs: fsys},
+		factory: service.NewServiceFactory(service.Deps{
+			Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker,
+			LockPath: cfg.LockPath, Runner: runner, Fs: fsys, Sys: sys,
+			AptUpd:  &apt.Updater{Runner: runner},
+			Extrepo: extrepoMgr,
+		}),
 		pkgList: &adpDpkg.Lister{Runner: runner},
 	}, nil
 }

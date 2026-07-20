@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/adapters/extrepo"
 	"github.com/hmwassim/debforge/internal/adapters/fs"
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/aptpty"
-	"github.com/hmwassim/debforge/internal/domain/installer/extrepo"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
@@ -133,19 +133,8 @@ func newStateManagerForTest(t *testing.T) (*StateManager, string) {
 	return stateSvc, path
 }
 
-// testExtrepoManager delegates to the real extrepo package using the runner and fs.
-type testExtrepoManager struct {
-	runner ports.CommandRunner
-	fs     ports.FileSystem
-}
-
-func (m *testExtrepoManager) NeedsEnable(ctx context.Context, repo string) (bool, error) {
-	return extrepo.NeedsEnable(ctx, repo, m.fs)
-}
-
-func (m *testExtrepoManager) Enable(ctx context.Context, repo string, spinner ports.Spinner) error {
-	return extrepo.Enable(ctx, repo, m.runner, spinner)
-}
+// testExtrepoManager delegates to the real extrepo adapter using the runner and fs.
+type testExtrepoManager = extrepo.Manager
 
 // testAptUpdater delegates to aptpty.RunUpdate using the runner.
 type testAptUpdater struct {

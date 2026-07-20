@@ -9,12 +9,11 @@ import (
 	"github.com/hmwassim/debforge/internal/format"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/self"
-	"github.com/hmwassim/debforge/internal/service"
 	"github.com/hmwassim/debforge/internal/setup"
 )
 
 func (h *commandHandler) selfRemove(ctx context.Context, u ports.UI) int {
-	remover := self.NewRemover(h.cfg, h.runner, h.fsys, u, h.locker, h.sys, h.reg, h.instReg, h.stateSvc, h.aptUpd, h.extrepo, h.pkgList)
+	remover := self.NewRemover(h.cfg, u, h.factory, h.pkgList)
 	if err := remover.Remove(ctx); err != nil {
 		u.Error("self-remove failed: %s", err)
 		return 1
@@ -42,11 +41,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 		u.Info("Conflicting package(s) installed: %s", strings.Join(conflicts, ", "))
 	}
 
-	svc := service.NewInstallService(service.Deps{
-		Reg: h.reg, InstReg: h.instReg, State: h.stateSvc, Locker: h.locker,
-		LockPath: h.cfg.LockPath, Runner: h.runner, Fs: h.fsys, Sys: h.sys,
-		AptUpd: h.aptUpd, Extrepo: h.extrepo,
-	}, service.NewResolver(h.reg))
+	svc := h.factory.Install()
 	if err := svc.SelectVariants(ctx, names, forceMode); err != nil {
 		u.Error("variant selection failed: %s", err)
 		return 1
@@ -58,11 +53,7 @@ func (h *commandHandler) install(ctx context.Context, u ports.UI, names []string
 }
 
 func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string) int {
-	svc := service.NewRemoveService(service.Deps{
-		Reg: h.reg, InstReg: h.instReg, State: h.stateSvc, Locker: h.locker,
-		LockPath: h.cfg.LockPath, Runner: h.runner, Fs: h.fsys, Sys: h.sys,
-		AptUpd: h.aptUpd, Extrepo: h.extrepo,
-	}, h.pkgList)
+	svc := h.factory.Remove(h.pkgList)
 
 	st, err := h.stateSvc.Load()
 	if err == nil {
@@ -77,11 +68,7 @@ func (h *commandHandler) remove(ctx context.Context, u ports.UI, names []string)
 }
 
 func (h *commandHandler) update(ctx context.Context, u ports.UI, names []string, forceMode, allMode bool) int {
-	svc := service.NewInstallService(service.Deps{
-		Reg: h.reg, InstReg: h.instReg, State: h.stateSvc, Locker: h.locker,
-		LockPath: h.cfg.LockPath, Runner: h.runner, Fs: h.fsys, Sys: h.sys,
-		AptUpd: h.aptUpd, Extrepo: h.extrepo,
-	}, service.NewResolver(h.reg))
+	svc := h.factory.Install()
 	return withConfirm(ctx, u, func(spinner ports.Spinner) error {
 		if err := aptpty.RunUpdate(ctx, h.runner, spinner); err != nil {
 			return err

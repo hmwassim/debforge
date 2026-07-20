@@ -34,7 +34,12 @@ func newRemoverForTest(t *testing.T) (*Remover, *removerTestDeps) {
 	st := store.NewStore[service.State](fs, cfg.StatePath)
 	stateSvc := service.NewStateManager(st)
 
-	rm := NewRemover(cfg, runner, fs, ui, locker, sys, reg, instReg, stateSvc, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
+	factory := service.NewServiceFactory(service.Deps{
+		Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker,
+		LockPath: cfg.LockPath, Runner: runner, Fs: fs, Sys: sys,
+		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
+	})
+	rm := NewRemover(cfg, ui, factory, testutil.NopPackageLister{})
 	return rm, &removerTestDeps{cfg: cfg, fs: fs, ui: ui, stateSvc: stateSvc}
 }
 
@@ -147,7 +152,13 @@ func TestRemoverRemove_publicMethod_notRoot(t *testing.T) {
 	// Replace the sys on the remoter with a non-root one.
 	// We need to recreate since sys is set in NewRemover.
 	cfg := deps.cfg
-	rm2 := NewRemover(cfg, testutil.RunnerReturning(nil, nil), deps.fs, deps.ui, &testutil.MockLocker{}, &mockSystem{privileged: false}, pkg.NewRegistry(), installer.NewRegistry(), deps.stateSvc, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
+	factory := service.NewServiceFactory(service.Deps{
+		Reg: pkg.NewRegistry(), InstReg: installer.NewRegistry(), State: deps.stateSvc,
+		Locker: &testutil.MockLocker{}, LockPath: cfg.LockPath,
+		Runner: testutil.RunnerReturning(nil, nil), Fs: deps.fs, Sys: &mockSystem{privileged: false},
+		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
+	})
+	rm2 := NewRemover(cfg, deps.ui, factory, testutil.NopPackageLister{})
 	if err := rm2.Remove(ctx); err == nil {
 		t.Fatal("expected error when not root")
 	}

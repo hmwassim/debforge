@@ -11,7 +11,6 @@ import (
 
 	"github.com/hmwassim/debforge/internal/aptpty"
 	"github.com/hmwassim/debforge/internal/domain/installer"
-	"github.com/hmwassim/debforge/internal/domain/installer/extrepo"
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 )
@@ -22,13 +21,14 @@ type Installer struct {
 	fs          ports.FileSystem
 	ui          ports.UI
 	sys         ports.System
+	extrepo     ports.ExtrepoManager
 	execApt     aptpty.AptExecFunc
 	policyCache map[string]string // pkgName → candidate version
 }
 
 // NewInstaller returns a new apt Installer.
-func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System) *Installer {
-	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, execApt: aptpty.AptExec, policyCache: make(map[string]string)}
+func NewInstaller(runner ports.CommandRunner, fs ports.FileSystem, ui ports.UI, sys ports.System, extrepo ports.ExtrepoManager) *Installer {
+	return &Installer{runner: runner, fs: fs, ui: ui, sys: sys, extrepo: extrepo, execApt: aptpty.AptExec, policyCache: make(map[string]string)}
 }
 
 // Install installs the apt packages described by p, including extrepo
@@ -160,7 +160,7 @@ func (i *Installer) checkGPU(ctx context.Context, p *pkg.Package) error {
 // ---- conflicts ------------------------------------------------------------
 
 func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
-	found, err := aptpty.FindInstalledConflicts(ctx, i.runner, p.Apt.Conflicts)
+	found, err := FindInstalledConflicts(ctx, i.runner, p.Apt.Conflicts)
 	if err != nil {
 		return fmt.Errorf("check conflicts: %w", err)
 	}
@@ -175,14 +175,14 @@ func (i *Installer) checkConflicts(ctx context.Context, p *pkg.Package, spinner 
 func (i *Installer) enableExtrepos(ctx context.Context, p *pkg.Package, spinner ports.Spinner) error {
 	anyEnabled := false
 	for _, repo := range p.Apt.Extrepo {
-		needed, err := extrepo.NeedsEnable(ctx, repo, i.fs)
+		needed, err := i.extrepo.NeedsEnable(ctx, repo)
 		if err != nil {
 			return err
 		}
 		if !needed {
 			continue
 		}
-		if err := extrepo.Enable(ctx, repo, i.runner, spinner); err != nil {
+		if err := i.extrepo.Enable(ctx, repo, spinner); err != nil {
 			return err
 		}
 		anyEnabled = true
@@ -269,7 +269,7 @@ func (i *Installer) installBackports(ctx context.Context, p *pkg.Package, spinne
 	spinner.SetDesc("installing backports for " + p.Name)
 	suite := p.Apt.BackportSuite
 	if suite == "" {
-		suite = aptpty.DefaultBackportSuite
+		suite = DefaultBackportSuite
 	}
 	args := append([]string{"install", "-y", "-t", suite}, p.Apt.Backports...)
 	return i.execApt(ctx, i.runner, args, spinner)

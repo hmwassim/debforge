@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/textutil"
 )
@@ -37,14 +36,11 @@ var AptExec AptExecFunc = run
 // default, so existing callers and tests are unaffected.
 var LineLog func(line string)
 
-// DefaultBackportSuite is the default suite used for backport installations
-// when the package definition does not specify one. Exported so that other
-// packages (installer, setup) can reference the same constant.
-const DefaultBackportSuite = "trixie-backports"
-
 const (
 	phaseDownload = 0
 	phaseInstall  = 1
+
+	defaultBackportSuite = "trixie-backports"
 )
 
 type runState struct {
@@ -73,7 +69,7 @@ func RunInstallBackports(ctx context.Context, runner ports.CommandRunner, packag
 		return nil
 	}
 	if suite == "" {
-		suite = DefaultBackportSuite
+		suite = defaultBackportSuite
 	}
 	args := append([]string{"install", "-y", "-t", suite}, packages...)
 	return run(ctx, runner, args, spinner)
@@ -103,22 +99,6 @@ func RunUpdate(ctx context.Context, runner ports.CommandRunner, spinner ports.Sp
 // alone would silently skip those packages.
 func RunUpgrade(ctx context.Context, runner ports.CommandRunner, spinner ports.Spinner) error {
 	return AptExec(ctx, runner, []string{"full-upgrade", "-y"}, spinner)
-}
-
-// FindInstalledConflicts returns the subset of names that are currently
-// installed according to dpkg-query.
-func FindInstalledConflicts(ctx context.Context, runner ports.CommandRunner, names []string) ([]string, error) {
-	found := make([]string, 0, len(names))
-	for _, name := range names {
-		ok, err := dpkg.IsInstalled(ctx, runner, name)
-		if err != nil {
-			return nil, fmt.Errorf("check %q: %w", name, err)
-		}
-		if ok {
-			found = append(found, name)
-		}
-	}
-	return found, nil
 }
 
 // ---- pre-run: --print-uris ------------------------------------------------

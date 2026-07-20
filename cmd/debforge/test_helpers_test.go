@@ -64,7 +64,12 @@ func newHandlerForTest(
 	return &commandHandler{
 		reg: reg, instReg: instReg, stateSvc: stateSvc,
 		locker: locker, cfg: cfg, runner: runner, fsys: fsys, sys: sys,
-		aptUpd: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}, pkgList: testutil.NopPackageLister{},
+		factory: service.NewServiceFactory(service.Deps{
+			Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker,
+			LockPath: cfg.LockPath, Runner: runner, Fs: fsys, Sys: sys,
+			AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
+		}),
+		pkgList: testutil.NopPackageLister{},
 	}
 }
 

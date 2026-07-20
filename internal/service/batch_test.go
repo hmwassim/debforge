@@ -425,7 +425,7 @@ func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
 			runner:  runner,
 			fs:      mockFs,
 			aptUpdate:  &testAptUpdater{runner: runner},
-			extrepo:    &testExtrepoManager{runner: runner, fs: mockFs},
+			extrepo:    &testExtrepoManager{Runner: runner, Fs: mockFs},
 		},
 		resolver: NewResolver(reg),
 		execApt:  noopAptExec,
@@ -545,10 +545,10 @@ func TestEnableAllExtrepos(t *testing.T) {
 					runner: runner,
 					fs:     mockFs,
 					aptUpdate:  &testAptUpdater{runner: runner},
-					extrepo:    &testExtrepoManager{runner: runner, fs: mockFs},
-				},
-				resolver: NewResolver(reg),
-			}
+				extrepo:    &testExtrepoManager{Runner: runner, Fs: mockFs},
+			},
+			resolver: NewResolver(reg),
+		}
 
 			names := make([]string, len(tc.pkgs))
 			for i := range tc.pkgs {
