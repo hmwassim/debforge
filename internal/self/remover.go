@@ -191,16 +191,12 @@ func (r *Remover) removeManagedPackages(ctx context.Context, names []string, st 
 	}
 }
 
-var dangerousRoots = []string{
-	"/", "/opt", "/usr", "/etc", "/var", "/home", "/root",
-}
-
 func verifyRemovablePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("path is empty")
 	}
 	clean := filepath.Clean(path)
-	for _, d := range dangerousRoots {
+	for _, d := range installer.DangerousRoots {
 		if clean == d {
 			return fmt.Errorf("refusing to remove: %q is a dangerous system path", clean)
 		}

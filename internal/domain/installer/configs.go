@@ -3,21 +3,11 @@ package installer
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/textutil"
 	"github.com/hmwassim/debforge/internal/userdir"
-)
-
-// ConfigAction represents the decision from a three-way config file merge.
-type ConfigAction int
-
-const (
-	ConfigWrite ConfigAction = iota
-	ConfigSkip
-	ConfigConflict
 )
 
 // DecideConfigAction performs a three-way comparison between the on-disk
@@ -258,86 +248,4 @@ func FileIsModified(fs ports.FileSystem, path string, want string, forceInstall 
 		return false
 	}
 	return string(existing) != want
-}
-
-// allowedConfigPrefixes lists directory prefixes that config files may
-// be written to. Paths outside these prefixes are rejected to prevent
-// arbitrary filesystem writes from untrusted YAML definitions.
-var allowedConfigPrefixes = []string{
-	"/etc/",
-	"/usr/share/",
-	"/usr/lib/",
-	"/opt/",
-	"/boot/",
-	"/var/",
-}
-
-// checkPathTraversal returns an error if path contains ".." components.
-func checkPathTraversal(path string) error {
-	if strings.Contains(path, "..") {
-		return fmt.Errorf("path %q contains traversal component", path)
-	}
-	return nil
-}
-
-// ValidateConfigPath checks whether a config destination path falls
-// within an allowed directory prefix and contains no traversal
-// components. This prevents untrusted YAML definitions from writing to
-// arbitrary filesystem locations.
-func ValidateConfigPath(path string) error {
-	if path == "" {
-		return fmt.Errorf("config path is empty")
-	}
-	if err := checkPathTraversal(path); err != nil {
-		return err
-	}
-	clean := filepath.Clean(path)
-	if !filepath.IsAbs(clean) {
-		return fmt.Errorf("config path %q is not absolute", path)
-	}
-	for _, prefix := range allowedConfigPrefixes {
-		if strings.HasPrefix(clean, prefix) {
-			return nil
-		}
-	}
-	return fmt.Errorf("config path %q is outside allowed directories", path)
-}
-
-// ValidateUserConfigPath checks that a user config path (after ~
-// expansion) resolves within the given home directory.
-func ValidateUserConfigPath(absPath, homeDir string) error {
-	clean := filepath.Clean(absPath)
-	if !strings.HasPrefix(clean, filepath.Clean(homeDir)+string(filepath.Separator)) {
-		return fmt.Errorf("user config path %q escapes home directory %q", absPath, homeDir)
-	}
-	return nil
-}
-
-// ValidateRemovablePath checks whether a path is safe to remove.
-// It rejects empty paths, paths containing traversal components,
-// and well-known system directories.
-var dangerousRoots = []string{
-	"/", "/bin", "/boot", "/dev", "/etc", "/home", "/lib", "/lib64",
-	"/opt", "/proc", "/root", "/run", "/sbin", "/sys", "/usr", "/var",
-}
-
-// ValidateRemovablePath returns an error if path is a dangerous system
-// directory or contains traversal components.
-func ValidateRemovablePath(path string) error {
-	if path == "" {
-		return fmt.Errorf("path is empty")
-	}
-	if err := checkPathTraversal(path); err != nil {
-		return err
-	}
-	clean := filepath.Clean(path)
-	if clean == "/" {
-		return fmt.Errorf("refusing to remove root directory")
-	}
-	for _, d := range dangerousRoots {
-		if clean == d {
-			return fmt.Errorf("refusing to remove %q: dangerous system path", clean)
-		}
-	}
-	return nil
 }

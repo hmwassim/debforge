@@ -167,38 +167,32 @@ func (s *InstallService) alreadySatisfied(ctx context.Context, name string, st *
 // When it returns true the caller should mark the dep as processed and
 // continue to the next dependency without installing.
 func (s *InstallService) shouldSkip(ctx context.Context, dep *pkg.Package, exists bool, pctx *pipelineCtx) (skip bool, err error) {
-	if dep.SkipUpdate && !dep.ForceInstall && exists {
+	check := evalSkipCheck(dep, exists, pctx.rerun)
+
+	switch check {
+	case skipCheckVariant:
+		pctx.spinner.SetDesc(dep.Name + " skipped")
+		pctx.sessionProcessed[dep.Name] = true
+		return true, nil
+
+	case skipCheckDisk:
 		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
 		if err != nil {
 			return false, err
 		}
 		if ok {
-			if pctx.verb == "update" {
-				pctx.spinner.SetDesc(dep.Name + " already up to date")
+			if dep.SkipUpdate && !dep.ForceInstall {
+				if pctx.verb == "update" {
+					pctx.spinner.SetDesc(dep.Name + " already up to date")
+				} else {
+					pctx.spinner.SetDesc(dep.Name + " already installed")
+				}
 			} else {
 				pctx.spinner.SetDesc(dep.Name + " already installed")
 			}
 			pctx.sessionProcessed[dep.Name] = true
 			return true, nil
 		}
-	}
-
-	if !pctx.rerun && exists {
-		ok, err := installer.CheckInstalled(ctx, s.runner, s.fs, s.sys, dep)
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			pctx.spinner.SetDesc(dep.Name + " already installed")
-			pctx.sessionProcessed[dep.Name] = true
-			return true, nil
-		}
-	}
-
-	if dep.Apt != nil && dep.Apt.Variant == "__skip__" {
-		pctx.spinner.SetDesc(dep.Name + " skipped")
-		pctx.sessionProcessed[dep.Name] = true
-		return true, nil
 	}
 
 	return false, nil

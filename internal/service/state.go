@@ -113,14 +113,6 @@ func (m *StateManager) LookupVariant(st *State, name string) string {
 	return ""
 }
 
-// Has reports whether name is present in the state (read-locked).
-func (m *StateManager) Has(st *State, name string) bool {
-	st.mu.RLock()
-	_, ok := st.Packages[name]
-	st.mu.RUnlock()
-	return ok
-}
-
 // newPkgEntry builds a PkgEntry from a resolved package.
 func newPkgEntry(p *pkg.Package) PkgEntry {
 	e := PkgEntry{
