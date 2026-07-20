@@ -13,24 +13,38 @@ import (
 	"github.com/hmwassim/debforge/internal/service"
 )
 
+// PackageRemover removes a single managed package from loaded state and
+// computes which installed packages would become unsatisfied dependents.
+type PackageRemover interface {
+	RemoveOne(ctx context.Context, name string, st *service.State, spinner ports.Spinner) error
+	AffectedDependents(st *service.State, names []string) []string
+}
+
+// StateReader loads and queries the persisted installation state.
+type StateReader interface {
+	Load() (*service.State, error)
+	ListPackages(st *service.State) []string
+	IsInstalled(st *service.State, name string) bool
+}
+
 // Remover handles the self-remove operation — removing all managed
 // packages, then deleting debforge's root directory and link.
 type Remover struct {
 	cfg       *Config
 	logger    ports.UI
-	stateSvc  *service.StateManager
+	removeSvc PackageRemover
+	stateSvc  StateReader
 	sys       ports.System
 	locker    ports.Locker
 	fs        ports.FileSystem
-	removeSvc *service.RemoveService
 }
 
 // NewRemover returns a new Remover with the given dependencies.
 func NewRemover(
 	cfg *Config,
 	logger ports.UI,
-	removeSvc *service.RemoveService,
-	stateSvc *service.StateManager,
+	removeSvc PackageRemover,
+	stateSvc StateReader,
 	sys ports.System,
 	locker ports.Locker,
 	fs ports.FileSystem,

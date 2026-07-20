@@ -5,43 +5,77 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hmwassim/debforge/internal/adapters/store"
-	"github.com/hmwassim/debforge/internal/domain/installer"
-	"github.com/hmwassim/debforge/internal/domain/pkg"
+	"github.com/hmwassim/debforge/internal/ports"
 	"github.com/hmwassim/debforge/internal/service"
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-// removerTestDeps holds the dependencies created for a Remover test.
-type removerTestDeps struct {
-	cfg      *Config
-	fs       *testutil.MockFileSystem
-	ui       *testutil.MockUI
-	stateSvc *service.StateManager
+// fakeStateReader is a lightweight in-memory StateReader for tests.
+type fakeStateReader struct {
+	state *service.State
 }
 
-// newRemoverForTest creates a minimal Remover backed by mocks.
+func (f *fakeStateReader) Load() (*service.State, error) {
+	return f.state, nil
+}
+
+func (f *fakeStateReader) ListPackages(st *service.State) []string {
+	names := make([]string, 0, len(st.Packages))
+	for n := range st.Packages {
+		names = append(names, n)
+	}
+	return names
+}
+
+func (f *fakeStateReader) IsInstalled(st *service.State, name string) bool {
+	_, ok := st.Packages[name]
+	return ok
+}
+
+// fakePackageRemover is a lightweight PackageRemover for tests.
+type fakePackageRemover struct {
+	removeErr            error
+	affectedDependentsFn func(names []string) []string
+	removedNames         []string
+}
+
+func (f *fakePackageRemover) RemoveOne(_ context.Context, name string, st *service.State, _ ports.Spinner) error {
+	f.removedNames = append(f.removedNames, name)
+	if f.removeErr != nil {
+		return f.removeErr
+	}
+	delete(st.Packages, name)
+	return nil
+}
+
+func (f *fakePackageRemover) AffectedDependents(_ *service.State, names []string) []string {
+	if f.affectedDependentsFn != nil {
+		return f.affectedDependentsFn(names)
+	}
+	return nil
+}
+
+// removerTestDeps holds the dependencies created for a Remover test.
+type removerTestDeps struct {
+	cfg *Config
+	fs  *testutil.MockFileSystem
+	ui  *testutil.MockUI
+}
+
+// newRemoverForTest creates a minimal Remover backed by fakes.
 func newRemoverForTest(t *testing.T) (*Remover, *removerTestDeps) {
 	t.Helper()
 	cfg := DefaultConfig()
 	fs := testutil.NewMockFileSystem()
-	runner := testutil.RunnerReturning(nil, nil)
 	ui := &testutil.MockUI{Yes: true}
 	locker := &testutil.MockLocker{}
 	sys := &mockSystem{privileged: true}
-	reg := pkg.NewRegistry()
-	instReg := installer.NewRegistry()
-	st := store.NewStore[service.State](fs, cfg.StatePath)
-	stateSvc := service.NewStateManager(st)
 
-	factory := service.NewServiceFactory(service.Deps{
-		Reg: reg, InstReg: instReg, State: stateSvc, Locker: locker,
-		LockPath: cfg.LockPath, Runner: runner, Fs: fs, Sys: sys,
-		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
-	})
-	removeSvc := factory.Remove(testutil.NopPackageLister{})
+	stateSvc := &fakeStateReader{state: &service.State{Packages: make(map[string]service.PkgEntry)}}
+	removeSvc := &fakePackageRemover{}
+
 	rm := NewRemover(cfg, ui, removeSvc, stateSvc, sys, locker, fs)
-	return rm, &removerTestDeps{cfg: cfg, fs: fs, ui: ui, stateSvc: stateSvc}
+	return rm, &removerTestDeps{cfg: cfg, fs: fs, ui: ui}
 }
 
 func TestRemoverRemove_success(t *testing.T) {
@@ -150,18 +184,14 @@ func TestRemoverRemove_publicMethod_notRoot(t *testing.T) {
 	ctx := context.Background()
 	_, deps := newRemoverForTest(t)
 	deps.fs.Files[deps.cfg.RootDir] = []byte{}
-	// Replace the sys on the remoter with a non-root one.
-	// We need to recreate since sys is set in NewRemover.
-	cfg := deps.cfg
-	factory := service.NewServiceFactory(service.Deps{
-		Reg: pkg.NewRegistry(), InstReg: installer.NewRegistry(), State: deps.stateSvc,
-		Locker: &testutil.MockLocker{}, LockPath: cfg.LockPath,
-		Runner: testutil.RunnerReturning(nil, nil), Fs: deps.fs, Sys: &mockSystem{privileged: false},
-		AptUpd: testutil.NopAptUpdater{}, Extrepo: testutil.NopExtrepoManager{},
-	})
-	removeSvc := factory.Remove(testutil.NopPackageLister{})
-	rm2 := NewRemover(cfg, deps.ui, removeSvc, deps.stateSvc, &mockSystem{privileged: false}, &testutil.MockLocker{}, deps.fs)
-	if err := rm2.Remove(ctx); err == nil {
+
+	sys := &mockSystem{privileged: false}
+	locker := &testutil.MockLocker{}
+	stateSvc := &fakeStateReader{state: &service.State{Packages: make(map[string]service.PkgEntry)}}
+	removeSvc := &fakePackageRemover{}
+	rm := NewRemover(deps.cfg, deps.ui, removeSvc, stateSvc, sys, locker, deps.fs)
+
+	if err := rm.Remove(ctx); err == nil {
 		t.Fatal("expected error when not root")
 	}
 }
@@ -267,20 +297,25 @@ func TestSelectPackages_emptyNames(t *testing.T) {
 	}
 }
 
+func newRemoverWithFakes(removeSvc PackageRemover) (*Remover, *service.State) {
+	cfg := DefaultConfig()
+	fs := testutil.NewMockFileSystem()
+	ui := &testutil.MockUI{Yes: true}
+	locker := &testutil.MockLocker{}
+	sys := &mockSystem{privileged: true}
+	stateSvc := &fakeStateReader{state: &service.State{Packages: make(map[string]service.PkgEntry)}}
+	rm := NewRemover(cfg, ui, removeSvc, stateSvc, sys, locker, fs)
+	st := &service.State{Packages: make(map[string]service.PkgEntry)}
+	return rm, st
+}
+
 func TestRemoveManagedPackages_withPackages(t *testing.T) {
 	ctx := context.Background()
-	rm, deps := newRemoverForTest(t)
-
-	stateJSON := `{"packages": {"test-pkg": {"type": "apt", "variant": "", "version": "1.0"}}}`
-	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
-
-	st, err := deps.stateSvc.Load()
-	if err != nil {
-		t.Fatalf("load state: %v", err)
-	}
+	rm, st := newRemoverWithFakes(&fakePackageRemover{removeErr: fmt.Errorf("remove failed")})
+	st.Packages["test-pkg"] = service.PkgEntry{Type: "apt", Version: "1.0"}
 
 	var warnCalled bool
-	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
+	rm.logger = &testutil.MockUI{WarnFunc: func(_ string, _ ...any) { warnCalled = true }}
 
 	rm.removeManagedPackages(ctx, []string{"test-pkg"}, st, &testutil.MockSpinner{})
 
@@ -291,24 +326,12 @@ func TestRemoveManagedPackages_withPackages(t *testing.T) {
 
 func TestRemoveManagedPackages_partial(t *testing.T) {
 	ctx := context.Background()
-	rm, deps := newRemoverForTest(t)
-
-	stateJSON := `{"packages": {"pkg-a": {"type": "apt"}, "pkg-b": {"type": "apt"}}}`
-	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
-
-	st, err := deps.stateSvc.Load()
-	if err != nil {
-		t.Fatalf("load state: %v", err)
-	}
-
-	var warns []string
-	deps.ui.WarnFunc = func(format string, args ...any) {
-		warns = append(warns, fmt.Sprintf(format, args...))
-	}
+	rm, st := newRemoverWithFakes(&fakePackageRemover{})
+	st.Packages["pkg-a"] = service.PkgEntry{Type: "apt"}
+	st.Packages["pkg-b"] = service.PkgEntry{Type: "apt"}
 
 	rm.removeManagedPackages(ctx, []string{"pkg-a"}, st, &testutil.MockSpinner{})
 
-	// Only pkg-a was requested; pkg-b should remain in state.
 	if _, ok := st.Packages["pkg-b"]; !ok {
 		t.Error("expected pkg-b to remain in state")
 	}
@@ -316,23 +339,13 @@ func TestRemoveManagedPackages_partial(t *testing.T) {
 
 func TestRemoveManagedPackages_skipAlreadyRemoved(t *testing.T) {
 	ctx := context.Background()
-	rm, deps := newRemoverForTest(t)
-
-	stateJSON := `{"packages": {"pkg-a": {"type": "apt"}}}`
-	deps.fs.Files[deps.cfg.StatePath] = []byte(stateJSON)
-
-	st, err := deps.stateSvc.Load()
-	if err != nil {
-		t.Fatalf("load state: %v", err)
-	}
-
-	// Simulate cascade: remove pkg-a from state.
-	delete(st.Packages, "pkg-a")
+	rm, st := newRemoverWithFakes(&fakePackageRemover{})
 
 	var warnCalled bool
-	deps.ui.WarnFunc = func(_ string, _ ...any) { warnCalled = true }
+	rm.logger = &testutil.MockUI{WarnFunc: func(_ string, _ ...any) { warnCalled = true }}
 
 	rm.removeManagedPackages(ctx, []string{"pkg-a"}, st, &testutil.MockSpinner{})
+
 	if warnCalled {
 		t.Error("expected no Warn for already-removed package")
 	}
