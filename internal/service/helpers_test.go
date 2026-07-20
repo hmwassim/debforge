@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,7 +15,14 @@ import (
 	"github.com/hmwassim/debforge/internal/domain/pkg"
 	"github.com/hmwassim/debforge/internal/dpkg"
 	"github.com/hmwassim/debforge/internal/ports"
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m,
+		goleak.IgnoreCurrent(),
+	)
+}
 
 type mockSpinner struct{ desc string }
 
@@ -113,21 +121,16 @@ func (r *failOnDpkgRunner) RunWithOptions(_ context.Context, _ ports.RunOptions,
 	return nil, nil, nil
 }
 
-func newStateManagerForTest(t *testing.T) (*StateManager, string, func()) {
+func newStateManagerForTest(t *testing.T) (*StateManager, string) {
 	t.Helper()
-	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
-	if err != nil {
-		t.Fatalf("create temp state: %v", err)
-	}
-	if _, err := tmpFile.Write([]byte("{}\n")); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(path, []byte("{}\n"), 0644); err != nil {
 		t.Fatalf("write initial state: %v", err)
 	}
-	tmpFile.Close()
-	stateStore := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
+	stateStore := store.NewStore[State](fs.NewFileSystem(), path)
 	stateSvc := NewStateManager(stateStore)
-	return stateSvc, tmpFile.Name(), func() { os.Remove(tmpFile.Name()) }
+	return stateSvc, path
 }
 
 // testExtrepoManager delegates to the real extrepo package using the runner and fs.

@@ -25,8 +25,7 @@ func TestSelectVariants_noVariantsSkips(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &mockVariantSelector{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -52,8 +51,7 @@ func TestSelectVariants_appliesVariant(t *testing.T) {
 	sel := &mockVariantSelector{selectedVariant: "beta"}
 	instReg.Register(pkg.TypeApt, sel)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -84,8 +82,7 @@ func TestSelectVariants_skipsWhenInStateAndNotForce(t *testing.T) {
 	sel := &mockVariantSelector{selectedVariant: "beta"}
 	instReg.Register(pkg.TypeApt, sel)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt", Variant: "stable"},
@@ -110,8 +107,7 @@ func TestSelectVariants_skipsWhenInStateAndNotForce(t *testing.T) {
 }
 
 func TestSelectVariants_loadError(t *testing.T) {
-	stateSvc, statePath, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, statePath := newStateManagerForTest(t)
 	if err := os.WriteFile(statePath, []byte("{invalid json"), 0644); err != nil {
 		t.Fatalf("write corrupt state: %v", err)
 	}
@@ -127,8 +123,7 @@ func TestSelectVariants_loadError(t *testing.T) {
 }
 
 func TestSelectVariants_lookupError(t *testing.T) {
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -155,8 +150,7 @@ func TestSelectVariants_resolveError(t *testing.T) {
 		Depends: []string{"self-loop"},
 	})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -182,8 +176,7 @@ func TestSelectVariants_lookupInstallerError(t *testing.T) {
 		Apt:  &pkg.AptConfig{Variants: map[string][]string{"a": {"pkg-a"}}},
 	})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -213,8 +206,7 @@ func TestSelectVariants_notAVariantSelector(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -241,8 +233,7 @@ func TestSelectVariants_selectError(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &mockVariantSelector{selectedVariant: "", selectErr: os.ErrInvalid})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -273,8 +264,7 @@ func TestProcessOne_rerunBypassesInstalledCheck(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -316,8 +306,7 @@ func TestProcessOne_skipVariantDoesNothing(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -352,8 +341,7 @@ func TestProcessOne_alreadyInstalledReturnsFalse(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -396,8 +384,7 @@ func TestProcessOne_installedButRemovedReinstalls(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -434,8 +421,7 @@ func TestProcessAll_emptyNames(t *testing.T) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -456,8 +442,7 @@ func TestProcessAll_unknownName(t *testing.T) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -478,8 +463,7 @@ func TestProcessAll_unknownName(t *testing.T) {
 }
 
 func TestCheckInstalled_runnerError(t *testing.T) {
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -517,8 +501,7 @@ func TestProcessAll_workDoneMultiple(t *testing.T) {
 	recorder := &variantRecorder{}
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -559,8 +542,7 @@ func TestProcessAll_nothingToDoMultiple(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -598,8 +580,7 @@ func TestProcessAll_nothingToDoMultipleUpdate(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -632,8 +613,7 @@ func TestInstallServiceRun_success(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
@@ -657,8 +637,7 @@ func TestInstallServiceRun_success(t *testing.T) {
 }
 
 func TestInstallServiceRun_loadError(t *testing.T) {
-	stateSvc, statePath, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, statePath := newStateManagerForTest(t)
 	if err := os.WriteFile(statePath, []byte("{invalid json"), 0644); err != nil {
 		t.Fatalf("write corrupt state: %v", err)
 	}

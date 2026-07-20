@@ -14,7 +14,7 @@ import (
 //
 //	root-a (apt) depends-on shared (apt)
 //	root-b (apt) depends-on shared (apt)
-func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
+func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder) {
 	t.Helper()
 
 	reg := pkg.NewRegistry()
@@ -41,7 +41,7 @@ func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder, func()
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -51,12 +51,11 @@ func setupSharedDepTest(t *testing.T) (*InstallService, *variantRecorder, func()
 	svc.runner = &nopRunner{}
 	svc.fs = fs.NewFileSystem()
 
-	return svc, &recorder.variantRecorder, cleanup
+	return svc, &recorder.variantRecorder
 }
 
 func TestProcessOne_forcePropagatesToDeps(t *testing.T) {
-	svc, recorder, cleanup := setupDepTest(t)
-	defer cleanup()
+	svc, recorder := setupDepTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	ctx := context.Background()
@@ -79,8 +78,7 @@ func TestProcessOne_forcePropagatesToDeps(t *testing.T) {
 }
 
 func TestProcessOne_forceFalseDoesNotSetForceInstall(t *testing.T) {
-	svc, recorder, cleanup := setupDepTest(t)
-	defer cleanup()
+	svc, recorder := setupDepTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	ctx := context.Background()
@@ -103,8 +101,7 @@ func TestProcessOne_forceFalseDoesNotSetForceInstall(t *testing.T) {
 }
 
 func TestProcessOne_forceStateUpdateOnUnchangedDep(t *testing.T) {
-	svc, _, cleanup := setupDepTest(t)
-	defer cleanup()
+	svc, _ := setupDepTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"root": {Type: "apt", Version: "1.0"},
@@ -124,8 +121,7 @@ func TestProcessOne_forceStateUpdateOnUnchangedDep(t *testing.T) {
 }
 
 func TestProcessAll_sharedDepProcessedOnce(t *testing.T) {
-	svc, recorder, cleanup := setupSharedDepTest(t)
-	defer cleanup()
+	svc, recorder := setupSharedDepTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	ctx := context.Background()

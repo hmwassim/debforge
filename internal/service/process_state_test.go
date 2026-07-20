@@ -30,7 +30,7 @@ func (r *failAfterRecorder) Install(ctx context.Context, p *pkg.Package, spinner
 	return r.variantRecorder.Install(ctx, p, spinner)
 }
 
-func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
+func setupPersistenceTest(t *testing.T) (*InstallService, string) {
 	t.Helper()
 
 	reg := pkg.NewRegistry()
@@ -51,7 +51,7 @@ func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, statePath, cleanup := newStateManagerForTest(t)
+	stateSvc, statePath := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -60,12 +60,11 @@ func setupPersistenceTest(t *testing.T) (*InstallService, string, func()) {
 	svc.runner = &nopRunner{}
 	svc.fs = fs.NewFileSystem()
 
-	return svc, statePath, cleanup
+	return svc, statePath
 }
 
 func TestProcessOne_successPersistsState(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath := setupPersistenceTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	ctx := context.Background()
@@ -121,8 +120,7 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, failInst)
 
-	stateSvc, tmpPath, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, tmpPath := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -167,18 +165,15 @@ func TestProcessOne_depChainPartialFailurePersistsCompleted(t *testing.T) {
 }
 
 func TestLoad_corruptState(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "debforge-test-*.json")
-	if err != nil {
-		t.Fatalf("create temp file: %v", err)
+	path := filepath.Join(t.TempDir(), "corrupt.json")
+	if err := os.WriteFile(path, []byte("{invalid json"), 0644); err != nil {
+		t.Fatalf("write corrupt file: %v", err)
 	}
-	_, _ = tmpFile.Write([]byte("{invalid json"))
-	tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
 
-	st := store.NewStore[State](fs.NewFileSystem(), tmpFile.Name())
+	st := store.NewStore[State](fs.NewFileSystem(), path)
 	stateSvc := NewStateManager(st)
 
-	_, err = stateSvc.Load()
+	_, err := stateSvc.Load()
 	if err == nil {
 		t.Fatal("expected error for corrupt JSON state")
 	}
@@ -188,7 +183,8 @@ func TestLoad_corruptState(t *testing.T) {
 }
 
 func TestLoad_nonExistentReturnsEmpty(t *testing.T) {
-	st := store.NewStore[State](fs.NewFileSystem(), "/tmp/nonexistent-debforge-test.json")
+	path := filepath.Join(t.TempDir(), "nonexistent.json")
+	st := store.NewStore[State](fs.NewFileSystem(), path)
 	stateSvc := NewStateManager(st)
 
 	got, err := stateSvc.Load()
@@ -204,11 +200,7 @@ func TestLoad_nonExistentReturnsEmpty(t *testing.T) {
 }
 
 func TestSave_fails(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "debforge-test-*")
-	if err != nil {
-		t.Fatalf("create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	statePath := filepath.Join(tmpDir, "state.json")
 	if err := os.WriteFile(statePath, []byte("{}\n"), 0644); err != nil {
@@ -218,11 +210,12 @@ func TestSave_fails(t *testing.T) {
 	if err := os.Chmod(tmpDir, 0500); err != nil {
 		t.Fatalf("chmod dir: %v", err)
 	}
+	t.Cleanup(func() { os.Chmod(tmpDir, 0700) })
 
 	st := store.NewStore[State](fs.NewFileSystem(), statePath)
 	stateSvc := NewStateManager(st)
 
-	err = stateSvc.Save(&State{Packages: map[string]PkgEntry{"pkg-a": {}}})
+	err := stateSvc.Save(&State{Packages: map[string]PkgEntry{"pkg-a": {}}})
 	if err == nil {
 		t.Fatal("expected error when saving to read-only directory")
 	}

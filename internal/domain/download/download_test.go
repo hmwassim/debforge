@@ -66,11 +66,7 @@ func TestDownload(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	dir, err := os.MkdirTemp("", "download-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	dest := filepath.Join(dir, "out.deb")
 	fSys := fs.NewFileSystem()
@@ -98,11 +94,7 @@ func TestDownload_sha256Mismatch(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	dir, err := os.MkdirTemp("", "download-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	dest := filepath.Join(dir, "out.deb")
 	fSys := fs.NewFileSystem()
@@ -125,11 +117,7 @@ func TestDownload_emptyFile(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	dir, err := os.MkdirTemp("", "download-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	dest := filepath.Join(dir, "empty.deb")
 	fSys := fs.NewFileSystem()
@@ -147,11 +135,7 @@ func TestDownload_statusNotOK(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	dir, err := os.MkdirTemp("", "download-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	dest := filepath.Join(dir, "out.deb")
 	fSys := fs.NewFileSystem()
@@ -217,11 +201,7 @@ func TestDownload_rejectsHTTP(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	dir, err := os.MkdirTemp("", "download-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	dest := filepath.Join(dir, "out.deb")
 	fSys := fs.NewFileSystem()

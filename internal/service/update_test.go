@@ -12,8 +12,7 @@ import (
 )
 
 func TestUpdate_allCleansUpStaleEntryInMemory(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath:= setupPersistenceTest(t)
 
 	svc.locker = &testutil.MockLocker{}
 	svc.lockPath = filepath.Join(t.TempDir(), "lock")
@@ -48,8 +47,7 @@ func TestUpdate_allCleansUpStaleEntryInMemory(t *testing.T) {
 }
 
 func TestUpdate_allWithNoStaleEntries(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath:= setupPersistenceTest(t)
 
 	svc.locker = &testutil.MockLocker{}
 	svc.lockPath = filepath.Join(t.TempDir(), "lock")
@@ -82,8 +80,7 @@ func TestUpdate_allWithNoStaleEntries(t *testing.T) {
 }
 
 func TestUpdate_allVariantOnlyPackage(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath:= setupPersistenceTest(t)
 
 	svc.locker = &testutil.MockLocker{}
 	svc.lockPath = filepath.Join(t.TempDir(), "lock")

@@ -83,8 +83,7 @@ func TestFlushAptBatch_aptGetFailureCallsAbort(t *testing.T) {
 	instReg.Register(pkg.TypeApt, recA)
 	instReg.Register(pkg.TypeDeb, recB)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -148,8 +147,7 @@ func TestFlushAptBatch_partialFinalizeErrorContinues(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, rec)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -206,8 +204,7 @@ func TestProcessOne_batchAptPackages(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, rec)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -263,8 +260,7 @@ func TestProcessOne_batchBrokenBySource(t *testing.T) {
 	instReg.Register(pkg.TypeApt, rec)
 	instReg.Register(pkg.TypeSource, newBatchRecorder())
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -306,8 +302,7 @@ func TestProcessOne_batchSkippedPackage(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, rec)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -359,8 +354,7 @@ func TestProcessAll_skipsExtrepoWhenAlreadyInstalled(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -416,8 +410,7 @@ func TestProcessAll_runsExtrepoWhenNotInstalled(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	rec := newBatchRecorder()
 	instReg := installer.NewRegistry()
@@ -481,8 +474,7 @@ func TestEnableAllExtrepos_collectsAndEnables(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -541,8 +533,7 @@ func TestEnableAllExtrepos_deduplicates(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -588,8 +579,7 @@ func TestEnableAllExtrepos_noRepos(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{
@@ -625,8 +615,7 @@ func TestEnableAllExtrepos_skipsAlreadyEnabled(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/etc/apt/sources.list.d/extrepo_my-repo.sources"] = []byte("Enabled: yes\n")
@@ -675,8 +664,7 @@ func TestEnableAllExtrepos_enablesDisabledRepo(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	fs := testutil.NewMockFileSystem()
 	fs.Files["/etc/apt/sources.list.d/extrepo_my-repo.sources"] = []byte("Enabled: no\n")
@@ -733,8 +721,7 @@ func TestEnableAllExtrepos_enablesWhenNoFile(t *testing.T) {
 		},
 	}
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{

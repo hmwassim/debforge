@@ -23,8 +23,7 @@ func TestProcessOne_checkInstalledError(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -61,8 +60,7 @@ func TestProcessOne_resolveError(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -92,8 +90,7 @@ func TestProcessOne_lookupInstallerError(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -126,8 +123,7 @@ func TestProcessOne_noSaveDuringExecution(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -170,8 +166,7 @@ func TestProcessOne_depAlreadyInstalled(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -212,8 +207,7 @@ func TestProcessOne_depCheckInstalledError(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -249,8 +243,7 @@ func TestProcessOne_alreadyUpToDate(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
@@ -291,8 +284,7 @@ func TestProcessAll_partialFailurePersistsCompleted(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, failInst)
 
-	stateSvc, tmpPath, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, tmpPath:= newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, sys: nil, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},

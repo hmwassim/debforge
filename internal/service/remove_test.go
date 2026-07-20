@@ -15,7 +15,7 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, string, func()) {
+func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, string) {
 	t.Helper()
 
 	reg := pkg.NewRegistry()
@@ -36,7 +36,7 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, statePath, cleanup := newStateManagerForTest(t)
+	stateSvc, statePath := newStateManagerForTest(t)
 
 	svc := &RemoveService{
 		baseService: baseService{
@@ -48,12 +48,11 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 		pkgLister: testutil.NopPackageLister{},
 	}
 
-	return svc, statePath, cleanup
+	return svc, statePath
 }
 
 func TestRemoveOne_successPersistsState(t *testing.T) {
-	svc, statePath, cleanup := setupRemoveTest(t, &successRunner{})
-	defer cleanup()
+	svc, statePath := setupRemoveTest(t, &successRunner{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -88,8 +87,7 @@ func TestRemoveOne_successPersistsState(t *testing.T) {
 }
 
 func TestRemoveOne_cleansUpStaleEntryInMemory(t *testing.T) {
-	svc, statePath, cleanup := setupRemoveTest(t, &nopRunner{})
-	defer cleanup()
+	svc, statePath := setupRemoveTest(t, &nopRunner{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -144,8 +142,7 @@ func TestRemoveOne_removesTransitiveDependents(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeDeb, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &RemoveService{
 		baseService: baseService{
@@ -223,8 +220,7 @@ func TestRemoveOne_removesTransitiveDependents(t *testing.T) {
 }
 
 func TestRemoveOne_listInstalledError(t *testing.T) {
-	svc, _, cleanup := setupRemoveTest(t, &nopRunner{})
-	defer cleanup()
+	svc, _ := setupRemoveTest(t, &nopRunner{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -261,8 +257,7 @@ func TestRemoveOrphaned_listInstalledError(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	failRunner := &failOnDpkgRunner{}
 	svc := &RemoveService{
@@ -303,8 +298,7 @@ func TestRemoveServiceRun_multipleSuccess(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
@@ -344,8 +338,7 @@ func TestRemoveServiceRun_success(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
@@ -384,8 +377,7 @@ func TestRemoveServiceRun_notInstalled(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &variantRecorder{})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
@@ -413,8 +405,7 @@ func TestRemoveServiceRun_error(t *testing.T) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	locker := &testutil.MockLocker{}
 	lockPath := filepath.Join(t.TempDir(), "lock")
@@ -438,8 +429,7 @@ func TestRemoveOne_lookupPackageError(t *testing.T) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &RemoveService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}}, pkgLister: testutil.NopPackageLister{},
@@ -468,8 +458,7 @@ func TestRemoveOne_lookupInstallerError(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &RemoveService{
 		baseService: baseService{
@@ -507,8 +496,7 @@ func TestRemoveOne_removeError(t *testing.T) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, &errorRecorder{removeErr: os.ErrPermission})
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &RemoveService{
 		baseService: baseService{
@@ -538,54 +526,68 @@ func TestRemoveOne_removeError(t *testing.T) {
 // ---- Tests extracted from service_test.go ----------------------------------
 // pkgIsOrphaned tests
 
-func TestPkgIsOrphaned_nonAptOrDeb(t *testing.T) {
-	p := &pkg.Package{Name: "test", Type: pkg.TypeSource}
-	if pkgIsOrphaned(p, nil) {
-		t.Error("expected false for non-apt/deb type")
+func TestPkgIsOrphaned(t *testing.T) {
+	tests := []struct {
+		name      string
+		pkg       *pkg.Package
+		installed map[string]bool
+		want      bool
+	}{
+		{
+			name:      "non-apt/deb type is never orphaned",
+			pkg:       &pkg.Package{Name: "test", Type: pkg.TypeSource},
+			installed: nil,
+			want:      false,
+		},
+		{
+			name: "variant installed is not orphaned",
+			pkg: &pkg.Package{
+				Name: "test", Type: pkg.TypeApt,
+				Apt: &pkg.AptConfig{Variants: map[string][]string{
+					"stable": {"pkg-stable"}, "staging": {"pkg-staging"},
+				}},
+			},
+			installed: map[string]bool{"pkg-stable": true},
+			want:      false,
+		},
+		{
+			name: "no variant installed is orphaned",
+			pkg: &pkg.Package{
+				Name: "test", Type: pkg.TypeApt,
+				Apt: &pkg.AptConfig{Variants: map[string][]string{
+					"stable": {"pkg-stable"},
+				}},
+			},
+			installed: map[string]bool{},
+			want:      true,
+		},
+		{
+			name: "primary package installed is not orphaned",
+			pkg: &pkg.Package{
+				Name: "test", Type: pkg.TypeApt,
+				Packages: []string{"real-pkg"},
+			},
+			installed: map[string]bool{"real-pkg": true},
+			want:      false,
+		},
+		{
+			name: "primary package not installed is orphaned",
+			pkg: &pkg.Package{
+				Name: "test", Type: pkg.TypeApt,
+				Packages: []string{"real-pkg"},
+			},
+			installed: map[string]bool{},
+			want:      true,
+		},
 	}
-}
 
-func TestPkgIsOrphaned_variantSomeInstalled(t *testing.T) {
-	p := &pkg.Package{
-		Name: "test", Type: pkg.TypeApt,
-		Apt: &pkg.AptConfig{Variants: map[string][]string{
-			"stable": {"pkg-stable"}, "staging": {"pkg-staging"},
-		}},
-	}
-	if pkgIsOrphaned(p, map[string]bool{"pkg-stable": true}) {
-		t.Error("expected false when a variant package is installed")
-	}
-}
-
-func TestPkgIsOrphaned_variantNoneInstalled(t *testing.T) {
-	p := &pkg.Package{
-		Name: "test", Type: pkg.TypeApt,
-		Apt: &pkg.AptConfig{Variants: map[string][]string{
-			"stable": {"pkg-stable"},
-		}},
-	}
-	if !pkgIsOrphaned(p, map[string]bool{}) {
-		t.Error("expected true when no variant package is installed")
-	}
-}
-
-func TestPkgIsOrphaned_noVariantInstalled(t *testing.T) {
-	p := &pkg.Package{
-		Name: "test", Type: pkg.TypeApt,
-		Packages: []string{"real-pkg"},
-	}
-	if pkgIsOrphaned(p, map[string]bool{"real-pkg": true}) {
-		t.Error("expected false when primary package is installed")
-	}
-}
-
-func TestPkgIsOrphaned_noVariantNotInstalled(t *testing.T) {
-	p := &pkg.Package{
-		Name: "test", Type: pkg.TypeApt,
-		Packages: []string{"real-pkg"},
-	}
-	if !pkgIsOrphaned(p, map[string]bool{}) {
-		t.Error("expected true when primary package is not installed")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pkgIsOrphaned(tt.pkg, tt.installed)
+			if got != tt.want {
+				t.Errorf("pkgIsOrphaned() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -750,8 +752,7 @@ func TestRemoveOrphaned_removesOrphan(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	// dpkgRunner reports kept-pkg as installed, orphan-pkg as missing
 	runner := &dpkgRunner{installed: []string{"kept-pkg"}}
@@ -788,8 +789,7 @@ func TestRemoveDependents_unknownPackageInState(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &RemoveService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}}, pkgLister: testutil.NopPackageLister{},
@@ -812,8 +812,7 @@ func TestRemoveOrphaned_unknownPackageInState(t *testing.T) {
 
 	instReg := installer.NewRegistry()
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	runner := &dpkgRunner{installed: []string{}}
 
@@ -893,8 +892,7 @@ func TestDisableOrphanedExtrepos_runnerError(t *testing.T) {
 }
 
 func TestRemoveOne_variantOnlyPackage(t *testing.T) {
-	svc, statePath, cleanup := setupRemoveTest(t, &successRunner{})
-	defer cleanup()
+	svc, statePath := setupRemoveTest(t, &successRunner{})
 
 	st := &State{Packages: map[string]PkgEntry{
 		"variant-pkg": {Type: "apt", Variant: "stable"},

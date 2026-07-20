@@ -3,9 +3,11 @@ package ui
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/goleak"
@@ -332,4 +334,46 @@ func TestDisplay_StripTrailingDots(t *testing.T) {
 			t.Errorf("stripTrailingDots(%q) = %q, want %q", tc.input, got, tc.want)
 		}
 	}
+}
+
+func TestDisplay_ConcurrentAccess(t *testing.T) {
+	var buf bytes.Buffer
+	d := NewDisplay(context.Background(), &buf, "working", nil)
+
+	const goroutines = 10
+	const opsPerGoroutine = 50
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines * 3)
+
+	// Concurrent SetDesc calls
+	for i := 0; i < goroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < opsPerGoroutine; j++ {
+				d.SetDesc(fmt.Sprintf("task-%d-%d", id, j))
+			}
+		}(i)
+	}
+
+	// Concurrent Pause/Resume calls
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < opsPerGoroutine; j++ {
+				d.Pause()
+				d.Resume()
+			}
+		}()
+	}
+
+	// Concurrent Done/Stop calls (only first one takes effect)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			d.Done()
+		}()
+	}
+
+	wg.Wait()
 }

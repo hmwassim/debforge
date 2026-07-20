@@ -9,8 +9,7 @@ import (
 )
 
 func TestCheckInstalled_doesNotPersist(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath:= setupPersistenceTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -50,8 +49,7 @@ func TestCheckInstalled_doesNotPersist(t *testing.T) {
 }
 
 func TestCheckInstalled_installed(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath:= setupPersistenceTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt"},
@@ -92,8 +90,7 @@ func TestCheckInstalled_installed(t *testing.T) {
 }
 
 func TestCheckInstalled_notInstalled(t *testing.T) {
-	svc, statePath, cleanup := setupPersistenceTest(t)
-	defer cleanup()
+	svc, statePath:= setupPersistenceTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	if err := svc.state.Save(st); err != nil {

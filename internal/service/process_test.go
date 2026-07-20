@@ -9,7 +9,7 @@ import (
 	"github.com/hmwassim/debforge/internal/testutil"
 )
 
-func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
+func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder) {
 	t.Helper()
 
 	reg := pkg.NewRegistry()
@@ -25,19 +25,18 @@ func setupVariantTest(t *testing.T) (*InstallService, *variantRecorder, func()) 
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
 		resolver:    NewResolver(reg),
 	}
 
-	return svc, recorder, cleanup
+	return svc, recorder
 }
 
 func TestProcessOne_variant_firstInstall(t *testing.T) {
-	svc, recorder, cleanup := setupVariantTest(t)
-	defer cleanup()
+	svc, recorder := setupVariantTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	ctx := context.Background()
@@ -56,8 +55,7 @@ func TestProcessOne_variant_firstInstall(t *testing.T) {
 }
 
 func TestProcessOne_variant_reinstall(t *testing.T) {
-	svc, recorder, cleanup := setupVariantTest(t)
-	defer cleanup()
+	svc, recorder := setupVariantTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt", Variant: "staging"},
@@ -78,8 +76,7 @@ func TestProcessOne_variant_reinstall(t *testing.T) {
 }
 
 func TestProcessOne_variant_update(t *testing.T) {
-	svc, recorder, cleanup := setupVariantTest(t)
-	defer cleanup()
+	svc, recorder := setupVariantTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt", Variant: "stable"},
@@ -102,7 +99,7 @@ func TestProcessOne_variant_update(t *testing.T) {
 // setupDepTest creates a service with a two-package tree:
 //
 //	root (apt) depends on dep (apt).
-func setupDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
+func setupDepTest(t *testing.T) (*InstallService, *variantRecorder) {
 	t.Helper()
 
 	reg := pkg.NewRegistry()
@@ -126,19 +123,18 @@ func setupDepTest(t *testing.T) (*InstallService, *variantRecorder, func()) {
 	instReg := installer.NewRegistry()
 	instReg.Register(pkg.TypeApt, recorder)
 
-	stateSvc, _, cleanup := newStateManagerForTest(t)
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := &InstallService{
 		baseService: baseService{reg: reg, instReg: instReg, state: stateSvc, aptUpdate: testutil.NopAptUpdater{}, extrepo: testutil.NopExtrepoManager{}},
 		resolver:    NewResolver(reg),
 	}
 
-	return svc, recorder, cleanup
+	return svc, recorder
 }
 
 func TestProcessOne_variant_switching(t *testing.T) {
-	svc, recorder, cleanup := setupVariantTest(t)
-	defer cleanup()
+	svc, recorder := setupVariantTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"test-pkg": {Type: "apt", Variant: "staging"},

@@ -2,7 +2,6 @@ package store
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -17,25 +16,17 @@ type testData struct {
 }
 
 func TestLoad_notFound(t *testing.T) {
-	dir, err := os.MkdirTemp("", "store-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	s := NewStore[testData](fs.NewFileSystem(), filepath.Join(dir, "nonexistent.json"))
-	_, err = s.Load()
+	_, err := s.Load()
 	if err != ErrNotFound {
 		t.Fatalf("Load = %v, want ErrNotFound", err)
 	}
 }
 
 func TestSaveLoad_roundTrip(t *testing.T) {
-	dir, err := os.MkdirTemp("", "store-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	path := filepath.Join(dir, "state.json")
 	s := NewStore[testData](fs.NewFileSystem(), path)
@@ -55,11 +46,7 @@ func TestSaveLoad_roundTrip(t *testing.T) {
 }
 
 func TestSaveLoad_zeroValue(t *testing.T) {
-	dir, err := os.MkdirTemp("", "store-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	path := filepath.Join(dir, "state.json")
 	s := NewStore[testData](fs.NewFileSystem(), path)
@@ -79,11 +66,7 @@ func TestSaveLoad_zeroValue(t *testing.T) {
 }
 
 func TestSaveLoad_nestedDir(t *testing.T) {
-	dir, err := os.MkdirTemp("", "store-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	path := filepath.Join(dir, "sub", "dir", "state.json")
 	s := NewStore[testData](fs.NewFileSystem(), path)
@@ -185,11 +168,7 @@ func TestSave_marshalError(t *testing.T) {
 }
 
 func TestSave_overwrites(t *testing.T) {
-	dir, err := os.MkdirTemp("", "store-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	path := filepath.Join(dir, "state.json")
 	s := NewStore[testData](fs.NewFileSystem(), path)

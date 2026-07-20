@@ -118,8 +118,21 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 // satisfied by the current state, handling transitive dependencies.
 func (s *RemoveService) removeDependents(ctx context.Context, st *State, spinner ports.Spinner) {
 	for {
+		// Snapshot current package names under the read lock.
+		st.mu.RLock()
+		names := make([]string, 0, len(st.Packages))
+		for n := range st.Packages {
+			names = append(names, n)
+		}
+		st.mu.RUnlock()
+
 		removed := false
-		for name := range st.Packages {
+		for _, name := range names {
+			// Re-check existence — a prior iteration may have removed
+			// a dependency that makes this package now satisfy its deps.
+			if !has(st, name) {
+				continue
+			}
 			p, err := LookupPackage(s.reg, name)
 			if err != nil {
 				continue
@@ -143,7 +156,7 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 	orig := make(map[string]bool)
 	gone := make(map[string]bool)
 	for _, n := range names {
-		if _, ok := st.Packages[n]; ok {
+		if has(st, n) {
 			orig[n] = true
 			gone[n] = true
 		}
@@ -151,7 +164,15 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 
 	for {
 		added := false
+		// Snapshot keys under lock.
+		st.mu.RLock()
+		allNames := make([]string, 0, len(st.Packages))
 		for name := range st.Packages {
+			allNames = append(allNames, name)
+		}
+		st.mu.RUnlock()
+
+		for _, name := range allNames {
 			if gone[name] {
 				continue
 			}
@@ -160,7 +181,7 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 				continue
 			}
 			for _, dep := range p.Depends {
-				if _, ok := st.Packages[dep]; !ok {
+				if !has(st, dep) {
 					gone[name] = true
 					added = true
 					break
@@ -193,7 +214,7 @@ func (s *RemoveService) AffectedDependents(st *State, names []string) []string {
 // depUnsatisfied reports whether any of p's Depends are missing from st.
 func (s *RemoveService) depUnsatisfied(p *pkg.Package, st *State) bool {
 	for _, dep := range p.Depends {
-		if _, ok := st.Packages[dep]; !ok {
+		if !has(st, dep) {
 			return true
 		}
 	}
@@ -205,7 +226,19 @@ func (s *RemoveService) removeOrphaned(ctx context.Context, st *State, spinner p
 	if err != nil {
 		return fmt.Errorf("list dpkg packages: %w", err)
 	}
+
+	// Snapshot keys under lock.
+	st.mu.RLock()
+	names := make([]string, 0, len(st.Packages))
 	for name := range st.Packages {
+		names = append(names, name)
+	}
+	st.mu.RUnlock()
+
+	for _, name := range names {
+		if !has(st, name) {
+			continue
+		}
 		p, err := LookupPackage(s.reg, name)
 		if err != nil {
 			continue

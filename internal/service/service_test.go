@@ -14,8 +14,7 @@ import (
 func TestNewInstallService(t *testing.T) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := NewInstallService(reg, instReg, NewResolver(reg), stateSvc, nil, "", nil, nil, nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{})
 	if svc == nil {
@@ -26,8 +25,7 @@ func TestNewInstallService(t *testing.T) {
 func TestNewRemoveService(t *testing.T) {
 	reg := pkg.NewRegistry()
 	instReg := installer.NewRegistry()
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	svc := NewRemoveService(reg, instReg, stateSvc, nil, "", nil, nil, nil, testutil.NopAptUpdater{}, testutil.NopExtrepoManager{}, testutil.NopPackageLister{})
 	if svc == nil {
@@ -38,8 +36,7 @@ func TestNewRemoveService(t *testing.T) {
 // State tests
 
 func TestListPackages(t *testing.T) {
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{
 		"pkg-a": {Type: "apt"},
@@ -52,8 +49,7 @@ func TestListPackages(t *testing.T) {
 }
 
 func TestListPackages_empty(t *testing.T) {
-	stateSvc, _, cleanup := newStateManagerForTest(t)
-	defer cleanup()
+	stateSvc, _ := newStateManagerForTest(t)
 
 	st := &State{Packages: map[string]PkgEntry{}}
 	names := stateSvc.ListPackages(st)
