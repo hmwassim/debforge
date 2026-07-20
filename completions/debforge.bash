@@ -34,7 +34,15 @@ _debforge() {
             COMPREPLY=()
             ;;
         list)
-            COMPREPLY=($(compgen -W "--packages" -- "$cur"))
+            local already=0
+            for ((i=idx+2; i<COMP_CWORD; i++)); do
+                [[ "${COMP_WORDS[i]}" == "--packages" ]] && already=1
+            done
+            if [[ $already -eq 1 ]]; then
+                COMPREPLY=()
+            else
+                COMPREPLY=($(compgen -W "--packages" -- "$cur"))
+            fi
             ;;
     esac
 }
