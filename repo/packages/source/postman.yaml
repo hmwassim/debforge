@@ -1,0 +1,28 @@
+name: postman
+description: Postman - API platform for building and testing APIs
+type: source
+category: development
+install:
+  url: https://dl.pstmn.io/download/latest/linux64
+  install: |
+    rm -rf /opt/Postman
+    mkdir -p /opt/Postman
+    cp -a . /opt/Postman
+    ln -sf /opt/Postman/Postman /usr/bin/postman
+    cat > /usr/share/applications/postman.desktop <<'EOF'
+    [Desktop Entry]
+    Encoding=UTF-8
+    Name=Postman
+    Exec=/opt/Postman/Postman %U
+    Icon=/opt/Postman/app/resources/app/assets/icon.png
+    Terminal=false
+    Type=Application
+    Categories=Development;
+    EOF
+    update-desktop-database /usr/share/applications 2>/dev/null || true
+remove:
+  script: |
+    rm -rf /opt/Postman
+    rm -f /usr/bin/postman
+    rm -f /usr/share/applications/postman.desktop
+    update-desktop-database /usr/share/applications 2>/dev/null || true
