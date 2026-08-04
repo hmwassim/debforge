@@ -15,3 +15,29 @@ install:
     - wine-binfmt
     - q4wine
     - winbind
+  configs:
+    /etc/modules-load.d/10-ntsync.conf: |
+      ntsync
+    /etc/fonts/conf.d/30-win32-aliases.conf: |
+      <?xml version="1.0"?>
+      <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+      <fontconfig>
+        <alias binding="same">
+          <family>MS Shell Dlg</family>
+          <accept><family>Microsoft Sans Serif</family></accept>
+          <default><family>sans-serif</family></default>
+        </alias>
+        <alias binding="same">
+          <family>MS Shell Dlg 2</family>
+          <accept><family>Tahoma</family></accept>
+          <default><family>sans-serif</family></default>
+        </alias>
+
+        <alias binding="same">
+          <family>MS Sans Serif</family>
+          <prefer><family>Microsoft Sans Serif</family></prefer>
+          <default><family>sans-serif</family></default>
+        </alias>
+      </fontconfig>
+post_install: |
+  fc-cache -f >/dev/null 2>&1 || true

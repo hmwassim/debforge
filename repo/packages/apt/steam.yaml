@@ -10,6 +10,9 @@ install:
     - steam-libs-i386
     - libgtk2.0-0t64
     - libgtk2.0-0t64:i386
+  configs:
+    /etc/modules-load.d/10-steam.conf: |
+      ntsync
 remove:
   packages:
     - steam-installer

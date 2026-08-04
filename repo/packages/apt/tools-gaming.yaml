@@ -17,6 +17,9 @@ install:
     - mangohud
     - mangohud:i386
     - goverlay
+    - vkbasalt
+    - antimicro
+    - schedtool
   backports:
     - gamescope
 remove:
@@ -26,3 +29,6 @@ remove:
     - gamescope
     - mangohud
     - mangohud:i386
+    - vkbasalt
+    - antimicro
+    - schedtool
