@@ -63,6 +63,33 @@ install:
 	}
 }
 
+func TestParse_appimage(t *testing.T) {
+	t.Parallel()
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/repo/packages/appimage/test.yaml"] = []byte(`
+name: test-app
+type: appimage
+install:
+  url: https://example.com/TestApp-{version}-x86_64.AppImage
+  desktop:
+    id: org.example.testapp
+    icon: org.example.testapp
+`)
+	p, err := Parse("/repo/packages/appimage/test.yaml", fs)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if p.Name != "test-app" || p.Type != pkg.TypeAppImage {
+		t.Errorf("got Name=%q Type=%q", p.Name, p.Type)
+	}
+	if p.AppImg == nil || p.AppImg.Desktop == nil {
+		t.Fatalf("AppImg/Desktop nil: %+v", p.AppImg)
+	}
+	if p.AppImg.Desktop.ID != "org.example.testapp" {
+		t.Errorf("Desktop.ID = %q", p.AppImg.Desktop.ID)
+	}
+}
+
 func TestParse_config(t *testing.T) {
 	t.Parallel()
 	fs := testutil.NewMockFileSystem()

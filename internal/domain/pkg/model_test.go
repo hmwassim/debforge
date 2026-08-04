@@ -124,8 +124,34 @@ func TestClone_nilSubConfigsStayNil(t *testing.T) {
 	t.Parallel()
 	orig := &Package{Name: "p"}
 	clone := orig.Clone()
-	if clone.Apt != nil || clone.Deb != nil || clone.Source != nil {
-		t.Errorf("expected nil sub-configs to remain nil after Clone, got Apt=%v Deb=%v Source=%v", clone.Apt, clone.Deb, clone.Source)
+	if clone.Apt != nil || clone.Deb != nil || clone.Source != nil || clone.AppImg != nil {
+		t.Errorf("expected nil sub-configs to remain nil after Clone, got Apt=%v Deb=%v Source=%v AppImg=%v", clone.Apt, clone.Deb, clone.Source, clone.AppImg)
+	}
+}
+
+func TestClone_mutatingAppImageDesktopDoesNotAffectOriginal(t *testing.T) {
+	t.Parallel()
+	orig := &Package{
+		Name: "protonup-qt",
+		AppImg: &AppImageConfig{
+			Bin: "protonup-qt",
+			Desktop: &DesktopEntry{
+				ID:         "net.davidotek.pupgui2",
+				Name:       "ProtonUp-Qt",
+				Icon:       "net.davidotek.pupgui2",
+				Categories: "Game;Utility;",
+			},
+		},
+	}
+	clone := orig.Clone()
+	clone.AppImg.Bin = "MUTATED"
+	clone.AppImg.Desktop.Categories = "Utility;"
+
+	if orig.AppImg.Bin != "protonup-qt" {
+		t.Errorf("mutating clone.AppImg.Bin affected original: %q", orig.AppImg.Bin)
+	}
+	if orig.AppImg.Desktop.Categories != "Game;Utility;" {
+		t.Errorf("mutating clone.AppImg.Desktop affected original: %v", orig.AppImg.Desktop)
 	}
 }
 

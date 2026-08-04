@@ -8,14 +8,15 @@ import (
 	"github.com/hmwassim/debforge/internal/registry"
 )
 
-// Type identifies the kind of package (apt, deb, source, or config).
+// Type identifies the kind of package (apt, deb, source, config, or appimage).
 type Type string
 
 const (
-	TypeApt    Type = "apt"
-	TypeDeb    Type = "deb"
-	TypeSource Type = "source"
-	TypeConfig Type = "config"
+	TypeApt      Type = "apt"
+	TypeDeb      Type = "deb"
+	TypeSource   Type = "source"
+	TypeConfig   Type = "config"
+	TypeAppImage Type = "appimage"
 )
 
 // AptConfig holds configuration specific to apt-type packages.
@@ -41,6 +42,22 @@ type SourceConfig struct {
 	PostinstallScript string
 	RemoveScript      string
 	SourceSubdir      string
+}
+
+// DesktopEntry describes a .desktop file for an appimage-type package.
+type DesktopEntry struct {
+	ID         string
+	Name       string
+	Comment    string
+	Icon       string
+	Categories string
+	Terminal   bool
+}
+
+// AppImageConfig holds configuration specific to appimage-type packages.
+type AppImageConfig struct {
+	Bin     string
+	Desktop *DesktopEntry
 }
 
 // Package represents a single package definition loaded from a YAML file.
@@ -84,6 +101,7 @@ type Package struct {
 	Apt    *AptConfig
 	Deb    *DebConfig
 	Source *SourceConfig
+	AppImg *AppImageConfig
 }
 
 // PrimarySystemPackage returns the primary system package name, preferring
@@ -126,6 +144,14 @@ func (p *Package) Clone() *Package {
 	if p.Source != nil {
 		c := *p.Source
 		cp.Source = &c
+	}
+	if p.AppImg != nil {
+		c := *p.AppImg
+		if p.AppImg.Desktop != nil {
+			d := *p.AppImg.Desktop
+			c.Desktop = &d
+		}
+		cp.AppImg = &c
 	}
 	return &cp
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/hmwassim/debforge/internal/adapters/store"
 	"github.com/hmwassim/debforge/internal/definition"
 	"github.com/hmwassim/debforge/internal/domain/installer"
+	appImageInst "github.com/hmwassim/debforge/internal/domain/installer/appimage"
 	aptInst "github.com/hmwassim/debforge/internal/domain/installer/apt"
 	configInst "github.com/hmwassim/debforge/internal/domain/installer/config"
 	debInst "github.com/hmwassim/debforge/internal/domain/installer/deb"
@@ -53,6 +54,7 @@ func newHandler(cfg *self.Config, fsys ports.FileSystem, runner ports.CommandRun
 	instReg.Register(pkg.TypeDeb, debInst.NewInstaller(runner, fsys, ui, sys))
 	instReg.Register(pkg.TypeSource, sourceInst.NewInstaller(runner, fsys, ui))
 	instReg.Register(pkg.TypeConfig, configInst.NewInstaller(runner, fsys, ui, sys))
+	instReg.Register(pkg.TypeAppImage, appImageInst.NewInstaller(runner, fsys, ui, sys))
 
 	if err := definition.LoadAll(cfg.PkgsDir, fsys, reg); err != nil {
 		return nil, fmt.Errorf("load definitions: %w", err)

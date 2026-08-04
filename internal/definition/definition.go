@@ -39,6 +39,8 @@ func Parse(path string, fs ports.FileSystem) (*pkg.Package, error) {
 	case "config":
 		configsDir := configsDirFromYAMLPath(path, raw.Name)
 		return parseConfig(raw.Name, data, fs, configsDir)
+	case "appimage":
+		return parseAppImage(raw.Name, data)
 	default:
 		return nil, fmt.Errorf("definition %s: unsupported type %q", path, raw.Type)
 	}

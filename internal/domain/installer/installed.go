@@ -17,6 +17,7 @@ import (
 //     when Packages is empty) are dpkg-installed.
 //   - deb: PrimarySystemPackage() is dpkg-installed.
 //   - config: every file in p.Configs exists on disk.
+//   - appimage: the installed binary exists on disk.
 //   - source: falls back to package metadata (state.json); no universal
 //     system check exists, so returns true unconditionally.
 //
@@ -55,6 +56,16 @@ func CheckInstalled(ctx context.Context, runner ports.CommandRunner, fs ports.Fi
 		return dpkg.IsInstalled(ctx, runner, p.Name)
 	case pkg.TypeConfig:
 		return configsInstalled(fs, sys, p), nil
+	case pkg.TypeAppImage:
+		binName := p.Name
+		if p.AppImg != nil && p.AppImg.Bin != "" {
+			binName = p.AppImg.Bin
+		}
+		ok, err := fs.Exists("/usr/local/bin/" + binName)
+		if err != nil {
+			return false, err
+		}
+		return ok, nil
 	default: // source
 		return true, nil
 	}

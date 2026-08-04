@@ -299,6 +299,66 @@ func TestCheckInstalled_source(t *testing.T) {
 	}
 }
 
+func TestCheckInstalled_appimage_binaryExists(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/usr/local/bin/protonup-qt"] = []byte("appimage")
+
+	p := &pkg.Package{
+		Name: "protonup-qt",
+		Type: pkg.TypeAppImage,
+		AppImg: &pkg.AppImageConfig{
+			Bin: "protonup-qt",
+		},
+	}
+
+	ok, err := CheckInstalled(context.Background(), nil, fs, testSys, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("expected CheckInstalled=true when the binary exists")
+	}
+}
+
+func TestCheckInstalled_appimage_binaryMissing(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+
+	p := &pkg.Package{
+		Name: "protonup-qt",
+		Type: pkg.TypeAppImage,
+		AppImg: &pkg.AppImageConfig{
+			Bin: "protonup-qt",
+		},
+	}
+
+	ok, err := CheckInstalled(context.Background(), nil, fs, testSys, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Error("expected CheckInstalled=false when the binary is missing")
+	}
+}
+
+func TestCheckInstalled_appimage_binDefaultsToName(t *testing.T) {
+	fs := testutil.NewMockFileSystem()
+	fs.Files["/usr/local/bin/my-app"] = []byte("appimage")
+
+	p := &pkg.Package{
+		Name:   "my-app",
+		Type:   pkg.TypeAppImage,
+		AppImg: &pkg.AppImageConfig{},
+	}
+
+	ok, err := CheckInstalled(context.Background(), nil, fs, testSys, p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("expected CheckInstalled=true via name fallback when AppImg.Bin is empty")
+	}
+}
+
 func TestCheckInstalled_aptErrorCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

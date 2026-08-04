@@ -324,3 +324,155 @@ func TestParseAptSource_badYAML(t *testing.T) {
 		t.Fatal("expected YAML unmarshal error")
 	}
 }
+
+func TestParseAppImage_minimal(t *testing.T) {
+	t.Parallel()
+	p, err := parseAppImage("my-app", []byte(`
+name: my-app
+type: appimage
+install:
+  url: https://example.com/MyApp-{version}-x86_64.AppImage
+`))
+	if err != nil {
+		t.Fatalf("parseAppImage: %v", err)
+	}
+	if p.Name != "my-app" || p.Type != pkg.TypeAppImage {
+		t.Errorf("Name/Type: %+v", p)
+	}
+	if len(p.URLs) != 1 || p.URLs[0] != "https://example.com/MyApp-{version}-x86_64.AppImage" {
+		t.Errorf("URLs = %v", p.URLs)
+	}
+	if p.AppImg == nil {
+		t.Fatal("AppImg is nil")
+	}
+	if p.AppImg.Bin != "my-app" {
+		t.Errorf("Bin defaults to name, got %q", p.AppImg.Bin)
+	}
+	if p.AppImg.Desktop != nil {
+		t.Errorf("Desktop = %+v, want nil", p.AppImg.Desktop)
+	}
+}
+
+func TestParseAppImage_full(t *testing.T) {
+	t.Parallel()
+	data := []byte(`
+name: my-app
+type: appimage
+description: A test appimage package
+depends:
+  - dep-a
+repo: https://github.com/example/app
+version_cmd: echo 1.0
+tag_prefix: v
+install:
+  url: https://example.com/MyApp-{version}-x86_64.AppImage
+  sha256: abc123def456
+  packages:
+    - libfuse2t64
+  bin: myapp
+  desktop:
+    id: org.example.myapp
+    name: My App
+    comment: A test application
+    icon: org.example.myapp
+    categories: Utility;Development;
+    terminal: true
+remove:
+  packages:
+    - libfuse2t64
+post_install: echo installed
+post_remove: echo removed
+`)
+	p, err := parseAppImage("my-app", data)
+	if err != nil {
+		t.Fatalf("parseAppImage: %v", err)
+	}
+	if p.Name != "my-app" || p.Description != "A test appimage package" {
+		t.Errorf("Name/Description: %+v", p)
+	}
+	if p.Type != pkg.TypeAppImage {
+		t.Errorf("Type = %q", p.Type)
+	}
+	if len(p.Depends) != 1 || p.Depends[0] != "dep-a" {
+		t.Errorf("Depends = %v", p.Depends)
+	}
+	if p.Repo != "https://github.com/example/app" {
+		t.Errorf("Repo = %q", p.Repo)
+	}
+	if p.VersionCmd != "echo 1.0" {
+		t.Errorf("VersionCmd = %q", p.VersionCmd)
+	}
+	if p.TagPrefix != "v" {
+		t.Errorf("TagPrefix = %q", p.TagPrefix)
+	}
+	if len(p.URLs) != 1 || p.URLs[0] != "https://example.com/MyApp-{version}-x86_64.AppImage" {
+		t.Errorf("URLs = %v", p.URLs)
+	}
+	if len(p.SHA256s) != 1 || p.SHA256s[0] != "abc123def456" {
+		t.Errorf("SHA256s = %v", p.SHA256s)
+	}
+	if len(p.Packages) != 1 || p.Packages[0] != "libfuse2t64" {
+		t.Errorf("Packages = %v", p.Packages)
+	}
+	if len(p.Remove) != 1 || p.Remove[0] != "libfuse2t64" {
+		t.Errorf("Remove = %v", p.Remove)
+	}
+	if p.PostInstall != "echo installed" || p.PostRemove != "echo removed" {
+		t.Errorf("PostInstall/PostRemove: %q/%q", p.PostInstall, p.PostRemove)
+	}
+	if p.AppImg == nil {
+		t.Fatal("AppImg is nil")
+	}
+	if p.AppImg.Bin != "myapp" {
+		t.Errorf("Bin = %q", p.AppImg.Bin)
+	}
+	d := p.AppImg.Desktop
+	if d == nil {
+		t.Fatal("Desktop is nil")
+	}
+	if d.ID != "org.example.myapp" || d.Name != "My App" || d.Comment != "A test application" {
+		t.Errorf("Desktop ID/Name/Comment: %+v", d)
+	}
+	if d.Icon != "org.example.myapp" {
+		t.Errorf("Icon = %q", d.Icon)
+	}
+	if d.Categories != "Utility;Development;" {
+		t.Errorf("Categories = %q", d.Categories)
+	}
+	if !d.Terminal {
+		t.Error("Terminal should be true")
+	}
+}
+
+func TestParseAppImage_desktopDefaults(t *testing.T) {
+	t.Parallel()
+	p, err := parseAppImage("my-app", []byte(`
+name: my-app
+type: appimage
+install:
+  url: https://example.com/app.AppImage
+  desktop:
+    id: org.example.myapp
+`))
+	if err != nil {
+		t.Fatalf("parseAppImage: %v", err)
+	}
+	d := p.AppImg.Desktop
+	if d == nil {
+		t.Fatal("Desktop is nil")
+	}
+	if d.Name != "my-app" {
+		t.Errorf("Name defaults to package name, got %q", d.Name)
+	}
+	if d.Categories != "Utility;" {
+		t.Errorf("Categories defaults to Utility;, got %q", d.Categories)
+	}
+}
+
+func TestParseAppImage_badYAML(t *testing.T) {
+	t.Parallel()
+	_, err := parseAppImage("bad", []byte(`{{{`))
+	if err == nil {
+		t.Fatal("expected YAML unmarshal error")
+	}
+}
