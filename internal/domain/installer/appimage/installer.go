@@ -87,6 +87,10 @@ func (i *Installer) Install(ctx context.Context, p *pkg.Package, spinner ports.S
 			return fmt.Errorf("download %s: %w", p.Name, err)
 		}
 
+		if _, _, err := i.runner.Run(ctx, "chmod", "+x", archive); err != nil {
+			return fmt.Errorf("chmod %s: %w", p.Name, err)
+		}
+
 		binName := i.binName(p)
 		binPath := filepath.Join(binDir, binName)
 

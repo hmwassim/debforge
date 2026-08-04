@@ -183,6 +183,10 @@ func TestInstall_fullFlow(t *testing.T) {
 	if !containsCmd(runCmds, "install -Dm755 ") || !containsCmd(runCmds, " /usr/local/bin/protonup-qt") {
 		t.Errorf("expected binary install command, got %v", runCmds)
 	}
+	// Downloaded archive made executable before running --appimage-extract.
+	if !containsCmd(runCmds, "chmod +x ") {
+		t.Errorf("expected chmod +x of the downloaded archive, got %v", runCmds)
+	}
 	// Icon extracted with --appimage-extract and copied into hicolor.
 	if !containsCmd(runCmds, "--appimage-extract") {
 		t.Errorf("expected --appimage-extract, got %v", runCmds)
