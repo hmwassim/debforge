@@ -1,0 +1,14 @@
+name: protonup-qt
+description: ProtonUp-Qt - install and manage Proton-GE and Wine-GE for Steam and Lutris
+category: gaming
+type: appimage
+
+install:
+  url: https://github.com/DavidoTek/ProtonUp-Qt/releases/download/v{version}/ProtonUp-Qt-{version}-x86_64.AppImage
+  packages:
+    - libfuse2t64
+  desktop:
+    id: net.davidotek.pupgui2
+    name: ProtonUp-Qt
+    icon: net.davidotek.pupgui2
+    categories: Game;Utility;
