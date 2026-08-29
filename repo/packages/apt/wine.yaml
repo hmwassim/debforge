@@ -18,6 +18,8 @@ install:
   configs:
     /etc/modules-load.d/10-ntsync.conf: |
       ntsync
+    /etc/udev/rules.d/99-ntsync.rules: |
+      KERNEL=="ntsync", MODE="0644"
     /etc/fonts/conf.d/30-win32-aliases.conf: |
       <?xml version="1.0"?>
       <!DOCTYPE fontconfig SYSTEM "fonts.dtd">

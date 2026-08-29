@@ -8,8 +8,11 @@ install:
     /etc/systemd/system.conf.d/10-limits.conf: systemd-10-limits.conf
     /etc/systemd/user.conf.d/10-limits.conf: user-10-limits.conf
     /etc/systemd/journald.conf.d/00-journal-size.conf: journald-00-size.conf
+    /etc/security/limits.d/99-debforge.conf: security-99-nofile.conf
     /etc/modules-load.d/storage-schedulers.conf: modules-load-storage.conf
     /etc/udev/rules.d/60-scheduler.rules: udev-60-scheduler.rules
+    /etc/udev/rules.d/75-powercap.rules: udev-75-powercap.rules
+    /etc/udev/rules.d/97-zram.rules: udev-97-zram.rules
     /etc/udev/rules.d/99-desktop.rules: udev-99-desktop.rules
     /etc/tmpfiles.d/ksm.conf: tmpfiles-ksm.conf
     /etc/tmpfiles.d/thp.conf: tmpfiles-thp.conf
@@ -25,7 +28,7 @@ post_install: |
   mkdir -p /etc/sysctl.d
   printf '%s\n' \
     '# Virtual Memory (VM) Tuning for zRAM' \
-    'vm.swappiness = 100' \
+    'vm.swappiness = 150' \
     'vm.vfs_cache_pressure = 50' \
     'vm.dirty_background_bytes = {{DIRTY_BG_BYTES}}' \
     'vm.dirty_bytes = {{DIRTY_MAX_BYTES}}' \
@@ -44,12 +47,14 @@ post_install: |
     'net.core.netdev_max_backlog = 16384' \
     'net.ipv4.icmp_ignore_bogus_error_responses = 1' \
     'net.ipv4.tcp_fastopen = 3' \
+    'net.ipv4.tcp_mtu_probing = 1' \
     '' \
     '# File Handles' \
-    'fs.file-max = 2097152' \
+    'fs.file-max = 9223372036854775807' \
     '' \
     '# File watchers (fixes tools that monitor many files)' \
     'fs.inotify.max_user_watches=1048576' \
+    'fs.inotify.max_user_instances=4096' \
     '' \
     '# Helps with out-of-the-box compatibility with games (Wine/Proton)' \
     'vm.max_map_count=2147483642' > /etc/sysctl.d/99-desktop.conf.template

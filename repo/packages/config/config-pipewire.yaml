@@ -11,3 +11,4 @@ install:
     ~/.config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf: 52-deprioritize-hdmi.conf
     ~/.config/pipewire/pipewire.conf.d/10-clock.conf: 10-clock.conf
     ~/.config/pipewire/pipewire-pulse.conf.d/10-pulse.conf: 10-pulse.conf
+    ~/.config/pipewire/pipewire-pulse.conf.d/10-wine-audio.conf: 10-wine-audio.conf

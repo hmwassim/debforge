@@ -1,0 +1,4 @@
+# Make powercap energy counters readable by the video group so powertop and
+# turbostat can sample energy without root.
+ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", MODE="0444", OWNER="root", GROUP="video"
+ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", OWNER="root", PROGRAM+="/usr/bin/find /sys$env{DEVPATH} -name energy_uj -exec chmod 444 {} + -exec chown root:video {} +"

@@ -1,0 +1,6 @@
+# When zram is active, swapping to zram beats evicting page cache: zram pages
+# are just compressed, while cache evictions trigger expensive disk reads. Keep
+# swappiness high (matches the static vm.swappiness in 99-desktop.conf) and
+# disable zswap so it doesn't double-compress zram pages.
+ACTION=="change", KERNEL=="zram0", ATTR{initstate}=="1", SYSCTL{vm.swappiness}="150", \
+    RUN+="/bin/sh -c 'echo N > /sys/module/zswap/parameters/enabled'"
