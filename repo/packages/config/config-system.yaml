@@ -18,6 +18,9 @@ install:
     /etc/tmpfiles.d/thp.conf: tmpfiles-thp.conf
     /etc/tmpfiles.d/thp-shrinker.conf: tmpfiles-thp-shrinker.conf
     /etc/tmpfiles.d/coredump.conf: tmpfiles-coredump.conf
+    /etc/modprobe.d/60-watchdog-blacklist.conf: modprobe-watchdog-blacklist.conf
+    /etc/systemd/system/user@.service.d/delegate.conf: systemd-user-delegate.conf
+    /etc/systemd/system/rtkit-daemon.service.d/override.conf: systemd-rtkit-loglevel.conf
 post_install: |
   MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
   MEM_TOTAL_MB=$(( MEM_TOTAL_KB / 1024 ))
@@ -28,7 +31,7 @@ post_install: |
   mkdir -p /etc/sysctl.d
   printf '%s\n' \
     '# Virtual Memory (VM) Tuning for zRAM' \
-    'vm.swappiness = 150' \
+    'vm.swappiness = 100' \
     'vm.vfs_cache_pressure = 50' \
     'vm.dirty_background_bytes = {{DIRTY_BG_BYTES}}' \
     'vm.dirty_bytes = {{DIRTY_MAX_BYTES}}' \

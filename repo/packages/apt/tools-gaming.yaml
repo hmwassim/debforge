@@ -20,8 +20,39 @@ install:
     - vkbasalt
     - antimicro
     - schedtool
+    - power-profiles-daemon
   backports:
     - gamescope
+  configs:
+    /usr/local/bin/game-performance: |
+      #!/usr/bin/env bash
+      # Runs a command with the CPU power profile forced to "performance"
+      # for as long as it's running, then restores the previous profile
+      # automatically on exit. Meant for Steam/Lutris/Heroic launch options,
+      # e.g. `game-performance %command%`.
+      #
+      # Set GAME_PERFORMANCE_SCREENSAVER_ON=1 to let the screensaver/idle
+      # timeout behave normally; by default it's inhibited while the game
+      # runs.
+      if ! command -v powerprofilesctl &>/dev/null; then
+          exec "$@"
+      fi
+
+      # Don't fail on hardware/drivers that don't expose a performance profile.
+      if ! powerprofilesctl list | grep -q 'performance:'; then
+          exec "$@"
+      fi
+
+      if [ -n "$GAME_PERFORMANCE_SCREENSAVER_ON" ]; then
+          exec powerprofilesctl launch -p performance \
+              -r "Launched with debforge game-performance" -- "$@"
+      else
+          exec systemd-inhibit --why "debforge game-performance is running" \
+              powerprofilesctl launch -p performance \
+              -r "Launched with debforge game-performance" -- "$@"
+      fi
+post_install: |
+  chmod +x /usr/local/bin/game-performance
 remove:
   packages:
     - goverlay
@@ -32,3 +63,5 @@ remove:
     - vkbasalt
     - antimicro
     - schedtool
+post_remove: |
+  rm -f /usr/local/bin/game-performance
