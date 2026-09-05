@@ -43,7 +43,6 @@ post_install: |
     'kernel.printk = 3 3 3 3' \
     'kernel.kptr_restrict = 2' \
     'kernel.kexec_load_disabled = 1' \
-    'kernel.split_lock_mitigate = 0' \
     '' \
     '# Network Backlog & TCP Tweaks' \
     'net.core.netdev_max_backlog = 16384' \
