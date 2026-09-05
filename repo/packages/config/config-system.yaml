@@ -29,6 +29,7 @@ post_install: |
   [ "$DIRTY_MAX" -gt 4096 ] && DIRTY_MAX=4096
   mkdir -p /etc/sysctl.d
   printf '%s\n' \
+    '# Managed by debforge (config-system); edits are overwritten on reinstall' \
     '# Virtual Memory (VM) Tuning for zRAM' \
     'vm.swappiness = 100' \
     'vm.vfs_cache_pressure = 50' \
@@ -58,11 +59,11 @@ post_install: |
     'fs.inotify.max_user_instances=4096' \
     '' \
     '# Helps with out-of-the-box compatibility with games (Wine/Proton)' \
-    'vm.max_map_count=2147483642' > /etc/sysctl.d/99-desktop.conf.template
+    'vm.max_map_count=2147483642' > /etc/sysctl.d/99-debforge.conf.template
   sed -e "s/{{DIRTY_BG_BYTES}}/$(( DIRTY_BG * 1024 * 1024 ))/g" \
       -e "s/{{DIRTY_MAX_BYTES}}/$(( DIRTY_MAX * 1024 * 1024 ))/g" \
-      /etc/sysctl.d/99-desktop.conf.template > /etc/sysctl.d/99-desktop.conf
-  rm /etc/sysctl.d/99-desktop.conf.template
+      /etc/sysctl.d/99-debforge.conf.template > /etc/sysctl.d/99-debforge.conf
+  rm /etc/sysctl.d/99-debforge.conf.template
   sysctl --system
   udevadm control --reload-rules
   udevadm trigger
@@ -71,5 +72,5 @@ post_install: |
   journalctl --vacuum-size=3G > /dev/null
   journalctl --vacuum-time=3months > /dev/null
 post_remove: |
-  rm -f /etc/sysctl.d/99-desktop.conf
+  rm -f /etc/sysctl.d/99-debforge.conf
   sysctl --system

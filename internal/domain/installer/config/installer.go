@@ -57,7 +57,14 @@ func computeConfigHash(p *pkg.Package) string {
 	h := sha256.New()
 	hashMap(h, p.Configs)
 	hashMap(h, p.UserConfigs)
+	hashString(h, p.PostInstall)
+	hashString(h, p.PostRemove)
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func hashString(h io.Writer, s string) {
+	_, _ = h.Write([]byte(s))
+	_, _ = h.Write([]byte{0})
 }
 
 func hashMap(h io.Writer, m map[string]string) {

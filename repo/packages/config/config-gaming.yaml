@@ -4,6 +4,6 @@ type: config
 category: gaming
 install:
   configs:
-    /etc/sysctl.d/99-gaming.conf: 99-gaming.conf
+    /etc/sysctl.d/99-debforge-gaming.conf: 99-debforge-gaming.conf
 post_install: sysctl -w kernel.split_lock_mitigate=0
 post_remove: sysctl -w kernel.split_lock_mitigate=1
