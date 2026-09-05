@@ -43,8 +43,8 @@ func setupRemoveTest(t *testing.T, runner ports.CommandRunner) (*RemoveService, 
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: runner, fs: fs.NewFileSystem(),
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: testutil.NopPackageLister{},
 	}
@@ -148,12 +148,12 @@ func TestRemoveOne_removesTransitiveDependents(t *testing.T) {
 	svc := &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			runner: &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}},
-			fs:     fs.NewFileSystem(),
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			runner:    &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}},
+			fs:        fs.NewFileSystem(),
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
-		pkgLister:  &testPackageLister{runner: &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}}},
+		pkgLister: &testPackageLister{runner: &dpkgRunner{installed: []string{"scx-scheds", "scx-tools", "scx-switcher"}}},
 	}
 
 	ctx := context.Background()
@@ -263,8 +263,8 @@ func TestRemoveOrphaned_listInstalledError(t *testing.T) {
 	svc := &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: &testPackageLister{runner: &failOnDpkgRunner{}},
 	}
@@ -462,8 +462,8 @@ func TestRemoveOne_lookupInstallerError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{}, fs: testutil.NewMockFileSystem(),
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: testutil.NopPackageLister{},
 	}
@@ -500,8 +500,8 @@ func TestRemoveOne_removeError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{}, fs: testutil.NewMockFileSystem(),
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: testutil.NopPackageLister{},
 	}
@@ -710,8 +710,8 @@ func TestRemoveOne_saveStateError(t *testing.T) {
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
 			runner: &successRunner{}, fs: testutil.NewMockFileSystem(),
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: testutil.NopPackageLister{},
 	}
@@ -755,9 +755,9 @@ func TestRemoveOrphaned_removesOrphan(t *testing.T) {
 	svc := &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			runner: runner,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			runner:    runner,
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: &testPackageLister{runner: runner},
 	}
@@ -814,9 +814,9 @@ func TestRemoveOrphaned_unknownPackageInState(t *testing.T) {
 	svc := &RemoveService{
 		baseService: baseService{
 			reg: reg, instReg: instReg, state: stateSvc,
-			runner: runner,
-			aptUpdate:  testutil.NopAptUpdater{},
-			extrepo:    testutil.NopExtrepoManager{},
+			runner:    runner,
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
 		},
 		pkgLister: testutil.NopPackageLister{},
 	}
@@ -992,4 +992,58 @@ func TestAffectedDependents(t *testing.T) {
 			t.Errorf("expected nil, got %v", deps)
 		}
 	})
+}
+
+type configHashesRecorder struct {
+	sawConfigHashes map[string]bool
+}
+
+func (r *configHashesRecorder) Install(_ context.Context, _ *pkg.Package, _ ports.Spinner) error {
+	return nil
+}
+
+func (r *configHashesRecorder) Remove(_ context.Context, p *pkg.Package, _ ports.Spinner) error {
+	r.sawConfigHashes[p.Name] = len(p.ConfigHashes) > 0
+	return nil
+}
+
+func TestRemoveOne_restoresConfigHashesFromState(t *testing.T) {
+	rec := &configHashesRecorder{sawConfigHashes: map[string]bool{}}
+	reg := pkg.NewRegistry()
+	reg.Register(&pkg.Package{
+		Name:    "config-pkg",
+		Type:    pkg.TypeConfig,
+		Configs: map[string]string{"/etc/debforge-test.conf": "content"},
+	})
+	instReg := installer.NewRegistry()
+	instReg.Register(pkg.TypeConfig, rec)
+
+	stateSvc, _ := newStateManagerForTest(t)
+	mockFS := testutil.NewMockFileSystem()
+	mockFS.Files["/etc/debforge-test.conf"] = []byte("content")
+	svc := &RemoveService{
+		baseService: baseService{
+			reg: reg, instReg: instReg, state: stateSvc,
+			runner: &nopRunner{}, fs: mockFS,
+			sys:       &mockSystem{homeDir: t.TempDir()},
+			aptUpdate: testutil.NopAptUpdater{},
+			extrepo:   testutil.NopExtrepoManager{},
+		},
+		pkgLister: testutil.NopPackageLister{},
+	}
+
+	st := &State{Packages: map[string]PkgEntry{
+		"config-pkg": {
+			Type:         "config",
+			ConfigHashes: map[string]string{"/etc/debforge-test.conf": "abc123"},
+		},
+	}}
+
+	if err := svc.RemoveOne(context.Background(), "config-pkg", st, &mockSpinner{}); err != nil {
+		t.Fatalf("RemoveOne: %v", err)
+	}
+
+	if !rec.sawConfigHashes["config-pkg"] {
+		t.Error("expected ConfigHashes to be restored from state before Remove")
+	}
 }

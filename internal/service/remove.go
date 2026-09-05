@@ -75,6 +75,10 @@ func (s *RemoveService) RemoveOne(ctx context.Context, name string, st *State, s
 
 	p = s.state.applyVariant(p, st, name)
 
+	if entry, ok := s.state.Entry(st, name); ok {
+		p.ConfigHashes = entry.ConfigHashes
+	}
+
 	if _, err := s.checkInstalled(ctx, st, name, p, spinner); err != nil {
 		return err
 	}
