@@ -1,7 +1,7 @@
 name: config-gaming
 description: Gaming-specific system tuning (split-lock mitigation off)
 type: config
-category: gaming
+category: config
 install:
   configs:
     /etc/sysctl.d/99-debforge-gaming.conf: 99-debforge-gaming.conf
