@@ -1,5 +1,5 @@
 name: config-system
-description: System-wide performance and power tuning
+description: CachyOS-aligned system-wide performance and power tuning
 type: config
 category: config
 install:
@@ -8,8 +8,9 @@ install:
     /etc/systemd/system.conf.d/10-limits.conf: systemd-10-limits.conf
     /etc/systemd/user.conf.d/10-limits.conf: user-10-limits.conf
     /etc/systemd/journald.conf.d/00-journal-size.conf: journald-00-size.conf
-    /etc/security/limits.d/99-debforge.conf: security-99-nofile.conf
     /etc/modules-load.d/storage-schedulers.conf: modules-load-storage.conf
+    /usr/lib/udev/audio-pm-ctl: audio-pm-ctl
+    /etc/udev/rules.d/20-audio-pm.rules: udev-20-audio-pm.rules
     /etc/udev/rules.d/60-scheduler.rules: udev-60-scheduler.rules
     /etc/udev/rules.d/75-powercap.rules: udev-75-powercap.rules
     /etc/udev/rules.d/97-zram.rules: udev-97-zram.rules
@@ -20,6 +21,9 @@ install:
     /etc/modprobe.d/60-watchdog-blacklist.conf: modprobe-watchdog-blacklist.conf
     /etc/systemd/system/user@.service.d/delegate.conf: systemd-user-delegate.conf
     /etc/systemd/system/rtkit-daemon.service.d/override.conf: systemd-rtkit-loglevel.conf
+remove:
+  configs:
+    /etc/security/limits.d/99-debforge.conf: ""
 post_install: |
   MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
   MEM_TOTAL_MB=$(( MEM_TOTAL_KB / 1024 ))
@@ -64,9 +68,12 @@ post_install: |
       -e "s/{{DIRTY_MAX_BYTES}}/$(( DIRTY_MAX * 1024 * 1024 ))/g" \
       /etc/sysctl.d/99-debforge.conf.template > /etc/sysctl.d/99-debforge.conf
   rm /etc/sysctl.d/99-debforge.conf.template
+  # Remove fragments superseded by the CachyOS-aligned policy.
+  rm -f /etc/security/limits.d/99-debforge.conf
+  rm -f /etc/modprobe.d/99-audio-disable-powersave.conf
   sysctl --system
   udevadm control --reload-rules
-  udevadm trigger
+  udevadm trigger --subsystem-match=block --subsystem-match=powercap --subsystem-match=sound
   systemctl daemon-reexec
   systemctl restart systemd-journald
   journalctl --vacuum-size=3G > /dev/null

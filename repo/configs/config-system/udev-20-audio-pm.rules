@@ -1,0 +1,15 @@
+# Disable snd_hda_intel power saving on AC and restore it on battery.
+# The helper is invoked through bash because debforge config files are
+# installed with mode 0644.
+
+ACTION=="add", SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd_hda_intel", \
+    TEST!="/run/udev/snd-hda-intel-powersave", \
+    RUN+="/bin/bash /usr/lib/udev/audio-pm-ctl init"
+
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="0", \
+    TEST=="/sys/module/snd_hda_intel", \
+    RUN+="/bin/bash /usr/lib/udev/audio-pm-ctl battery"
+
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="1", \
+    TEST=="/sys/module/snd_hda_intel", \
+    RUN+="/bin/bash /usr/lib/udev/audio-pm-ctl ac"

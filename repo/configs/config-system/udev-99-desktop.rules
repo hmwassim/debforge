@@ -18,6 +18,3 @@ ACTION=="add|bind", SUBSYSTEM=="pci", DRIVERS=="nvidia", \
 ACTION=="remove|unbind", SUBSYSTEM=="pci", DRIVERS=="nvidia", \
     ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", \
     TEST=="power/control", ATTR{power/control}="on"
-
-# GPU crash recovery: kill hung process and restart the display manager
-ACTION=="change", ENV{DEVNAME}=="/dev/dri/card[0-9]", ENV{RESET}=="1", ENV{PID}!="0", RUN+="/bin/kill -9 %E{PID}"
