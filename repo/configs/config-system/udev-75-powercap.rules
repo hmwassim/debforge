@@ -1,4 +1,8 @@
 # Make powercap energy counters readable by the video group so powertop and
-# turbostat can sample energy without root.
-ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", MODE="0444", OWNER="root", GROUP="video"
-ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", OWNER="root", PROGRAM+="/usr/bin/find /sys$env{DEVPATH} -name energy_uj -exec chmod 444 {} + -exec chown root:video {} +"
+# turbostat can sample energy without root. Group-readable only (440), not
+# world-readable: energy_uj was made root-only upstream to close the
+# Platypus/PLATYPAY power side-channel, so we deliberately don't reopen it
+# to all users. The MODE= key on the rule itself has no effect here (it only
+# applies to /dev nodes, and powercap attributes don't have one), so the
+# actual chmod/chown happens via the PROGRAM+= exec below.
+ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", OWNER="root", PROGRAM+="/usr/bin/find /sys$env{DEVPATH} -name energy_uj -exec chmod 440 {} + -exec chown root:video {} +"
