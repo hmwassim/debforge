@@ -1,0 +1,7 @@
+name: hdparm
+description: Command-line ATA/SATA drive utility - required by config-system's HDD spin-down/APM udev rule
+type: apt
+category: utils
+install:
+  packages:
+    - hdparm

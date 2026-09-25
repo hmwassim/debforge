@@ -1,0 +1,16 @@
+# Spin-down/APM tuning for actual rotational HDDs, CachyOS-style: disable
+# aggressive head parking (-S 0) and set the highest non-standby power
+# level (-B 254) so the drive doesn't constantly load/unload.
+#
+# This is NOT copied verbatim from upstream CachyOS-Settings' 69-hdparm.rules.
+# That file has gone through two bugs worth avoiding:
+#   - v1.4.0 and earlier: ATTRS{id/bus}=="ata" never matched anything, so
+#     the rule was silently a no-op (CachyOS/CachyOS-Settings#268).
+#   - v1.4.1's fix (ATTRS{id/bus} -> ENV{ID_BUS}) then also matched
+#     USB-bridged SSDs reporting rotational=1 over the uas driver, and
+#     hdparm blocked udev for ~21s on those (CachyOS/CachyOS-Settings#274).
+# The ENV{ID_USB_DRIVER}=="" clause below is the fix proposed in #274:
+# it keeps the rule working for real internal ATA disks while excluding
+# anything attached through a USB storage driver.
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", \
+    ENV{ID_BUS}=="ata", ENV{ID_USB_DRIVER}=="", RUN+="/usr/bin/hdparm -B 254 -S 0 /dev/%k"

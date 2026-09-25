@@ -2,6 +2,8 @@ name: config-system
 description: CachyOS-aligned system-wide performance and power tuning
 type: config
 category: config
+depends:
+  - hdparm
 install:
   configs:
     /etc/systemd/system.conf.d/00-timeout.conf: systemd-00-timeout.conf
@@ -12,6 +14,7 @@ install:
     /usr/lib/udev/audio-pm-ctl: audio-pm-ctl
     /etc/udev/rules.d/20-audio-pm.rules: udev-20-audio-pm.rules
     /etc/udev/rules.d/60-scheduler.rules: udev-60-scheduler.rules
+    /etc/udev/rules.d/69-hdparm.rules: udev-69-hdparm.rules
     /etc/udev/rules.d/75-powercap.rules: udev-75-powercap.rules
     /etc/udev/rules.d/97-zram.rules: udev-97-zram.rules
     /etc/udev/rules.d/99-desktop.rules: udev-99-desktop.rules
@@ -76,7 +79,7 @@ post_install: |
   udevadm trigger --subsystem-match=block --subsystem-match=powercap --subsystem-match=sound
   systemctl daemon-reexec
   systemctl restart systemd-journald
-  journalctl --vacuum-size=3G > /dev/null
+  journalctl --vacuum-size=50M > /dev/null
   journalctl --vacuum-time=3months > /dev/null
 post_remove: |
   rm -f /etc/sysctl.d/99-debforge.conf
