@@ -5,5 +5,17 @@ category: config
 install:
   configs:
     /etc/sysctl.d/99-debforge-gaming.conf: 99-debforge-gaming.conf
-post_install: sysctl -w kernel.split_lock_mitigate=0
-post_remove: sysctl -w kernel.split_lock_mitigate=1
+    /etc/systemd/system/cpufreq-governor.service: |
+      [Unit]
+      Description=Set CPU governor to performance
+      After=multi-user.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+post_install: sysctl -w kernel.split_lock_mitigate=0 && systemctl enable --now cpufreq-governor.service
+post_remove: sysctl -w kernel.split_lock_mitigate=1 && systemctl disable --now cpufreq-governor.service
