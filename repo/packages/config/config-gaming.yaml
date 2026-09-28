@@ -1,9 +1,29 @@
 name: config-gaming
-description: Gaming-specific system tuning (split-lock mitigation off)
+description: Gaming-specific system tuning
 type: config
 category: config
 install:
   configs:
     /etc/sysctl.d/99-debforge-gaming.conf: 99-debforge-gaming.conf
-post_install: sysctl -w kernel.split_lock_mitigate=0
-post_remove: sysctl -w kernel.split_lock_mitigate=1
+post_install: |
+  sysctl -w kernel.split_lock_mitigate=0
+  cat > /etc/systemd/system/debforge-cpu-performance.service <<'UNIT'
+  [Unit]
+  Description=Force performance power profile
+  After=power-profiles-daemon.service
+  Requires=power-profiles-daemon.service
+
+  [Service]
+  Type=oneshot
+  ExecStart=/usr/bin/powerprofilesctl set performance
+
+  [Install]
+  WantedBy=multi-user.target
+  UNIT
+  systemctl daemon-reload
+  systemctl enable --now debforge-cpu-performance.service
+post_remove: |
+  sysctl -w kernel.split_lock_mitigate=1
+  systemctl disable --now debforge-cpu-performance.service
+  rm -f /etc/systemd/system/debforge-cpu-performance.service
+  systemctl daemon-reload
