@@ -6,21 +6,20 @@ install:
   configs:
     /etc/sysctl.d/99-debforge-gaming.conf: 99-debforge-gaming.conf
 post_install: |
-  sysctl -w kernel.split_lock_mitigate=0
+  sysctl -p /etc/sysctl.d/99-debforge-gaming.conf
   cat > /etc/systemd/system/debforge-cpu-performance.service <<'UNIT'
   [Unit]
   Description=Force performance power profile
-  After=power-profiles-daemon.service
-  Requires=power-profiles-daemon.service
 
   [Service]
   Type=oneshot
   ExecStart=/usr/bin/powerprofilesctl set performance
 
   [Install]
-  WantedBy=multi-user.target
+  WantedBy=graphical.target
   UNIT
   systemctl daemon-reload
+  systemctl disable debforge-cpu-performance.service 2>/dev/null || true
   systemctl enable --now debforge-cpu-performance.service
 post_remove: |
   sysctl -w kernel.split_lock_mitigate=1
