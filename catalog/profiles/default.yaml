@@ -65,6 +65,9 @@ steps:
     packages: [systemd-zram-generator]
     files:
       - {dest: /etc/systemd/zram-generator.conf, src: zram-generator.conf}
+      - {dest: /etc/udev/rules.d/97-zram.rules, src: udev-97-zram.rules}
+      - {dest: /etc/sysctl.d/98-debforge-zram.conf, src: sysctl-98-zram.conf}
+    reload: [sysctl, udev]
     services:
       - {name: systemd-zram-setup@zram0.service, start: true, restart_on_change: true}
 
