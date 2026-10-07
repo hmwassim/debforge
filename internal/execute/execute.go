@@ -577,29 +577,9 @@ func (x *Exec) hook(ctx context.Context, it *plan.Item, name, script, dir string
 	return nil
 }
 
-var reloadCmds = map[string][][]string{
-	"udev":       {{"udevadm", "control", "--reload"}, {"udevadm", "trigger", "--action=change"}},
-	"sysctl":     {{"sysctl", "--system"}},
-	"systemd":    {{"systemctl", "daemon-reload"}},
-	"tmpfiles":   {{"systemd-tmpfiles", "--create"}},
-	"fontconfig": {{"fc-cache", "-f"}},
-	"desktop":    {{"update-desktop-database", "-q", "/usr/local/share/applications"}},
-	"modules":    {{"systemctl", "restart", "systemd-modules-load.service"}},
-}
-
 func (x *Exec) runReloads(ctx context.Context, reloads map[string]bool, sum *Summary) {
-	var keys []string
-	for k := range reloads {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		for _, c := range reloadCmds[k] {
-			if _, err := x.R.Run(context.WithoutCancel(ctx), system.Cmd{Name: c[0], Args: c[1:], Timeout: 2 * time.Minute}); err != nil {
-				sum.Warnings = append(sum.Warnings, fmt.Sprintf("reload %s: %v (changes apply after reboot)", k, err))
-				break
-			}
-		}
+	for _, err := range system.Reload(ctx, x.R, reloads) {
+		sum.Warnings = append(sum.Warnings, fmt.Sprintf("%v (changes apply after reboot)", err))
 	}
 }
 

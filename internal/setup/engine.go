@@ -274,11 +274,13 @@ func (e *Engine) Apply(ctx context.Context, s *Step, force bool, prog apt.Progre
 			return notes, err
 		}
 	}
-	if changed {
+	if changed && len(s.Reload) > 0 {
+		want := map[string]bool{}
 		for _, r := range s.Reload {
-			if err := e.reload(ctx, r); err != nil {
-				notes = append(notes, fmt.Sprintf("reload %s: %v", r, err))
-			}
+			want[r] = true
+		}
+		for _, err := range system.Reload(ctx, e.R, want) {
+			notes = append(notes, err.Error())
 		}
 	}
 	for _, c := range s.Commands {
@@ -351,22 +353,6 @@ func (e *Engine) verify(ctx context.Context, script string) error {
 		sleep(2 * time.Second)
 	}
 	return fmt.Errorf("verification failed after 30s (%s): %w", firstLine(script), err)
-}
-
-var reloadCmds = map[string][]string{
-	"udev":       {"udevadm", "control", "--reload"},
-	"sysctl":     {"sysctl", "--system"},
-	"systemd":    {"systemctl", "daemon-reload"},
-	"tmpfiles":   {"systemd-tmpfiles", "--create"},
-	"fontconfig": {"fc-cache", "-f"},
-	"desktop":    {"update-desktop-database", "-q", "/usr/local/share/applications"},
-	"modules":    {"systemctl", "restart", "systemd-modules-load.service"},
-}
-
-func (e *Engine) reload(ctx context.Context, r string) error {
-	c := reloadCmds[r]
-	_, err := e.R.Run(ctx, system.Cmd{Name: c[0], Args: c[1:], Timeout: 2 * time.Minute})
-	return err
 }
 
 func firstLine(s string) string {

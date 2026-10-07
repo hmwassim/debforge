@@ -1,9 +1,12 @@
 package catalog
 
 import (
+	"sort"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/hmwassim/debforge/internal/system"
 )
 
 func load(t *testing.T, files map[string]string) (*Catalog, []string, error) {
@@ -242,5 +245,15 @@ func TestSelect(t *testing.T) {
 	}
 	if _, err := c.Select([]string{"ghost"}); err == nil {
 		t.Fatal("unknown should error")
+	}
+}
+
+func TestReloadsMatchSystem(t *testing.T) {
+	got := append([]string(nil), Reloads...)
+	want := append([]string(nil), system.ReloadOrder...)
+	sort.Strings(got)
+	sort.Strings(want)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("catalog.Reloads %v != system.ReloadOrder %v", got, want)
 	}
 }
