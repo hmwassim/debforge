@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/hmwassim/debforge/internal/aptpty"
+	"github.com/hmwassim/debforge/internal/domain/installer/apt"
 )
 
 var mesaPackages = []string{
@@ -28,5 +29,5 @@ func (s *MesaStep) Check(ctx context.Context, cx *Context) CheckResult {
 func (s *MesaStep) Apply(ctx context.Context, cx *Context, result CheckResult) error {
 	spinner := cx.UI.Spinner(ctx, "Installing Mesa GPU drivers")
 	defer spinner.Stop()
-	return aptpty.RunInstall(ctx, cx.Runner, mesaPackages, spinner)
+	return aptpty.RunInstallBackports(ctx, cx.Runner, mesaPackages, apt.DefaultBackportSuite, spinner)
 }
