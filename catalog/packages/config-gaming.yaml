@@ -9,4 +9,7 @@ reload: [sysctl, systemd]
 hooks:
   post_install: systemctl enable --now debforge-cpu-performance.service
   pre_remove: systemctl disable --now debforge-cpu-performance.service || true
-  post_remove: sysctl -w kernel.split_lock_mitigate=1 2>/dev/null || true
+notes:
+  # The kernel's built-in default can't be read back at runtime, so it is
+  # not guessed: it returns at boot (1 on Debian kernels, 0 on CachyOS ones).
+  remove: split-lock mitigation returns to the kernel's default after a reboot.
