@@ -17,3 +17,5 @@ hooks:
   # The RT limits and timer/latency device permissions are granted to the
   # audio group; takes effect at the next login.
   post_install: usermod -aG audio "$TARGET_USER"
+notes:
+  install: log out and back in so the audio group's real-time limits apply.
