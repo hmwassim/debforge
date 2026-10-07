@@ -19,7 +19,9 @@ var reloadCommands = map[string][][]string{
 	"tmpfiles": {{"systemd-tmpfiles", "--create"}},
 	"udev": {
 		{"udevadm", "control", "--reload"},
-		{"udevadm", "trigger", "--action=change",
+		// Live zram devices (initstate=1) are skipped: they must never be
+		// disturbed while in use as swap.
+		{"udevadm", "trigger", "--action=change", "--attr-nomatch=initstate=1",
 			"--subsystem-match=block", "--subsystem-match=sound", "--subsystem-match=power_supply",
 			"--subsystem-match=powercap", "--subsystem-match=scsi_host", "--subsystem-match=pci",
 			"--subsystem-match=misc", "--subsystem-match=rtc"},

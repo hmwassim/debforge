@@ -38,6 +38,13 @@ type Step struct {
 	// Verify must succeed (retried for 30s) after Apply.
 	Verify string   `yaml:"verify"`
 	Reload []string `yaml:"reload"`
+	Notes  Notes    `yaml:"notes"`
+}
+
+// Notes are shown to the user after Apply.
+type Notes struct {
+	// Changed is shown when the step changed any of its files.
+	Changed string `yaml:"changed"`
 }
 
 // When restricts a step to matching machines.

@@ -274,6 +274,9 @@ func (e *Engine) Apply(ctx context.Context, s *Step, force bool, prog apt.Progre
 			return notes, err
 		}
 	}
+	if changed && strings.TrimSpace(s.Notes.Changed) != "" {
+		notes = append(notes, strings.TrimSpace(s.Notes.Changed))
+	}
 	if changed && len(s.Reload) > 0 {
 		want := map[string]bool{}
 		for _, r := range s.Reload {

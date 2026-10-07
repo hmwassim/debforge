@@ -68,8 +68,15 @@ steps:
       - {dest: /etc/udev/rules.d/97-zram.rules, src: udev-97-zram.rules}
       - {dest: /etc/sysctl.d/98-debforge-zram.conf, src: sysctl-98-zram.conf}
     reload: [sysctl, udev]
-    services:
-      - {name: systemd-zram-setup@zram0.service, start: true, restart_on_change: true}
+    # A zram device in use can't be reconfigured: never restart it. Swap being
+    # listed in /proc/swaps is the truth; if it isn't, start the swap unit
+    # (which pulls in systemd-zram-setup@zram0.service), as zram-generator
+    # documents. Config changes take effect at the next boot.
+    commands:
+      - check: grep -q '^/dev/zram0 ' /proc/swaps
+        apply: systemctl daemon-reload && systemctl start dev-zram0.swap
+    notes:
+      changed: zram settings changed; they take effect after the next reboot.
 
   - id: timesyncd
     title: Network time sync

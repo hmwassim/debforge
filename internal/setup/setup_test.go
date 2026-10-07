@@ -229,3 +229,16 @@ func TestProfileValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestStepChangedNote(t *testing.T) {
+	v := newEnv(t, "")
+	p := profile(t, "steps:\n  - {id: z, title: Z, files: [{dest: /etc/z.conf, content: a}], notes: {changed: reboot to apply}}\n", nil)
+	notes, err := v.e.Apply(context.Background(), p.Steps[0], false, nil)
+	if err != nil || len(notes) != 1 || notes[0] != "reboot to apply" {
+		t.Fatalf("%v %v", notes, err)
+	}
+	notes, _ = v.e.Apply(context.Background(), p.Steps[0], false, nil)
+	if len(notes) != 0 {
+		t.Fatalf("unchanged step must not repeat the note: %v", notes)
+	}
+}
