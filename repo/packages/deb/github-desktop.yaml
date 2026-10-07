@@ -1,8 +1,0 @@
-name: github-desktop
-description: GitHub Desktop Git client
-type: deb
-category: development
-package: github-desktop
-tag_prefix: release-
-install:
-  url: https://github.com/shiftkey/desktop/releases/download/release-{version}/GitHubDesktop-linux-amd64-{version}.deb

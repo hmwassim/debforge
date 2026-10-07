@@ -1,9 +1,0 @@
-name: scx-tools
-description: sched_ext scheduler tools
-type: deb
-category: sched-ext
-package: scx-tools
-depends:
-  - scx-scheds
-install:
-  url: https://github.com/hmwassim/scx-bundler/releases/download/v{version}/scx-tools_{version}_amd64.deb
