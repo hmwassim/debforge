@@ -1,6 +1,6 @@
-# Spin-down/APM tuning for actual rotational HDDs, CachyOS-style: disable
-# aggressive head parking (-S 0) and set the highest non-standby power
-# level (-B 254) so the drive doesn't constantly load/unload.
+# Power tuning for internal rotational HDDs, CachyOS-style: -B 254 sets the
+# highest APM level that still allows standby, which stops aggressive head
+# parking (constant load/unload cycles); -S 0 disables the spin-down timer.
 #
 # This is NOT copied verbatim from upstream CachyOS-Settings' 69-hdparm.rules.
 # That file has gone through two bugs worth avoiding:
