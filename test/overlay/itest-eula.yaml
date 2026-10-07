@@ -1,0 +1,7 @@
+name: itest-eula
+description: package with a debconf EULA (the old debforge hung here)
+category: fonts
+debconf:
+  - ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true
+source:
+  apt: {packages: [ttf-mscorefonts-installer]}

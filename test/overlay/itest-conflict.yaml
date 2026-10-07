@@ -1,0 +1,5 @@
+name: itest-conflict
+description: replaces nano with vim-tiny
+category: utils
+source:
+  apt: {packages: [vim-tiny], conflicts: [nano]}

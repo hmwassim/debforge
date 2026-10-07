@@ -1,0 +1,7 @@
+name: itest-app
+description: integration test app depending on itest-base
+category: utils
+depends: [itest-base]
+requires: [tree, curl]
+files:
+  - {dest: /etc/itest/app.conf, content: "app=1\n"}

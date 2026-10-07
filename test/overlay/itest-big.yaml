@@ -1,0 +1,5 @@
+name: itest-big
+description: a larger install used for the Ctrl-C test
+category: utils
+source:
+  apt: {packages: [gcc]}

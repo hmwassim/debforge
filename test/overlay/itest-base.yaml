@@ -1,0 +1,10 @@
+name: itest-base
+description: integration test base package
+category: utils
+source:
+  apt: {packages: [jq]}
+files:
+  - {dest: /etc/itest/base.conf, content: "base=1\n"}
+  - {dest: "~/.config/itest/user.conf", content: "user=1\n"}
+hooks:
+  post_install: touch /tmp/itest-base-hook
