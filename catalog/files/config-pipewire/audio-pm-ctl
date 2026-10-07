@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# CachyOS-style snd_hda_intel power management.
+#
+# Disable snd_hda_intel power saving while on AC to prevent audio cracks,
+# then restore the saved value on battery. Systems without a battery (such
+# as desktops) are treated as always being on AC.
+#
+# Invoked from 20-audio-pm.rules with one of: init, battery, ac.
+
+set -u
+
+PARAM=/sys/module/snd_hda_intel/parameters/power_save
+STATE=/run/udev/snd-hda-intel-powersave
+
+has_battery() {
+  local type_file
+  for type_file in /sys/class/power_supply/*/type; do
+    [ -r "$type_file" ] || continue
+    if [ "$(cat "$type_file")" = Battery ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_on_ac() {
+  local supply_dir online
+  local mains_found=0
+
+  # A desktop normally has no battery or mains supply. Treat it as AC so
+  # snd_hda_intel power saving remains disabled, matching the previous setup.
+  has_battery || return 0
+
+  for supply_dir in /sys/class/power_supply/*; do
+    [ -r "$supply_dir/type" ] || continue
+    [ "$(cat "$supply_dir/type")" = Mains ] || continue
+
+    mains_found=1
+    online="$(cat "$supply_dir/online" 2>/dev/null || printf 0)"
+    [ "$online" = 1 ] || return 1
+  done
+
+  [ "$mains_found" -eq 1 ]
+}
+
+save() {
+  local current
+  current="$(cat "$PARAM" 2>/dev/null)" || return 0
+  if [ "$current" != 0 ]; then
+    printf '%s\n' "$current" >"$STATE"
+  fi
+}
+
+restore() {
+  local value
+  value="$(cat "$STATE" 2>/dev/null || true)"
+  [ -n "$value" ] || value=10
+  printf '%s\n' "$value" >"$PARAM"
+}
+
+set_ac_state() {
+  save
+  printf '0\n' >"$PARAM"
+}
+
+case "${1:-}" in
+  init)
+    if is_on_ac; then
+      set_ac_state
+    fi
+    ;;
+  battery)
+    restore
+    ;;
+  ac)
+    set_ac_state
+    ;;
+  *)
+    printf 'Usage: %s {init|battery|ac}\n' "$0" >&2
+    exit 1
+    ;;
+esac

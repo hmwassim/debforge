@@ -1,0 +1,8 @@
+# NVIDIA runtime power management: let the GPU power down when idle (PRIME
+# laptops) while the nvidia driver is bound; force it on otherwise.
+ACTION=="add|bind|change", SUBSYSTEM=="pci", DRIVERS=="nvidia", \
+    ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", \
+    TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="remove|unbind", SUBSYSTEM=="pci", DRIVERS=="nvidia", \
+    ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", \
+    TEST=="power/control", ATTR{power/control}="on"

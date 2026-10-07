@@ -1,11 +1,19 @@
 name: config-pipewire
-description: PipeWire and WirePlumber low-latency configuration
+description: Low-latency audio (PipeWire, WirePlumber, HDA power, RT limits)
 category: system
 requires: [pipewire, wireplumber]
 files:
   - {dest: /etc/security/limits.d/20-audio.conf, src: 20-audio.conf}
+  - {dest: /etc/udev/rules.d/99-audio-latency.rules, src: udev-99-audio-latency.rules}
+  - {dest: /etc/udev/rules.d/20-audio-pm.rules, src: udev-20-audio-pm.rules}
+  - {dest: /usr/local/lib/debforge/audio-pm-ctl, src: audio-pm-ctl, mode: "0755"}
   - {dest: "~/.config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf", src: 51-disable-suspend.conf}
   - {dest: "~/.config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf", src: 52-deprioritize-hdmi.conf}
   - {dest: "~/.config/pipewire/pipewire.conf.d/10-clock.conf", src: 10-clock.conf}
   - {dest: "~/.config/pipewire/pipewire-pulse.conf.d/10-pulse.conf", src: 10-pulse.conf}
   - {dest: "~/.config/pipewire/pipewire-pulse.conf.d/10-wine-audio.conf", src: 10-wine-audio.conf}
+reload: [udev]
+hooks:
+  # The RT limits and timer/latency device permissions are granted to the
+  # audio group; takes effect at the next login.
+  post_install: usermod -aG audio "$TARGET_USER"

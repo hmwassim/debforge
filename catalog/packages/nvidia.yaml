@@ -10,3 +10,6 @@ source:
     variants:
       open: [nvidia-open]
       proprietary: [cuda-drivers]
+files:
+  - {dest: /etc/udev/rules.d/80-nvidia-pm.rules, src: udev-80-nvidia-pm.rules}
+reload: [udev]
