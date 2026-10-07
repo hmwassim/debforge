@@ -170,6 +170,9 @@ func (x *Exec) Install(ctx context.Context, pl *plan.Plan) (*Summary, error) {
 			label += " " + it.Version
 		}
 		prog.Done(map[plan.Op]string{plan.OpInstall: "Installed ", plan.OpUpgrade: "Upgraded ", plan.OpReinstall: "Reinstalled "}[it.Op] + label)
+		if n := strings.TrimSpace(it.Pkg.Notes.Install); n != "" {
+			sum.Notes = append(sum.Notes, it.Name+": "+n)
+		}
 	}
 	x.runReloads(ctx, reloads, sum)
 	return sum, nil
@@ -639,6 +642,9 @@ func (x *Exec) Remove(ctx context.Context, pl *plan.Plan) (*Summary, error) {
 			}
 			for _, r := range it.Pkg.Reload {
 				reloads[r] = true
+			}
+			if n := strings.TrimSpace(it.Pkg.Notes.Remove); n != "" {
+				sum.Notes = append(sum.Notes, it.Name+": "+n)
 			}
 		}
 		delete(x.State.Packages, it.Name)

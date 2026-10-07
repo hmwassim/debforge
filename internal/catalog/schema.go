@@ -41,6 +41,8 @@ type Package struct {
 	Reload []string `yaml:"reload"`
 	// LegacyCleanup lists paths from older layouts to delete on install.
 	LegacyCleanup []string `yaml:"legacy_cleanup"`
+	// Notes are shown to the user after the package is installed or removed.
+	Notes Notes `yaml:"notes"`
 	// Trust "upstream-tls" allows unpinned downloads of auto-updating
 	// packages (HTTPS only, no checksum).
 	Trust string `yaml:"trust"`
@@ -191,6 +193,12 @@ func (f File) FileMode() os.FileMode { return f.mode }
 
 // User reports whether the file lives in the target user's home.
 func (f File) User() bool { return strings.HasPrefix(f.Dest, "~/") }
+
+// Notes are short messages for the user, e.g. "log out and back in".
+type Notes struct {
+	Install string `yaml:"install"`
+	Remove  string `yaml:"remove"`
+}
 
 // Hooks are shell snippets run with sh -eu.
 type Hooks struct {

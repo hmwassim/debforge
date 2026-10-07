@@ -97,6 +97,8 @@ func infoText(a *App, p *catalog.Package, sp *state.Package, verbose bool) strin
 		}
 	}
 	row("Reload", strings.Join(p.Reload, ", "))
+	row("On install", strings.TrimSpace(p.Notes.Install))
+	row("On removal", strings.TrimSpace(p.Notes.Remove))
 	if verbose {
 		for name, h := range map[string]string{"build": p.Hooks.Build, "install": p.Hooks.Install,
 			"post_install": p.Hooks.PostInstall, "pre_remove": p.Hooks.PreRemove, "post_remove": p.Hooks.PostRemove} {

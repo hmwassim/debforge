@@ -171,6 +171,9 @@ hooks:                         # run with sh -eu; env: VERSION, TARGET_USER, TAR
   pre_remove: …
   post_remove: …
 
+notes:                         # shown after install / removal
+  install: log out and back in to apply.
+  remove: reverts after a reboot.
 debconf: ["pkg question type value"]   # preseeded before the apt transaction
 reload: [udev, sysctl, systemd, tmpfiles, fontconfig, desktop, modules]
 legacy_cleanup: [/etc/old-name.conf]   # deleted on install

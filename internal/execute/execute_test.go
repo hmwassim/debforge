@@ -282,3 +282,17 @@ func TestInterruptAfterAptRecordsIncomplete(t *testing.T) {
 		t.Fatalf("apt-installed package must be recorded as incomplete, got %+v", sp)
 	}
 }
+
+func TestNotesShown(t *testing.T) {
+	def := wineDef + "notes:\n  install: log out and back in.\n  remove: reverts after a reboot.\n"
+	h := newHarness(t, map[string]string{"packages/wine.yaml": def})
+	sum, err := h.install("wine")
+	if err != nil || len(sum.Notes) != 1 || sum.Notes[0] != "wine: log out and back in." {
+		t.Fatalf("install notes: %v %v", sum, err)
+	}
+	pl, _ := h.env.Remove([]string{"wine"})
+	sum, err = h.x.Remove(context.Background(), pl)
+	if err != nil || len(sum.Notes) != 1 || sum.Notes[0] != "wine: reverts after a reboot." {
+		t.Fatalf("remove notes: %v %v", sum, err)
+	}
+}
