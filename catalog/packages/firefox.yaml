@@ -1,0 +1,8 @@
+name: firefox
+description: Firefox web browser from Mozilla
+category: browsers
+source:
+  apt:
+    extrepo: [mozilla]
+    packages: [firefox]
+    conflicts: [firefox-esr]

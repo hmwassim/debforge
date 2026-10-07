@@ -1,0 +1,7 @@
+name: spotify
+description: Spotify music streaming client
+category: media
+source:
+  apt:
+    extrepo: [spotify]
+    packages: [spotify-client]

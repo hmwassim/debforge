@@ -1,0 +1,18 @@
+matrix:
+  - {id: cascadiacode, archive: CascadiaCode, label: Cascadia Code}
+  - {id: cascadiamono, archive: CascadiaMono, label: Cascadia Mono}
+  - {id: firacode, archive: FiraCode, label: Fira Code}
+  - {id: firamono, archive: FiraMono, label: Fira Mono}
+  - {id: hack, archive: Hack, label: Hack}
+  - {id: jetbrainsmono, archive: JetBrainsMono, label: JetBrains Mono}
+name: fonts-nerd-{{id}}
+description: "{{label}} Nerd Font"
+category: fonts
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/ryanoasis/nerd-fonts", tag: "v{version}"}
+source:
+  archive:
+    url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/{{archive}}.tar.xz
+reload: [fontconfig]
+hooks:
+  install: find . -name '*.ttf' -exec install -Dm644 -t "$DESTDIR/usr/local/share/fonts/nerd-fonts/{{archive}}" {} +

@@ -1,0 +1,14 @@
+name: discord
+description: Discord voice, video, and text chat
+category: communication
+trust: upstream-tls
+version:
+  from: cmd
+  cmd: >-
+    curl -fsSL -o /dev/null -r 0-0 -w '%{url_effective}'
+    'https://discord.com/api/download?platform=linux&format=deb'
+    | sed -E 's|.*/([0-9][0-9.]*)/[^/]*$|\1|'
+source:
+  deb:
+    urls:
+      - url: "https://stable.dl2.discordapp.net/apps/linux/{version}/discord-{version}.deb"

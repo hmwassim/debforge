@@ -1,0 +1,27 @@
+name: postman
+description: Postman API platform
+category: development
+trust: upstream-tls
+version:
+  from: cmd
+  # Postman has no versioned URL; its ETag changes with every release.
+  cmd: >-
+    curl -fsSI https://dl.pstmn.io/download/latest/linux64 | sed -n 's/^etag: *"\{0,1\}\([0-9a-f]*\).*/\1/Ip' | cut -c1-16
+source:
+  archive:
+    url: https://dl.pstmn.io/download/latest/linux64
+reload: [desktop]
+hooks:
+  install: |
+    mkdir -p "$DESTDIR/opt" "$DESTDIR/usr/local/bin" "$DESTDIR/usr/local/share/applications"
+    cp -a Postman "$DESTDIR/opt/Postman"
+    ln -s /opt/Postman/Postman "$DESTDIR/usr/local/bin/postman"
+    cat > "$DESTDIR/usr/local/share/applications/postman.desktop" <<'EOF'
+    [Desktop Entry]
+    Type=Application
+    Name=Postman
+    Exec=/opt/Postman/Postman %U
+    Icon=/opt/Postman/app/resources/app/assets/icon.png
+    Terminal=false
+    Categories=Development;
+    EOF

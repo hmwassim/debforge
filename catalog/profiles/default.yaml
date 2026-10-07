@@ -1,0 +1,252 @@
+# The default debforge setup profile. Steps run in order; each one is
+# checked first and only applied when something is missing. Files are
+# tracked with the same 3-way merge as package files.
+steps:
+  - id: sources
+    title: Debian repositories (contrib, non-free, backports)
+    builtin: sources
+
+  - id: i386
+    title: i386 multiarch (Steam, Wine)
+    builtin: i386
+
+  - id: upgrade
+    title: System upgrade
+    builtin: upgrade
+
+  - id: firmware
+    title: Firmware (from backports)
+    backports: true
+    packages: [firmware-linux, firmware-linux-nonfree, firmware-misc-nonfree, firmware-iwlwifi, firmware-sof-signed, firmware-realtek]
+
+  - id: microcode-intel
+    title: Intel CPU microcode
+    when: {cpu_vendor: intel}
+    packages: [intel-microcode]
+
+  - id: microcode-amd
+    title: AMD CPU microcode
+    when: {cpu_vendor: amd}
+    packages: [amd64-microcode]
+
+  - id: devtools
+    title: Core tools
+    packages:
+      - git
+      - curl
+      - wget
+      - unzip
+      - p7zip-full
+      - gzip
+      - gnupg
+      - build-essential
+      - pkg-config
+      - cmake
+      - nvme-cli
+      - smartmontools
+      - pciutils
+      - usbutils
+      - cabextract
+      - zenity
+      - jq
+      - lm-sensors
+      - ddcutil
+      - hunspell-en-us
+      - hunspell-fr
+      - hwloc
+
+  - id: kernel
+    title: Kernel (from backports)
+    backports: true
+    packages: [linux-image-amd64, linux-headers-amd64]
+
+  - id: zram
+    title: zram swap
+    packages: [systemd-zram-generator]
+    files:
+      - {dest: /etc/systemd/zram-generator.conf, src: zram-generator.conf}
+    services:
+      - {name: systemd-zram-setup@zram0.service, start: true, restart_on_change: true}
+
+  - id: timesyncd
+    title: Network time sync
+    packages: [systemd-timesyncd]
+    files:
+      - {dest: /etc/systemd/timesyncd.conf.d/10-timesyncd.conf, src: timesyncd.conf}
+    services:
+      - {name: systemd-timesyncd.service, enable: true, start: true, restart_on_change: true}
+    commands:
+      - check: test "$(timedatectl show -p NTP --value)" = yes
+        apply: timedatectl set-ntp true
+
+  - id: resolved
+    title: Encrypted DNS (systemd-resolved, opportunistic DNS-over-TLS)
+    packages: [systemd-resolved]
+    files:
+      - {dest: /etc/systemd/resolved.conf.d/99-dot.conf, src: resolved-99-dot.conf}
+    services:
+      - {name: systemd-resolved.service, enable: true, start: true, restart_on_change: true}
+    commands:
+      - check: test "$(readlink /etc/resolv.conf)" = /run/systemd/resolve/stub-resolv.conf
+        apply: ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    verify: resolvectl query debian.org >/dev/null
+
+  - id: resolved-networkmanager
+    title: NetworkManager uses systemd-resolved
+    when: {network_manager: true}
+    files:
+      - {dest: /etc/NetworkManager/conf.d/10-dns.conf, src: nm-10-dns.conf}
+    services:
+      - {name: NetworkManager.service, reload_on_change: true}
+
+  - id: extrepo
+    title: extrepo (third-party repositories)
+    packages: [extrepo]
+    files:
+      - {dest: /etc/extrepo/config.yaml, src: extrepo-config.yaml}
+
+  - id: mesa
+    title: Mesa GPU drivers (from backports)
+    backports: true
+    packages:
+      - intel-media-va-driver-non-free
+      - intel-media-va-driver-non-free:i386
+      - mesa-va-drivers
+      - mesa-va-drivers:i386
+      - mesa-vulkan-drivers
+      - mesa-vulkan-drivers:i386
+      - libva2
+      - libva2:i386
+      - libvulkan1
+      - libvulkan1:i386
+      - libglx-mesa0:i386
+      - libgl1-mesa-dri:i386
+      - vulkan-tools
+      - vulkan-validationlayers
+      - vainfo
+      - vdpauinfo
+
+  # PipeWire stays on stable: backports has no matching i386 build, and
+  # the 64-bit and 32-bit packages must have the same version.
+  - id: multimedia
+    title: Multimedia stack (PipeWire, codecs, players)
+    packages:
+      - pipewire
+      - pipewire:i386
+      - pipewire-audio
+      - pipewire-pulse
+      - pipewire-alsa
+      - pipewire-jack
+      - pipewire-bin
+      - pipewire-v4l2
+      - pipewire-libcamera
+      - pipewire-audio-client-libraries
+      - libpipewire-0.3-0t64
+      - libpipewire-0.3-0t64:i386
+      - libpipewire-0.3-modules
+      - libpipewire-0.3-modules-x11
+      - libspa-0.2-bluetooth
+      - libspa-0.2-jack
+      - libspa-0.2-libcamera
+      - libspa-0.2-modules
+      - libspa-0.2-modules:i386
+      - wireplumber
+      - rtkit
+      - alsa-utils
+      - alsa-tools
+      - alsa-firmware-loaders
+      - libasound2-plugins
+      - libasound2-plugins:i386
+      - libasound2t64
+      - libcanberra-pulse
+      - easyeffects
+      - lsp-plugins-lv2
+      - calf-plugins
+      - x42-plugins
+      - zam-plugins
+      - gstreamer1.0-pipewire
+      - ffmpeg
+      - gstreamer1.0-libav
+      - gstreamer1.0-libav:i386
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-plugins-good:i386
+      - gstreamer1.0-plugins-bad
+      - gstreamer1.0-plugins-bad:i386
+      - gstreamer1.0-plugins-ugly
+      - gstreamer1.0-plugins-ugly:i386
+      - gstreamer1.0-vaapi
+      - gstreamer1.0-alsa
+      - gstreamer1.0-tools
+      - mpv
+      - vlc
+      - mpg123
+      - lame
+      - x264
+      - x265
+      - opus-tools
+      - flvmeta
+      - libgif7
+      - libgif7:i386
+      - giflib-tools
+      - libglfw3
+      - libglfw3:i386
+      - libosmesa6
+      - libosmesa6:i386
+      - libgtk-3-0t64
+      - libgtk-3-0t64:i386
+      - libopenal1
+      - libopenal1:i386
+      - libturbojpeg0
+      - libturbojpeg0:i386
+      - libjpeg62-turbo
+      - libjpeg62-turbo:i386
+      - ocl-icd-libopencl1
+      - ocl-icd-libopencl1:i386
+
+  - id: fonts
+    title: Fonts
+    debconf:
+      - ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true
+    packages:
+      - fonts-liberation
+      - fonts-liberation2
+      - fonts-croscore
+      - fonts-cantarell
+      - fonts-inter
+      - fonts-inter-variable
+      - fonts-noto
+      - fonts-noto-core
+      - fonts-noto-hinted
+      - fonts-noto-ui-core
+      - fonts-noto-unhinted
+      - fonts-noto-cjk
+      - fonts-noto-cjk-extra
+      - fonts-noto-color-emoji
+      - fonts-noto-extra
+      - fonts-noto-mono
+      - fonts-noto-ui-extra
+      - ttf-mscorefonts-installer
+    files:
+      - {dest: /etc/fonts/local.conf, src: fonts-local.conf}
+    reload: [fontconfig]
+
+  - id: desktop
+    title: Desktop tools and Flatpak
+    packages: [eza, starship, papirus-icon-theme, fastfetch, bat, ripgrep, fzf, flatpak, xdg-desktop-portal]
+    commands:
+      - check: flatpak remotes --system --columns=name | grep -qx flathub
+        apply: flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+  - id: desktop-kde
+    title: KDE Flatpak integration
+    when: {desktop: kde}
+    packages: [plasma-discover-backend-flatpak, xdg-desktop-portal-kde]
+
+  - id: desktop-gnome
+    title: GNOME Flatpak integration
+    when: {desktop: gnome}
+    packages: [gnome-software-plugin-flatpak, xdg-desktop-portal-gnome]
+
+  - id: bashrc
+    title: ~/.bashrc loads ~/.config/bashrc.d
+    builtin: bashrc

@@ -1,0 +1,9 @@
+name: scx-scheds
+description: sched_ext scheduler collection
+category: system
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/hmwassim/scx-bundler", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/hmwassim/scx-bundler/releases/download/v{version}/scx-scheds_{version}_amd64.deb"

@@ -1,0 +1,7 @@
+name: brave-origin
+description: Brave Origin developer build
+category: browsers
+source:
+  apt:
+    extrepo: [brave_release]
+    packages: [brave-origin]

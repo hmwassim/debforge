@@ -1,0 +1,14 @@
+name: winetricks
+description: Winetricks from the latest upstream release
+category: gaming
+requires: [cabextract, unzip, p7zip-full, curl, zenity]
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/Winetricks/winetricks", tag: "{version}"}
+source:
+  archive:
+    url: https://github.com/Winetricks/winetricks/archive/refs/tags/{version}.tar.gz
+    strip: 1
+hooks:
+  install: |
+    install -Dm755 src/winetricks "$DESTDIR/usr/local/bin/winetricks"
+    install -Dm644 src/winetricks.1 "$DESTDIR/usr/local/share/man/man1/winetricks.1"

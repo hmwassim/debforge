@@ -1,0 +1,9 @@
+name: github-desktop
+description: GitHub Desktop Git client (shiftkey Linux fork)
+category: development
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/shiftkey/desktop", tag: "release-{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/shiftkey/desktop/releases/download/release-{version}/GitHubDesktop-linux-amd64-{version}.deb"

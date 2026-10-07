@@ -1,0 +1,7 @@
+name: slack
+description: Slack desktop client
+category: communication
+source:
+  apt:
+    extrepo: [slack]
+    packages: [slack-desktop]

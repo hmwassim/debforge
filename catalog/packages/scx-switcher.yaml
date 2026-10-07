@@ -1,0 +1,10 @@
+name: scx-switcher
+description: sched_ext scheduler switcher
+category: system
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/hmwassim/scx-switcher", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/hmwassim/scx-switcher/releases/download/v{version}/scx-switcher_{version}_amd64.deb"
+depends: [scx-scheds, scx-tools]

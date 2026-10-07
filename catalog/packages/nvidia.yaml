@@ -1,0 +1,12 @@
+name: nvidia
+description: NVIDIA GPU drivers with CUDA support
+category: system
+hardware: {pci_vendor: "10de"}
+source:
+  apt:
+    extrepo: [nvidia-cuda]
+    packages: [nvtop]
+    backports: [nvidia-vaapi-driver]
+    variants:
+      open: [nvidia-open]
+      proprietary: [cuda-drivers]

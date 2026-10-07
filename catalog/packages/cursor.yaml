@@ -1,0 +1,12 @@
+name: cursor
+description: Cursor AI code editor
+category: development
+source:
+  apt:
+    packages: [cursor]
+    repo:
+      uri: https://downloads.cursor.com/aptrepo
+      suite: stable
+      components: [main]
+      architectures: [amd64]
+      key: https://downloads.cursor.com/keys/anysphere.asc

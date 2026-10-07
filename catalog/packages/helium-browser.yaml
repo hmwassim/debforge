@@ -1,0 +1,9 @@
+name: helium-browser
+description: Helium web browser
+category: browsers
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/imputnet/helium-linux", tag: "{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/imputnet/helium-linux/releases/download/{version}/helium-bin_{version}-1_amd64.deb"

@@ -1,0 +1,9 @@
+name: config-bash
+description: Bash aliases, fzf, readline and starship configuration
+category: desktop
+requires: [eza, bat, fzf, starship]
+files:
+  - {dest: "~/.config/bashrc.d/00-readline.sh", src: 00-readline.sh}
+  - {dest: "~/.config/bashrc.d/10-aliases.sh", src: 10-aliases.sh}
+  - {dest: "~/.config/bashrc.d/90-fzf.sh", src: 90-fzf.sh}
+  - {dest: "~/.config/bashrc.d/99-starship.sh", src: 99-starship.sh}

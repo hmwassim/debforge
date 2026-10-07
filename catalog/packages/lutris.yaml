@@ -1,0 +1,9 @@
+name: lutris
+description: Lutris open gaming platform
+category: gaming
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/lutris/lutris", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/lutris/lutris/releases/download/v{version}/lutris_{version}_all.deb"

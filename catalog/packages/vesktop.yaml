@@ -1,0 +1,9 @@
+name: vesktop
+description: Vesktop Discord client
+category: communication
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/Vencord/Vesktop", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/Vencord/Vesktop/releases/download/v{version}/vesktop_{version}_amd64.deb"

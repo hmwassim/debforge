@@ -1,0 +1,20 @@
+name: tools-gaming
+description: Gaming tools (gamemode, MangoHud, gamescope, vkBasalt, SDL2 runtime)
+category: gaming
+source:
+  apt:
+    packages:
+      - libsdl2-2.0-0
+      - libsdl2-gfx-1.0-0
+      - libsdl2-image-2.0-0
+      - libsdl2-mixer-2.0-0
+      - libsdl2-net-2.0-0
+      - scummvm
+      - gamemode
+      - mangohud
+      - "mangohud:i386"
+      - goverlay
+      - vkbasalt
+      - schedtool
+      - power-profiles-daemon
+    backports: [gamescope]

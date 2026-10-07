@@ -1,0 +1,20 @@
+name: steamtinkerlaunch
+description: SteamTinkerLaunch game tools
+category: gaming
+depends: [yad]
+requires: [gawk, bash, procps, unzip, wget, xdotool, x11-utils, x11-xserver-utils, xxd, jq, xdg-utils]
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/sonic2kk/steamtinkerlaunch", tag: "v{version}"}
+source:
+  archive:
+    url: https://github.com/sonic2kk/steamtinkerlaunch/archive/refs/tags/v{version}.tar.gz
+    strip: 1
+reload: [desktop]
+hooks:
+  install: |
+    sed -i 's:^PREFIX="/usr":PREFIX="/usr/local":' steamtinkerlaunch
+    install -Dm755 steamtinkerlaunch -t "$DESTDIR/usr/local/bin"
+    install -d "$DESTDIR/usr/local/share/steamtinkerlaunch"
+    cp -r collections eval guicfgs lang misc "$DESTDIR/usr/local/share/steamtinkerlaunch"
+    install -Dm644 misc/steamtinkerlaunch.desktop -t "$DESTDIR/usr/local/share/applications"
+    install -Dm644 misc/steamtinkerlaunch.svg -t "$DESTDIR/usr/local/share/icons/hicolor/scalable/apps"

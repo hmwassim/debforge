@@ -1,0 +1,7 @@
+name: brave-browser
+description: Brave web browser
+category: browsers
+source:
+  apt:
+    extrepo: [brave_release]
+    packages: [brave-browser]

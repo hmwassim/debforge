@@ -1,0 +1,10 @@
+name: pfetch
+description: Pretty fetch system information tool
+category: utils
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/Gobidev/pfetch-rs", tag: "v{version}"}
+source:
+  archive:
+    url: https://github.com/Gobidev/pfetch-rs/releases/download/v{version}/pfetch-linux-gnu-x86_64.tar.gz
+hooks:
+  install: install -Dm755 pfetch "$DESTDIR/usr/local/bin/pfetch"

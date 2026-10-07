@@ -1,0 +1,9 @@
+name: heroic-games-launcher
+description: Heroic Games Launcher for Epic, GOG and Amazon
+category: gaming
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v{version}/Heroic-{version}-linux-amd64.deb"

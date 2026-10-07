@@ -1,0 +1,14 @@
+name: protonup-qt
+description: ProtonUp-Qt - install and manage Proton/Wine versions
+category: gaming
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/DavidoTek/ProtonUp-Qt", tag: "v{version}"}
+source:
+  appimage:
+    url: https://github.com/DavidoTek/ProtonUp-Qt/releases/download/v{version}/ProtonUp-Qt-{version}-x86_64.AppImage
+    bin: protonup-qt
+    desktop:
+      name: ProtonUp-Qt
+      comment: Install and manage Wine and Proton versions
+      categories: Game;Utility;
+      icon: https://raw.githubusercontent.com/DavidoTek/ProtonUp-Qt/main/share/icons/hicolor/256x256/apps/net.davidotek.pupgui2.png

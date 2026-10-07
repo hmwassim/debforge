@@ -1,0 +1,7 @@
+name: google-chrome
+description: Google Chrome web browser
+category: browsers
+source:
+  apt:
+    extrepo: [google_chrome]
+    packages: [google-chrome-stable]

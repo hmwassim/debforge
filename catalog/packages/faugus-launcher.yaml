@@ -1,0 +1,9 @@
+name: faugus-launcher
+description: Faugus game launcher
+category: gaming
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/Faugus/faugus-launcher", tag: "{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/Faugus/faugus-launcher/releases/download/{version}/faugus-launcher_{version}-1_all.deb"
