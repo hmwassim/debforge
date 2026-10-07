@@ -1,0 +1,5 @@
+name: itest-i386-egl
+description: a stable package needing i386 EGL (failed on the desktop before the pin fix)
+category: utils
+source:
+  apt: {packages: ["libglfw3:i386"]}

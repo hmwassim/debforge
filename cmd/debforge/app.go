@@ -86,6 +86,10 @@ func (a *App) loadCatalog() error {
 
 func (a *App) store() state.Store { return state.Store{Path: a.Paths.State} }
 
+// apt returns the apt wrapper; it keeps the backports source pins in sync
+// before installs (see apt.SyncBackportPins).
+func (a *App) apt() *apt.Apt { return &apt.Apt{R: a.R, PinFile: a.Paths.Root + apt.PinFile} }
+
 // loadStateRO loads state for read-only commands; unreadable state is a
 // warning, never fatal.
 func (a *App) loadStateRO() *state.State {
@@ -159,7 +163,7 @@ func (a *App) begin(force bool) (*session, error) {
 		HasHardware: a.Hardware, ExtrepoEnabled: ext.Enabled,
 	}
 	s.exec = &execute.Exec{
-		R: a.R, Apt: &apt.Apt{R: a.R}, Extrepo: ext, Files: a.Files, HTTP: httpc, UI: a.UI, Log: a.Log,
+		R: a.R, Apt: a.apt(), Extrepo: ext, Files: a.Files, HTTP: httpc, UI: a.UI, Log: a.Log,
 		Store: a.store(), State: st, Snap: s.snap, User: s.user, WorkDir: a.Paths.Work, Force: force,
 	}
 	return s, nil

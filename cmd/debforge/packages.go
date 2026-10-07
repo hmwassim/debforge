@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hmwassim/debforge/internal/apt"
 	"github.com/hmwassim/debforge/internal/catalog"
 	"github.com/hmwassim/debforge/internal/plan"
 	"github.com/hmwassim/debforge/internal/system"
@@ -152,7 +151,7 @@ func cmdUpdate(a *App, inv *invocation) error {
 	defer s.end()
 
 	if inv.has("all") {
-		ap := &apt.Apt{R: a.R}
+		ap := a.apt()
 		prog := a.UI.Start("Refreshing package lists")
 		warns, err := ap.Update(a.Ctx)
 		for _, w := range warns {

@@ -81,6 +81,11 @@ Exit codes:
 
   Progress comes from apt's machine-readable status channel, not from parsing its text
   output.
+- **Backports never get mixed with stable.** When any package from a source package is
+  installed from backports, debforge pins that whole source to backports for every
+  architecture, in `/etc/apt/preferences.d/debforge-backports.pref`. The file is rewritten
+  before every install. Without it, a later stable install can pick a stable 32-bit library
+  next to its backports sibling and fail with "held broken packages".
 - **Ctrl-C is safe.** A running apt/dpkg transaction is always allowed to finish. debforge
   then records what was installed and stops. A package interrupted after its apt step is
   marked *incomplete*, and `debforge update <pkg>` finishes it.
@@ -235,6 +240,7 @@ Notable defaults:
 | `/var/log/debforge/` | daily logs (30 kept), including every command run |
 | `/var/cache/debforge/work/` | downloads and builds (on disk, not tmpfs) |
 | `/etc/debforge/packages.d/` | your own definitions |
+| `/etc/apt/preferences.d/debforge-backports.pref` | backports source pins (generated) |
 
 A corrupt state file is moved aside (`state.json.corrupt-<time>`) and debforge starts
 empty. It warns you, and keeps working.

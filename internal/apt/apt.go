@@ -29,6 +29,9 @@ type ProgressFunc func(phase string, pct float64, detail string)
 // Apt runs apt-get through a system.Runner.
 type Apt struct {
 	R system.Runner
+	// PinFile, when set, is kept in sync with SyncBackportPins before every
+	// install/upgrade and after every backports install or removal.
+	PinFile string
 }
 
 // Transaction is one apt-get install call.
@@ -66,6 +69,9 @@ func (a *Apt) Install(ctx context.Context, t Transaction, prog ProgressFunc) err
 	if len(t.Install) == 0 && len(t.Remove) == 0 {
 		return nil
 	}
+	if err := a.SyncBackportPins(ctx); err != nil {
+		return err
+	}
 	args := baseArgs("install")
 	if t.Target != "" {
 		args = append(args[:len(args)-1], "-t", t.Target, "install")
@@ -74,7 +80,13 @@ func (a *Apt) Install(ctx context.Context, t Transaction, prog ProgressFunc) err
 	for _, r := range t.Remove {
 		args = append(args, r+"-")
 	}
-	return a.run(ctx, "install", args, prog)
+	if err := a.run(ctx, "install", args, prog); err != nil {
+		return err
+	}
+	if t.Target != "" {
+		return a.SyncBackportPins(ctx)
+	}
+	return nil
 }
 
 // Remove removes packages (not purge: conffiles stay, like apt's default).
@@ -82,11 +94,17 @@ func (a *Apt) Remove(ctx context.Context, pkgs []string, prog ProgressFunc) erro
 	if len(pkgs) == 0 {
 		return nil
 	}
-	return a.run(ctx, "remove", append(baseArgs("remove"), pkgs...), prog)
+	if err := a.run(ctx, "remove", append(baseArgs("remove"), pkgs...), prog); err != nil {
+		return err
+	}
+	return a.SyncBackportPins(ctx)
 }
 
 // FullUpgrade runs apt-get full-upgrade.
 func (a *Apt) FullUpgrade(ctx context.Context, prog ProgressFunc) error {
+	if err := a.SyncBackportPins(ctx); err != nil {
+		return err
+	}
 	return a.run(ctx, "full-upgrade", baseArgs("full-upgrade"), prog)
 }
 

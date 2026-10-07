@@ -1,0 +1,6 @@
+name: itest-bpo-mesa
+description: Mesa from backports for both architectures (like setup's mesa step)
+category: utils
+source:
+  apt:
+    backports: [mesa-vulkan-drivers, "mesa-vulkan-drivers:i386", "libgl1-mesa-dri:i386", "libglx-mesa0:i386"]

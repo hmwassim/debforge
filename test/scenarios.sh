@@ -101,6 +101,18 @@ if [ "${ITEST_SLOW:-}" = 1 ]; then
     timeout 900 debforge -y install itest-eula </dev/null >/tmp/eula.log 2>&1 || { tail -20 /tmp/eula.log; fail "EULA install"; }
     installed ttf-mscorefonts-installer || fail "mscorefonts not installed"
     pass "debconf EULA does not hang"
+
+    # 11. stable installs after backports installs keep each source on one
+    #     version for every architecture (the desktop's multimedia failure)
+    dpkg --add-architecture i386
+    sed -i 's/^Suites: trixie trixie-updates$/Suites: trixie trixie-updates trixie-backports/' /etc/apt/sources.list.d/debian.sources
+    apt-get update -qq >/dev/null
+    debforge -y install itest-bpo-mesa </dev/null >/tmp/bpo.log 2>&1 || { tail -20 /tmp/bpo.log; fail "backports mesa"; }
+    grep -q 'src:mesa:i386' /etc/apt/preferences.d/debforge-backports.pref || fail "mesa not pinned for i386"
+    debforge -y install itest-i386-egl </dev/null >/tmp/egl.log 2>&1 || { tail -20 /tmp/egl.log; fail "stable i386 install after backports"; }
+    dpkg-query -W -f '${Version}' libegl-mesa0:i386 | grep -q bpo || fail "libegl-mesa0:i386 not from backports"
+    [ -z "$(dpkg --audit)" ] || fail "dpkg inconsistent"
+    pass "backports sources stay consistent across architectures"
 fi
 
 echo "ALL SCENARIOS PASSED"

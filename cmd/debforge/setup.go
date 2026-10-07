@@ -7,7 +7,6 @@ import (
 	"time"
 
 	catalogdata "github.com/hmwassim/debforge/catalog"
-	"github.com/hmwassim/debforge/internal/apt"
 	"github.com/hmwassim/debforge/internal/files"
 	"github.com/hmwassim/debforge/internal/setup"
 	"github.com/hmwassim/debforge/internal/state"
@@ -28,7 +27,7 @@ func (a *App) setupEngine(st *state.State, snap *system.Snapshot, user *system.U
 		fe = &files.Engine{}
 	}
 	return &setup.Engine{
-		R: a.R, Apt: &apt.Apt{R: a.R}, Files: fe, State: st, Snap: snap, User: user,
+		R: a.R, Apt: a.apt(), Files: fe, State: st, Snap: snap, User: user,
 		Facts: setup.DetectFacts(a.Paths.Root, snap), Root: a.Paths.Root,
 	}
 }
@@ -69,7 +68,7 @@ func cmdSetup(a *App, inv *invocation) error {
 		return err
 	}
 
-	ap := &apt.Apt{R: a.R}
+	ap := a.apt()
 	prog := a.UI.Start("Refreshing package lists")
 	warns, err := ap.Update(a.Ctx)
 	for _, w := range warns {

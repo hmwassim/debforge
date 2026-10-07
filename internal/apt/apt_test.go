@@ -154,3 +154,53 @@ func TestRealExecRunnerFd3(t *testing.T) {
 		t.Fatalf("got %q err %v", got, err)
 	}
 }
+
+const pinDpkg = "ii \t26.1.6-1~bpo13+1\tmesa\n" +
+	"ii \t0.196-1~bpo13+2\telfutils\n" +
+	"ii \t1.4.2-1\tpipewire\n" +
+	"rc \t7.2.6-1~bpo13+1\tlinux-signed-amd64\n" +
+	"ii \t26.1.6-1~bpo13+1\tmesa\n"
+
+func TestSyncBackportPins(t *testing.T) {
+	pin := filepath.Join(t.TempDir(), "preferences.d", "debforge-backports.pref")
+	r := (&systemtest.Runner{}).OK("dpkg-query", pinDpkg).OK("dpkg --print-foreign-architectures", "i386\n")
+	a := &Apt{R: r, PinFile: pin}
+	if err := a.SyncBackportPins(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(pin)
+	want := "Package: src:elfutils src:elfutils:i386 src:mesa src:mesa:i386\nPin: release n=trixie-backports\nPin-Priority: 500\n"
+	if !strings.HasSuffix(string(b), want) {
+		t.Fatalf("pin file:\n%s", b)
+	}
+	// Nothing from backports left: the file goes away.
+	r.OK("dpkg-query", "ii \t1.4.2-1\tpipewire\n")
+	if err := a.SyncBackportPins(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(pin); !os.IsNotExist(err) {
+		t.Fatal("pin file should be removed")
+	}
+}
+
+func TestInstallSyncsPinsAroundBackports(t *testing.T) {
+	pin := filepath.Join(t.TempDir(), "debforge-backports.pref")
+	r := &systemtest.Runner{}
+	r.OK("dpkg --print-foreign-architectures", "i386\n")
+	r.OK("dpkg-query", "")
+	r.On("apt-get", func(c system.Cmd) (system.Result, error) {
+		r.OK("dpkg-query", pinDpkg) // the backports install put mesa on the system
+		return system.Result{}, nil
+	})
+	a := &Apt{R: r, PinFile: pin}
+	if err := a.Install(context.Background(), Transaction{Install: []string{"mesa-vulkan-drivers"}, Target: BackportsSuite}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(pin); err != nil || !strings.Contains(string(b), "src:mesa:i386") {
+		t.Fatalf("pins not written after backports install: %q %v", b, err)
+	}
+	cmds := strings.Join(r.Commands(), "\n")
+	if strings.Index(cmds, "dpkg-query") > strings.Index(cmds, "apt-get") {
+		t.Fatalf("pins must be synced before the install too:\n%s", cmds)
+	}
+}
