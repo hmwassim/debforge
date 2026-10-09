@@ -1,0 +1,9 @@
+name: notion-desktop
+description: Notion desktop client (unofficial Electron build for Linux)
+category: utils
+trust: upstream-tls
+version: {from: git-tags, repo: "https://github.com/anechunaev/notion-electron", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/anechunaev/notion-electron/releases/download/v{version}/Notion_Electron-{version}-amd64.deb"
