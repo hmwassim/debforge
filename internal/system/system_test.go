@@ -16,7 +16,10 @@ const dpkgOut = "libc6\tamd64\tii \t2.41-12\n" +
 	"pipewire\tamd64\tii \t1.4.2-1\n" +
 	"linux-image-6.12.94+deb13-amd64\tamd64\trc \t6.12.94-1\n" +
 	"fonts-noto\tall\tii \t20201225-2\n" +
-	"half\tamd64\tiU \t1.0\n"
+	"half\tamd64\tiU \t1.0\n" +
+	"wine32\ti386\tii \t10.0~repack-6\n" +
+	"multi\ti386\tii \t1.0\n" +
+	"multi\tarm64\tii \t1.0\n"
 
 func TestSnapshot(t *testing.T) {
 	s := system.ParseSnapshot("amd64", dpkgOut)
@@ -33,6 +36,10 @@ func TestSnapshot(t *testing.T) {
 		{"fonts-noto", true},                       // arch all
 		{"half", false},                            // unpacked, not configured
 		{"missing", false},
+		{"wine32", true}, // only exists as i386, like apt resolves it
+		{"wine32:i386", true},
+		{"wine32:amd64", false},
+		{"multi", false}, // several foreign arches: ambiguous
 	}
 	for _, c := range cases {
 		if got := s.Installed(c.name); got != c.want {

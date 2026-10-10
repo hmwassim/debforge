@@ -87,9 +87,12 @@ func cmdSetup(a *App, inv *invocation) error {
 	eng := a.setupEngine(s.st, s.snap, s.user)
 	var todo []*setup.Step
 	var lines []string
-	for _, step := range prof.Steps {
+	check := a.UI.Wait("Checking the system")
+	for i, step := range prof.Steps {
+		check.Update(step.Title, float64(i)*100/float64(len(prof.Steps)))
 		r := eng.Check(a.Ctx, step)
 		if r.Status == setup.Failed {
+			check.Fail("Checking the system failed")
 			return fmt.Errorf("checking %q: %s", step.Title, strings.Join(r.Reasons, "; "))
 		}
 		if r.Status == setup.NotApplicable {
@@ -102,6 +105,7 @@ func cmdSetup(a *App, inv *invocation) error {
 			lines = append(lines, a.describe(r))
 		}
 	}
+	check.Clear()
 	if len(todo) == 0 {
 		for _, l := range lines {
 			a.UI.Print(l)
@@ -167,7 +171,9 @@ func cmdDoctor(a *App, inv *invocation) error {
 	eng := a.setupEngine(st, snap, user)
 	bad := 0
 	for _, step := range prof.Steps {
+		check := a.UI.Wait("Checking " + step.Title)
 		r := eng.Check(a.Ctx, step)
+		check.Clear()
 		a.UI.Print(a.describe(r))
 		if r.Status == setup.Needed || r.Status == setup.Failed {
 			bad++

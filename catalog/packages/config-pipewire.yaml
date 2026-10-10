@@ -15,7 +15,12 @@ files:
 reload: [udev]
 hooks:
   # The RT limits and timer/latency device permissions are granted to the
-  # audio group; takes effect at the next login.
-  post_install: usermod -aG audio "$TARGET_USER"
+  # audio group; takes effect at the next login. The user services are
+  # enabled through the user's own systemd manager (--machine user@), which
+  # sudo can't reach with a plain --user.
+  post_install: |
+    usermod -aG audio "$TARGET_USER"
+    systemctl --user --machine "$TARGET_USER@" enable pipewire pipewire-pulse wireplumber \
+      || echo "could not enable the PipeWire user services; log in as $TARGET_USER and run: systemctl --user enable pipewire pipewire-pulse wireplumber" >&2
 notes:
   install: log out and back in so the audio group's real-time limits apply.

@@ -2,6 +2,7 @@ package plan
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -281,5 +282,35 @@ func TestResolveCycle(t *testing.T) {
 	}
 	if _, err := Resolve(c, []string{"a"}); err == nil || !strings.Contains(err.Error(), "cycle") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUpdateForeignArchOnlyIsNotMissing(t *testing.T) {
+	// libwine only exists as i386 here, the way wine32 and steam-libs-i386
+	// do in Debian; apt installs it as libwine:i386 when asked for libwine.
+	e := env(t, state.New(), "wine\tamd64\tii \t1\nlibwine\ti386\tii \t1\n")
+	installed(e, "wine", "", true, "wine", "libwine")
+	e.State.Packages["wine"].Files = map[string]state.File{}
+	p, err := e.Update(context.Background(), nil, Options{})
+	if err != nil || !p.Empty() {
+		t.Fatalf("%s %v", names(p), err)
+	}
+	if strings.Join(p.Skipped, " ") != "wine" {
+		t.Fatalf("skipped = %v, want [wine]", p.Skipped)
+	}
+}
+
+func TestResolveProgress(t *testing.T) {
+	e := env(t, state.New(), "wine\tamd64\tii \t1\nlibwine\tamd64\tii \t1\npython3-gi\tall\tii \t1\n")
+	var calls []string
+	e.Progress = func(name string, done, total int) {
+		calls = append(calls, fmt.Sprintf("%s %d/%d", name, done, total))
+	}
+	if _, err := e.Install(context.Background(), []string{"lutris"}, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	// Only lutris has an upstream version; wine is an apt package.
+	if strings.Join(calls, ",") != " 0/1,lutris 1/1" {
+		t.Fatalf("progress calls = %q", calls)
 	}
 }

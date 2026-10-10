@@ -73,7 +73,9 @@ func cmdInstall(a *App, inv *invocation) error {
 	if err := s.chooseVariants(names, &opts); err != nil {
 		return err
 	}
+	done := s.watchVersions()
 	pl, err := s.env.Install(a.Ctx, names, opts)
+	done(err == nil)
 	if err != nil {
 		return err
 	}
@@ -197,7 +199,9 @@ func cmdUpdate(a *App, inv *invocation) error {
 		}
 		names = sel
 	}
+	done := s.watchVersions()
 	pl, err := s.env.Update(a.Ctx, names, plan.Options{Force: inv.has("force"), Variants: variants})
+	done(err == nil)
 	if err != nil {
 		return err
 	}

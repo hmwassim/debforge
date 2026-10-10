@@ -21,6 +21,7 @@ type PkgStatus struct {
 type Snapshot struct {
 	NativeArch string
 	pkgs       map[string]PkgStatus // keyed by "name:arch"
+	arches     map[string][]string  // name -> architectures present
 }
 
 // TakeSnapshot queries dpkg once for every known package.
@@ -41,7 +42,7 @@ func TakeSnapshot(ctx context.Context, r Runner) (*Snapshot, error) {
 
 // ParseSnapshot parses dpkg-query output in the format used by TakeSnapshot.
 func ParseSnapshot(nativeArch, out string) *Snapshot {
-	s := &Snapshot{NativeArch: nativeArch, pkgs: map[string]PkgStatus{}}
+	s := &Snapshot{NativeArch: nativeArch, pkgs: map[string]PkgStatus{}, arches: map[string][]string{}}
 	for _, line := range strings.Split(out, "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) != 4 || f[0] == "" {
@@ -55,12 +56,15 @@ func ParseSnapshot(nativeArch, out string) *Snapshot {
 			Installed: len(abbrev) >= 2 && abbrev[1] == 'i',
 		}
 		s.pkgs[f[0]+":"+f[1]] = st
+		s.arches[f[0]] = append(s.arches[f[0]], f[1])
 	}
 	return s
 }
 
 // Lookup returns the status of name, which may carry an ":arch" qualifier.
-// An unqualified name matches the native architecture or "all".
+// An unqualified name matches the native architecture or "all", and
+// otherwise, like apt, the only architecture the package exists in: wine32
+// and steam-libs-i386 are i386-only, so apt installs them as :i386.
 func (s *Snapshot) Lookup(name string) (PkgStatus, bool) {
 	if n, arch, ok := strings.Cut(name, ":"); ok {
 		st, found := s.pkgs[n+":"+arch]
@@ -69,8 +73,13 @@ func (s *Snapshot) Lookup(name string) (PkgStatus, bool) {
 	if st, ok := s.pkgs[name+":"+s.NativeArch]; ok {
 		return st, true
 	}
-	st, ok := s.pkgs[name+":all"]
-	return st, ok
+	if st, ok := s.pkgs[name+":all"]; ok {
+		return st, true
+	}
+	if a := s.arches[name]; len(a) == 1 {
+		return s.pkgs[name+":"+a[0]], true
+	}
+	return PkgStatus{}, false
 }
 
 // Installed reports whether name is in dpkg state "installed".

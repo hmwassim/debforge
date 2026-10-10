@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 
 	catalogdata "github.com/hmwassim/debforge/catalog"
 	"github.com/hmwassim/debforge/internal/apt"
@@ -193,14 +194,45 @@ func (s *session) home() string {
 	return ""
 }
 
+// watchVersions shows one progress line while the planner checks upstream
+// versions, which needs the network. Call the returned function when
+// planning ends.
+func (s *session) watchVersions() func(ok bool) {
+	var prog *ui.Progress
+	total := 0
+	s.env.Progress = func(name string, done, n int) {
+		if prog == nil {
+			total = n
+			prog = s.a.UI.Start(fmt.Sprintf("Checking %d package(s) for new versions", n))
+			return
+		}
+		prog.Update(fmt.Sprintf("%d/%d %s", done, n, name), float64(done)*100/float64(n))
+	}
+	return func(ok bool) {
+		s.env.Progress = nil
+		switch {
+		case prog == nil:
+		case ok:
+			prog.Done(fmt.Sprintf("Checked %d package(s) for new versions", total))
+		default:
+			prog.Fail("Checking for new versions failed")
+		}
+	}
+}
+
 // confirm prints the plan and asks to proceed. It returns false when there
 // is nothing to do, on --dry-run, or when the user declines.
 func (s *session) confirm(pl *plan.Plan, inv *invocation) (bool, error) {
 	for _, w := range pl.Warnings {
 		s.a.UI.Warn("%s", w)
 	}
-	for _, n := range pl.Skipped {
-		s.a.UI.Info("%s is already installed and up to date", n)
+	switch len(pl.Skipped) {
+	case 0:
+	case 1:
+		s.a.UI.Success("%s is already installed and up to date", pl.Skipped[0])
+	default:
+		s.a.UI.Success("%d packages are up to date", len(pl.Skipped))
+		s.a.UI.Print("    " + s.a.UI.Dim(strings.Join(pl.Skipped, " ")))
 	}
 	if pl.Empty() {
 		if len(pl.Skipped) == 0 {

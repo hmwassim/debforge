@@ -226,7 +226,13 @@ var frames = []string{"|", "/", "-", "\\"}
 
 // Start begins a progress line. Only one is active at a time; starting a
 // new one finishes the previous one silently.
-func (u *UI) Start(title string) *Progress {
+func (u *UI) Start(title string) *Progress { return u.start(title, true) }
+
+// Wait is Start for short waits that are followed by their own output: on a
+// terminal it animates, otherwise it prints nothing.
+func (u *UI) Wait(title string) *Progress { return u.start(title, false) }
+
+func (u *UI) start(title string, announce bool) *Progress {
 	p := &Progress{u: u, title: title, pct: -1, stop: make(chan struct{})}
 	u.mu.Lock()
 	if u.active != nil {
@@ -236,7 +242,7 @@ func (u *UI) Start(title string) *Progress {
 	if u.o.TTY {
 		u.redrawLocked()
 		go p.tick()
-	} else {
+	} else if announce {
 		fmt.Fprintln(u.o.Out, u.Mark("i", MarkBlue)+" "+title)
 	}
 	u.mu.Unlock()
@@ -289,6 +295,10 @@ func (p *Progress) Fail(msg string) {
 	}
 	p.finish(p.u.Mark("x", MarkRed) + " " + msg)
 }
+
+// Clear finishes without printing anything, for progress lines that
+// only cover a wait and are followed by their own output.
+func (p *Progress) Clear() { p.finish("") }
 
 func (p *Progress) finish(line string) {
 	p.u.mu.Lock()

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/hmwassim/debforge/internal/catalog"
 	"github.com/hmwassim/debforge/internal/files"
@@ -88,6 +89,56 @@ type Env struct {
 	User           *system.User // nil when no target user is known
 	HasHardware    func(*catalog.Hardware) bool
 	ExtrepoEnabled func(string) bool
+	// Progress, if set, is called as upstream versions are resolved:
+	// first with done=0, then once per package.
+	Progress func(name string, done, total int)
+}
+
+// resolveWorkers bounds concurrent upstream version lookups.
+const resolveWorkers = 8
+
+type resolved struct {
+	version string
+	err     error
+}
+
+// resolveVersions looks up every upstream version pkgs need concurrently,
+// so planning many packages costs about one network round trip, not one
+// per package.
+func (e *Env) resolveVersions(ctx context.Context, pkgs []*catalog.Package) map[string]resolved {
+	var todo []*catalog.Package
+	for _, p := range pkgs {
+		if p.Kind() != catalog.KindApt && p.Kind() != catalog.KindConfig && p.Version != nil {
+			todo = append(todo, p)
+		}
+	}
+	out := make(map[string]resolved, len(todo))
+	if len(todo) == 0 {
+		return out
+	}
+	if e.Progress != nil {
+		e.Progress("", 0, len(todo))
+	}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, resolveWorkers)
+	for _, p := range todo {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			v, err := e.Versions.Resolve(ctx, p)
+			<-sem
+			mu.Lock()
+			defer mu.Unlock()
+			out[p.Name] = resolved{v, err}
+			if e.Progress != nil {
+				e.Progress(p.Name, len(out), len(todo))
+			}
+		}()
+	}
+	wg.Wait()
+	return out
 }
 
 // Options modify planning.
@@ -167,6 +218,7 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 		}
 	}
 
+	versions := e.resolveVersions(ctx, pkgs)
 	pl := &Plan{}
 	for _, p := range pkgs {
 		old := e.State.Packages[p.Name]
@@ -190,8 +242,8 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 			return nil, fmt.Errorf("%s writes files into your home directory, but the target user is unknown (%v)", p.Name, system.ErrNoTargetUser)
 		}
 
-		if p.Kind() != catalog.KindApt && p.Kind() != catalog.KindConfig && p.Version != nil {
-			v, err := e.Versions.Resolve(ctx, p)
+		if r, ok := versions[p.Name]; ok {
+			v, err := r.version, r.err
 			if err != nil {
 				if old != nil && !o.Force {
 					pl.Warnings = append(pl.Warnings, fmt.Sprintf("%s: cannot check for a new version: %v", p.Name, err))
@@ -223,6 +275,9 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 		case update && p.Kind() == catalog.KindApt:
 			// apt packages are upgraded by the system upgrade; nothing
 			// debforge-specific to do.
+			if requested[p.Name] {
+				pl.Skipped = append(pl.Skipped, p.Name)
+			}
 			continue
 		default:
 			if requested[p.Name] {
