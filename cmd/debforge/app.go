@@ -196,14 +196,13 @@ func (s *session) home() string {
 
 // watchVersions shows one progress line while the planner checks upstream
 // versions, which needs the network. Call the returned function when
-// planning ends.
+// planning ends. On success the line is cleared: the plan or the
+// up-to-date summary that follows is the result.
 func (s *session) watchVersions() func(ok bool) {
 	var prog *ui.Progress
-	total := 0
 	s.env.Progress = func(name string, done, n int) {
 		if prog == nil {
-			total = n
-			prog = s.a.UI.Start(fmt.Sprintf("Checking %d package(s) for new versions", n))
+			prog = s.a.UI.Wait("Checking for new versions")
 			return
 		}
 		prog.Update(fmt.Sprintf("%d/%d %s", done, n, name), float64(done)*100/float64(n))
@@ -213,7 +212,7 @@ func (s *session) watchVersions() func(ok bool) {
 		switch {
 		case prog == nil:
 		case ok:
-			prog.Done(fmt.Sprintf("Checked %d package(s) for new versions", total))
+			prog.Clear()
 		default:
 			prog.Fail("Checking for new versions failed")
 		}
