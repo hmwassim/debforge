@@ -170,6 +170,36 @@ func (e *Env) NeedsVariant(names []string, opts Options) ([]*catalog.Package, er
 	return out, nil
 }
 
+// Fits reports whether p's hardware requirement matches this machine.
+func (e *Env) Fits(p *catalog.Package) bool {
+	return p.Hardware == nil || e.HasHardware == nil || e.HasHardware(p.Hardware)
+}
+
+// Fitting splits names into those installable on this machine and those
+// that aren't, because they or a dependency they would newly install need
+// other hardware. Installed packages always fit.
+func (e *Env) Fitting(names []string) (fit, unfit []string, err error) {
+	for _, n := range names {
+		pkgs, err := Resolve(e.Cat, []string{n})
+		if err != nil {
+			return nil, nil, err
+		}
+		ok := true
+		for _, p := range pkgs {
+			if _, installed := e.State.Packages[p.Name]; !installed && !e.Fits(p) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			fit = append(fit, n)
+		} else {
+			unfit = append(unfit, n)
+		}
+	}
+	return fit, unfit, nil
+}
+
 // Install plans installing names (and their dependencies).
 func (e *Env) Install(ctx context.Context, names []string, o Options) (*Plan, error) {
 	return e.build(ctx, names, o, false)
@@ -223,7 +253,9 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 	for _, p := range pkgs {
 		old := e.State.Packages[p.Name]
 		it := &Item{Name: p.Name, Pkg: p, Explicit: requested[p.Name] && !update || old != nil && old.Explicit}
-		if p.Hardware != nil && e.HasHardware != nil && !e.HasHardware(p.Hardware) {
+		// Hardware gates new installs only: an installed package keeps
+		// updating even if its definition has since been narrowed.
+		if old == nil && !e.Fits(p) {
 			return nil, fmt.Errorf("%s requires PCI vendor %s, which was not found on this machine", p.Name, p.Hardware.PCIVendor)
 		}
 		if p.Kind() == catalog.KindApt && len(p.Source.Apt.Variants) > 0 {

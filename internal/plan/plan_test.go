@@ -176,6 +176,29 @@ func TestHardwareMissing(t *testing.T) {
 	}
 }
 
+func TestHardwareInstalledStillUpdates(t *testing.T) {
+	e := env(t, state.New(), "nvtop\tamd64\tii \t1\nnvidia-open\tamd64\tii \t1\n")
+	installed(e, "nvidia", "", true, "nvtop", "nvidia-open")
+	e.State.Packages["nvidia"].Variant = "open"
+	e.HasHardware = func(*catalog.Hardware) bool { return false }
+	if _, err := e.Update(context.Background(), []string{"nvidia"}, Options{}); err != nil {
+		t.Fatalf("installed package blocked by hardware: %v", err)
+	}
+}
+
+func TestFitting(t *testing.T) {
+	e := env(t, state.New(), "")
+	e.HasHardware = func(*catalog.Hardware) bool { return false }
+	fit, unfit, err := e.Fitting([]string{"firefox", "nvidia", "nvflux"})
+	if err != nil || strings.Join(fit, " ") != "firefox" || strings.Join(unfit, " ") != "nvidia nvflux" {
+		t.Fatalf("fit=%v unfit=%v err=%v", fit, unfit, err)
+	}
+	installed(e, "nvidia", "", true, "nvtop")
+	if fit, _, _ := e.Fitting([]string{"nvflux"}); len(fit) != 1 {
+		t.Fatal("nvflux should fit once nvidia is installed")
+	}
+}
+
 func installed(e *Env, name, version string, explicit bool, apt ...string) {
 	p, _ := e.Cat.Get(name)
 	e.State.Packages[name] = &state.Package{Kind: string(p.Kind()), Version: version, Explicit: explicit, DefHash: p.Hash, AptPackages: apt}

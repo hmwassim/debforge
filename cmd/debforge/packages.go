@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -65,9 +66,30 @@ func cmdInstall(a *App, inv *invocation) error {
 		return err
 	}
 	defer s.end()
-	names, err := a.Catalog.Select(inv.args)
-	if err != nil {
-		return err
+	// Packages named outright must fit the hardware (the planner says why
+	// when they don't); globs and categories just skip those that don't.
+	var names, skipped []string
+	for _, arg := range inv.args {
+		sel, err := a.Catalog.Select([]string{arg})
+		if err != nil {
+			return err
+		}
+		if strings.ContainsAny(arg, "*?[@") {
+			fit, unfit, err := s.env.Fitting(sel)
+			if err != nil {
+				return err
+			}
+			sel, skipped = fit, append(skipped, unfit...)
+		}
+		names = append(names, sel...)
+	}
+	slices.Sort(names)
+	names = slices.Compact(names)
+	skipped = slices.DeleteFunc(skipped, func(n string) bool { return slices.Contains(names, n) })
+	slices.Sort(skipped)
+	skipped = slices.Compact(skipped)
+	if len(names) == 0 {
+		return fmt.Errorf("none of the selected packages fit this machine's hardware (%s)", strings.Join(skipped, ", "))
 	}
 	opts := plan.Options{Force: inv.has("force"), Variants: variants}
 	if err := s.chooseVariants(names, &opts); err != nil {
@@ -78,6 +100,14 @@ func cmdInstall(a *App, inv *invocation) error {
 	done(err == nil)
 	if err != nil {
 		return err
+	}
+	for _, n := range skipped {
+		p, _ := a.Catalog.Get(n)
+		why := "a dependency needs other hardware"
+		if !s.env.Fits(p) {
+			why = "needs PCI vendor " + p.Hardware.PCIVendor
+		}
+		pl.Warnings = append(pl.Warnings, fmt.Sprintf("skipping %s: %s", n, why))
 	}
 	ok, err := s.confirm(pl, inv)
 	if err != nil || !ok {

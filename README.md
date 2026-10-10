@@ -186,6 +186,9 @@ legacy_cleanup: [/etc/old-name.conf]   # deleted on install
 
 ### Rules
 
+- **Hardware.** `hardware` is checked when a package is first installed, not on updates.
+  - Naming a package that doesn't fit is an error. A glob or category (`@gaming`) skips
+    it with a warning, as well as any package whose dependencies don't fit.
 - **File locations.** Files may only go under `/etc/`, `/usr/local/`, `/opt/` or `~/`.
   debforge never writes into dpkg-owned trees such as `/usr/lib`.
 - **Source builds** (`archive`, `git`) must install into `$DESTDIR`. debforge copies the

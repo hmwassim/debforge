@@ -63,6 +63,13 @@ category: gaming
 depends: [wine]
 source:
   apt: {packages: [lutris]}
+--- tuning
+name: tuning
+description: AMD GPU tuning
+category: gaming
+hardware: {pci_vendor: "1002"}
+files:
+  - {dest: /etc/sysctl.d/99-tuning.conf, content: "x\n"}
 `
 
 func newTestApp(t *testing.T, answers string) *testApp {
@@ -217,6 +224,25 @@ func TestAlreadyInstalled(t *testing.T) {
 	}
 	if !strings.Contains(ta.out.String(), "already installed") || ta.r.Ran("apt-get") {
 		t.Fatalf("output: %s", ta.out)
+	}
+}
+
+func TestCategorySkipsUnfitHardware(t *testing.T) {
+	ta := newTestApp(t, "y\n")
+	ta.Hardware = func(h *catalog.Hardware) bool { return h.PCIVendor != "1002" }
+	if err := ta.run(t, "install", "@gaming"); err != nil {
+		t.Fatalf("%v\n%s", err, ta.out)
+	}
+	if !strings.Contains(ta.out.String(), "skipping tuning: needs PCI vendor 1002") {
+		t.Errorf("no skip warning:\n%s", ta.out)
+	}
+	st := ta.state(t)
+	if st.Packages["lutris"] == nil || st.Packages["tuning"] != nil {
+		t.Fatalf("state: %v", st.Names())
+	}
+	// Named outright, it is refused with the reason.
+	if err := ta.run(t, "install", "tuning"); err == nil || !strings.Contains(err.Error(), "requires PCI vendor 1002") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
