@@ -232,7 +232,11 @@ func (s *session) confirm(pl *plan.Plan, inv *invocation) (bool, error) {
 		s.a.UI.Success("%s is already installed and up to date", pl.Skipped[0])
 	default:
 		s.a.UI.Success("%d packages are up to date", len(pl.Skipped))
-		s.a.UI.Print("    " + s.a.UI.Dim(strings.Join(pl.Skipped, " ")))
+		// Name them only when the user named them: with --all the list
+		// grows with everything installed and would bury the output.
+		if len(inv.args) > 0 {
+			s.a.UI.Print("    " + s.a.UI.Dim(strings.Join(pl.Skipped, " ")))
+		}
 	}
 	if pl.Empty() {
 		if len(pl.Skipped) == 0 {
