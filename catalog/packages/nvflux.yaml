@@ -2,15 +2,35 @@ name: nvflux
 description: NVIDIA GPU clock manager
 category: system
 depends: [nvidia]
-requires: [gcc, make]
+requires: [gcc, make, libc6-dev]
 version:
   from: cmd
   cmd: git ls-remote https://github.com/hmwassim/NvFlux.git HEAD | cut -c1-12
 source:
   git: {repo: "https://github.com/hmwassim/NvFlux.git"}
+# nvflux 1.x leftovers: its install.sh backup binary and old autostart entry.
+legacy_cleanup: [/usr/local/bin/nvflux.bak, /etc/xdg/autostart/nvflux-restore.desktop]
+reload: [systemd]
 hooks:
   build: make
-  install: make install DESTDIR="$DESTDIR"
-  post_install: install -dm755 /var/lib/nvflux
-  pre_remove: /usr/local/bin/nvflux auto 2>/dev/null || true
+  # The binary, the login autostart entry, and the unit that re-applies the
+  # profile after resume (the driver can drop the lock across suspend).
+  install: make install install-systemd DESTDIR="$DESTDIR"
+  post_install: |
+    install -dm755 /var/lib/nvflux
+    # 1.x's "ultra" profile no longer exists.
+    if [ "$(cat /var/lib/nvflux/state 2>/dev/null || true)" = ultra ]; then
+      rm -f /var/lib/nvflux/state
+    fi
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload
+      systemctl enable --quiet nvflux-resume.service
+    fi
+  pre_remove: |
+    /usr/local/bin/nvflux auto 2>/dev/null || true
+    if [ -d /run/systemd/system ]; then
+      systemctl disable --quiet nvflux-resume.service 2>/dev/null || true
+    fi
   post_remove: rm -rf /var/lib/nvflux
+notes:
+  install: "pick a profile with 'nvflux powersave' (or balanced, performance); it is re-applied at login and after resume."
