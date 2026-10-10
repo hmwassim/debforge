@@ -148,13 +148,13 @@ source:                        # at most one; none = a configuration bundle
       components: [main]
       key: https://downloads.cursor.com/keys/anysphere.asc
   deb:
-    urls: [{url: "https://…/lutris_{version}_all.deb", sha256: …}]
-  archive: {url: "https://…/x-{version}.tar.gz", sha256: …, strip: 1}
-  git: {repo: "https://github.com/…", ref: "v{version}"}
+    urls: [{url: "https://.../lutris_{version}_all.deb", sha256: ...}]
+  archive: {url: "https://.../x-{version}.tar.gz", sha256: ..., strip: 1}
+  git: {repo: "https://github.com/...", ref: "v{version}"}
   appimage:
-    url: "https://…/App-{version}.AppImage"
+    url: "https://.../App-{version}.AppImage"
     bin: app                                # /usr/local/bin/app
-    desktop: {name: App, categories: "Utility;", icon: "https://…/icon.png"}
+    desktop: {name: App, categories: "Utility;", icon: "https://.../icon.png"}
 
 version:                       # required when a URL or ref uses {version}
   from: git-tags               # git-tags | cmd | pin
@@ -173,8 +173,8 @@ hooks:                         # run with sh -eu; env: VERSION, TARGET_USER, TAR
   build: make
   install: make install DESTDIR="$DESTDIR"   # archive/git: install into $DESTDIR only
   post_install: systemctl enable --now app.service
-  pre_remove: …
-  post_remove: …
+  pre_remove: ...
+  post_remove: ...
 
 notes:                         # shown after install / removal
   install: log out and back in to apply.

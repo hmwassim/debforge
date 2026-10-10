@@ -54,6 +54,23 @@ steps:
       - hunspell-en-us
       - hunspell-fr
       - hwloc
+      - tree
+      - inxi
+      - gdisk
+      - bcache-tools
+      - inotify-tools
+      - bind9-dnsutils
+      - vim
+      - sqlite3
+      - lz4
+      - xxhash
+      - brotli
+      - libarchive-tools
+      - attr
+      - rfkill
+      - ncal
+      - libnotify-bin
+      - python-is-python3
 
   - id: kernel
     title: Kernel (from backports)
@@ -224,6 +241,24 @@ steps:
       - timidity
       - fluidsynth
       - dosbox
+      - flac
+      - webp
+      - libheif-plugin-ffmpegdec
+      - libheif-plugin-jpegdec
+      - libheif-plugin-jpegenc
+      - libheif-plugin-rav1e
+
+  # libdvd-pkg builds libdvdcss2 from source; its postinst only builds when
+  # debconf says so, so preseed that and rebuild if libdvdcss2 is missing.
+  - id: dvd
+    title: Encrypted DVD playback (libdvdcss)
+    debconf:
+      - libdvd-pkg libdvd-pkg/build boolean true
+      - libdvd-pkg libdvd-pkg/post-invoke_hook-install boolean true
+    packages: [libdvd-pkg]
+    commands:
+      - check: dpkg-query -W -f '${Status}' libdvdcss2 2>/dev/null | grep -q 'install ok installed'
+        apply: dpkg-reconfigure -f noninteractive libdvd-pkg
 
   - id: fonts
     title: Fonts
@@ -253,8 +288,8 @@ steps:
     reload: [fontconfig]
 
   - id: desktop
-    title: Desktop tools and Flatpak
-    packages: [eza, starship, papirus-icon-theme, fastfetch, bat, ripgrep, fzf, flatpak, xdg-desktop-portal]
+    title: Desktop tools, VPN plugins and Flatpak
+    packages: [eza, starship, papirus-icon-theme, fastfetch, bat, ripgrep, fzf, flatpak, xdg-desktop-portal, network-manager-openvpn, network-manager-openconnect]
     commands:
       - check: flatpak remotes --system --columns=name | grep -qx flathub
         apply: flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo

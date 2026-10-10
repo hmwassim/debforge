@@ -15,4 +15,4 @@ source:
     url: https://github.com/ryanoasis/nerd-fonts/releases/download/v{version}/{{archive}}.tar.xz
 reload: [fontconfig]
 hooks:
-  install: find . -name '*.ttf' -exec install -Dm644 -t "$DESTDIR/usr/local/share/fonts/nerd-fonts/{{archive}}" {} +
+  install: find . \( -name '*.ttf' -o -name '*.otf' \) -exec install -Dm644 -t "$DESTDIR/usr/local/share/fonts/nerd-fonts/{{archive}}" {} +

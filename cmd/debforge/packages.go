@@ -285,7 +285,7 @@ func cmdList(a *App, inv *invocation) error {
 		for _, p := range ps {
 			mark := "  "
 			if sp := st.Packages[p.Name]; sp != nil {
-				mark = a.UI.Green("✓ ")
+				mark = a.UI.Green("* ")
 				if sp.Incomplete {
 					mark = a.UI.Yellow("! ")
 				}
@@ -321,7 +321,7 @@ func cmdSearch(a *App, inv *invocation) error {
 		n++
 		mark := "  "
 		if st.Packages[p.Name] != nil {
-			mark = a.UI.Green("✓ ")
+			mark = a.UI.Green("* ")
 		}
 		fmt.Fprintf(&b, "%s%-26s %s %s\n", mark, p.Name, a.UI.Dim("@"+p.Category), p.Description)
 	}

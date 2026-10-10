@@ -1,6 +1,6 @@
 name: tools-misc
-description: Archive, media and Mono runtime utilities
+description: Archive, media, Mono runtime and network discovery utilities
 category: utils
 source:
   apt:
-    packages: [unrar, gvfs, "gvfs:i386", mono-complete, smpeg-plaympeg, mjpegtools, libxvidcore4]
+    packages: [unrar, gvfs, "gvfs:i386", mono-complete, smpeg-plaympeg, mjpegtools, libxvidcore4, wsdd2]

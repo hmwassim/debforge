@@ -78,7 +78,7 @@ func TestProgressNonTTY(t *testing.T) {
 	if strings.Contains(got, "\r") || strings.Contains(got, "\033") {
 		t.Fatalf("non-tty output contains control chars: %q", got)
 	}
-	for _, w := range []string{"-> Installing", ":: hello", "✓ Installed"} {
+	for _, w := range []string{"[i] Installing", "[i] hello", "[*] Installed"} {
 		if !strings.Contains(got, w) {
 			t.Errorf("missing %q in %q", w, got)
 		}

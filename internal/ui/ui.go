@@ -73,7 +73,27 @@ func (u *UI) Red(s string) string    { return u.paint("31", s) }
 func (u *UI) Green(s string) string  { return u.paint("32", s) }
 func (u *UI) Yellow(s string) string { return u.paint("33", s) }
 func (u *UI) Blue(s string) string   { return u.paint("34", s) }
-func (u *UI) Cyan(s string) string   { return u.paint("36", s) }
+
+// MarkColor is the colour of a bracketed status marker.
+type MarkColor string
+
+const (
+	MarkPlain   MarkColor = ""
+	MarkRed     MarkColor = "31"
+	MarkGreen   MarkColor = "32"
+	MarkYellow  MarkColor = "33"
+	MarkBlue    MarkColor = "34"
+	MarkMagenta MarkColor = "95"
+)
+
+// Mark renders an ASCII status marker such as "[*]", bold and coloured, so
+// output reads the same on any terminal.
+func (u *UI) Mark(sym string, c MarkColor) string {
+	if c == MarkPlain {
+		return "[" + sym + "]"
+	}
+	return u.paint("1;"+string(c), "["+sym+"]")
+}
 
 // line writes one message line, temporarily clearing an active progress line.
 func (u *UI) line(w io.Writer, s string) {
@@ -85,16 +105,16 @@ func (u *UI) line(w io.Writer, s string) {
 }
 
 func (u *UI) Info(format string, a ...any) {
-	u.line(u.o.Out, u.Blue("::")+" "+fmt.Sprintf(format, a...))
+	u.line(u.o.Out, u.Mark("i", MarkBlue)+" "+fmt.Sprintf(format, a...))
 }
 func (u *UI) Success(format string, a ...any) {
-	u.line(u.o.Out, u.Green("✓")+" "+fmt.Sprintf(format, a...))
+	u.line(u.o.Out, u.Mark("*", MarkGreen)+" "+fmt.Sprintf(format, a...))
 }
 func (u *UI) Warn(format string, a ...any) {
-	u.line(u.o.Out, u.Yellow("warning:")+" "+fmt.Sprintf(format, a...))
+	u.line(u.o.Out, u.Mark("!", MarkYellow)+" "+fmt.Sprintf(format, a...))
 }
 func (u *UI) Error(format string, a ...any) {
-	u.line(u.o.Out, u.Red("error:")+" "+fmt.Sprintf(format, a...))
+	u.line(u.o.Out, u.Mark("x", MarkRed)+" "+fmt.Sprintf(format, a...))
 }
 
 // Print writes plain command output to stdout.
@@ -112,7 +132,7 @@ func (u *UI) Confirm(q string, def bool) (bool, error) {
 	if def {
 		hint = "[Y/n]"
 	}
-	ans, err := u.ask(q + " " + hint + " ")
+	ans, err := u.ask(u.Mark("?", MarkYellow) + " " + q + " " + hint + " ")
 	if err != nil {
 		return false, err
 	}
@@ -129,7 +149,7 @@ func (u *UI) Confirm(q string, def bool) (bool, error) {
 // Choose asks the user to pick one of options and returns its index.
 func (u *UI) Choose(q string, options []string) (int, error) {
 	var b strings.Builder
-	b.WriteString(q + "\n")
+	b.WriteString(u.Mark("?", MarkYellow) + " " + q + "\n")
 	for i, o := range options {
 		fmt.Fprintf(&b, "  %d) %s\n", i+1, o)
 	}
@@ -202,7 +222,7 @@ type Progress struct {
 	done   bool
 }
 
-var frames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+var frames = []string{"|", "/", "-", "\\"}
 
 // Start begins a progress line. Only one is active at a time; starting a
 // new one finishes the previous one silently.
@@ -217,7 +237,7 @@ func (u *UI) Start(title string) *Progress {
 		u.redrawLocked()
 		go p.tick()
 	} else {
-		fmt.Fprintln(u.o.Out, "-> "+title)
+		fmt.Fprintln(u.o.Out, u.Mark("i", MarkBlue)+" "+title)
 	}
 	u.mu.Unlock()
 	return p
@@ -259,7 +279,7 @@ func (p *Progress) Done(msg string) {
 	if msg == "" {
 		msg = p.title
 	}
-	p.finish(p.u.Green("✓") + " " + msg)
+	p.finish(p.u.Mark("*", MarkGreen) + " " + msg)
 }
 
 // Fail finishes unsuccessfully.
@@ -267,7 +287,7 @@ func (p *Progress) Fail(msg string) {
 	if msg == "" {
 		msg = p.title
 	}
-	p.finish(p.u.Red("✗") + " " + msg)
+	p.finish(p.u.Mark("x", MarkRed) + " " + msg)
 }
 
 func (p *Progress) finish(line string) {
@@ -302,7 +322,7 @@ func (u *UI) redrawLocked() {
 	if p == nil || !u.o.TTY || p.done {
 		return
 	}
-	s := u.Cyan(frames[p.frame%len(frames)]) + " " + p.title
+	s := u.Mark(frames[p.frame%len(frames)], MarkMagenta) + " " + p.title
 	if p.detail != "" {
 		s += "  " + u.Dim(p.detail)
 	}

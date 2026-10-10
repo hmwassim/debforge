@@ -11,6 +11,7 @@ import (
 	"github.com/hmwassim/debforge/internal/setup"
 	"github.com/hmwassim/debforge/internal/state"
 	"github.com/hmwassim/debforge/internal/system"
+	"github.com/hmwassim/debforge/internal/ui"
 )
 
 func (a *App) profile() (*setup.Profile, error) {
@@ -36,15 +37,15 @@ func (a *App) describe(r setup.Result) string {
 	var mark string
 	switch r.Status {
 	case setup.OK:
-		mark = a.UI.Green("✓")
+		mark = a.UI.Mark("*", ui.MarkGreen)
 	case setup.NotApplicable:
-		mark = a.UI.Dim("-")
+		mark = a.UI.Dim("[-]")
 	case setup.Needed:
-		mark = a.UI.Blue("•")
+		mark = a.UI.Mark(" ", ui.MarkBlue)
 	case setup.Modified:
-		mark = a.UI.Yellow("~")
+		mark = a.UI.Mark("~", ui.MarkYellow)
 	case setup.Failed:
-		mark = a.UI.Red("✗")
+		mark = a.UI.Mark("x", ui.MarkRed)
 	}
 	s := fmt.Sprintf("%s %s", mark, r.Step.Title)
 	if r.Status == setup.NotApplicable {

@@ -1,5 +1,5 @@
 name: tools-gaming
-description: Gaming tools (gamemode, MangoHud, gamescope, vkBasalt, SDL2 runtime)
+description: Gaming tools (gamemode, MangoHud, gamescope, vkBasalt, SDL2 runtime, innoextract)
 category: gaming
 source:
   apt:
@@ -10,9 +10,11 @@ source:
       - libsdl2-mixer-2.0-0
       - libsdl2-net-2.0-0
       - scummvm
+      - innoextract
       - gamemode
       - mangohud
       - "mangohud:i386"
+      - mangoapp
       - goverlay
       - vkbasalt
       - schedtool

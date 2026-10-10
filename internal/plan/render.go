@@ -54,7 +54,7 @@ func (p *Plan) Render(s Styler, home string) string {
 			}
 			switch {
 			case it.Op == OpUpgrade && it.OldVersion != "" && it.Version != "":
-				l += " " + it.OldVersion + " → " + it.Version
+				l += " " + it.OldVersion + " -> " + it.Version
 			case it.Version != "":
 				l += " " + it.Version
 			}
