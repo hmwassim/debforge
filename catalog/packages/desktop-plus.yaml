@@ -1,0 +1,11 @@
+name: desktop-plus
+description: Desktop Plus Git client (GitHub Desktop fork; imports GitHub Desktop's settings)
+category: development
+trust: upstream-tls
+# Tags are plain numbers (v3.6.7.1); betas and RCs are only marked in the
+# release title, so versions come from GitHub releases, not tags.
+version: {from: github-releases, repo: "https://github.com/desktop-plus/desktop-plus", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/desktop-plus/desktop-plus/releases/download/v{version}/DesktopPlus-v{version}-linux-x86_64.deb"

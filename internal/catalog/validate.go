@@ -204,6 +204,13 @@ func validatePackage(p *Package) []string {
 			if !strings.Contains(v.Tag, "{version}") {
 				bad(`version.tag must contain {version}, e.g. "v{version}"`)
 			}
+		case "github-releases":
+			if _, err := GitHubRepo(v.Repo); err != nil {
+				bad("version.repo: %v", err)
+			}
+			if !strings.Contains(v.Tag, "{version}") {
+				bad(`version.tag must contain {version}, e.g. "v{version}"`)
+			}
 		case "cmd":
 			if v.Cmd == "" {
 				bad("version.cmd is required for from: cmd")
@@ -213,7 +220,7 @@ func validatePackage(p *Package) []string {
 				bad("version.pin is required for from: pin")
 			}
 		default:
-			bad("version.from must be git-tags, cmd or pin")
+			bad("version.from must be git-tags, github-releases, cmd or pin")
 		}
 	}
 
@@ -228,6 +235,21 @@ func validatePackage(p *Package) []string {
 		}
 	}
 	return e
+}
+
+// GitHubRepo returns "owner/name" for a https://github.com/<owner>/<name>
+// repository URL.
+func GitHubRepo(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host != "github.com" || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("%q is not a https://github.com/<owner>/<name> URL", raw)
+	}
+	parts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(u.Path, "/"), "/"), "/")
+	if len(parts) != 2 || !extrepoRe.MatchString(parts[0]) || !extrepoRe.MatchString(parts[1]) ||
+		strings.HasPrefix(parts[0], ".") || strings.HasPrefix(parts[1], ".") {
+		return "", fmt.Errorf("%q is not a https://github.com/<owner>/<name> URL", raw)
+	}
+	return parts[0] + "/" + parts[1], nil
 }
 
 func checkHTTPS(raw string) error {

@@ -138,6 +138,26 @@ description: x
 category: utils
 depends: [ghost]
 files: [{dest: /etc/x, content: y}]`,
+		"releases repo": `
+name: d
+description: x
+category: utils
+trust: upstream-tls
+version: {from: github-releases, repo: "https://gitlab.com/a/b", tag: "v{version}"}
+source:
+  appimage:
+    url: "https://e.com/{version}/a.AppImage"
+    bin: a`,
+		"releases tag": `
+name: d
+description: x
+category: utils
+trust: upstream-tls
+version: {from: github-releases, repo: "https://github.com/a/b", tag: "v1"}
+source:
+  appimage:
+    url: "https://e.com/{version}/a.AppImage"
+    bin: a`,
 		"bin traversal": `
 name: d
 description: x
@@ -159,6 +179,8 @@ source:
 		"two sources":     "exactly one",
 		"unknown dep":     "unknown package",
 		"bin traversal":   "plain command name",
+		"releases repo":   "github.com/<owner>/<name>",
+		"releases tag":    "must contain {version}",
 	}
 	for name, doc := range cases {
 		_, _, err := load(t, map[string]string{"packages/d.yaml": doc})
@@ -255,5 +277,18 @@ func TestReloadsMatchSystem(t *testing.T) {
 	sort.Strings(want)
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("catalog.Reloads %v != system.ReloadOrder %v", got, want)
+	}
+}
+
+func TestGitHubRepo(t *testing.T) {
+	for in, want := range map[string]string{"https://github.com/desktop-plus/desktop-plus": "desktop-plus/desktop-plus", "https://github.com/a/b.c/": "a/b.c"} {
+		if got, err := GitHubRepo(in); err != nil || got != want {
+			t.Errorf("%s: %q %v", in, got, err)
+		}
+	}
+	for _, bad := range []string{"http://github.com/a/b", "https://github.com/a", "https://github.com/a/b/c", "https://github.com/a/..", "https://github.com/a/b?x=1", "https://github.com.evil/a/b"} {
+		if _, err := GitHubRepo(bad); err == nil {
+			t.Errorf("%s should be rejected", bad)
+		}
 	}
 }

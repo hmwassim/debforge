@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hmwassim/debforge/internal/catalog"
 	"github.com/hmwassim/debforge/internal/system/systemtest"
 )
 
@@ -126,5 +127,71 @@ func TestValidVersion(t *testing.T) {
 		if ValidVersion(bad) {
 			t.Errorf("%q should be invalid", bad)
 		}
+	}
+}
+
+// releasesJSON mirrors desktop-plus: plain-number tags, with betas and RCs
+// only recognisable by their title or the prerelease flag.
+const releasesJSON = `[
+ {"tag_name": "v3.6.8.0", "name": "Desktop Plus v3.6.8", "draft": true},
+ {"tag_name": "v3.6.7.1", "name": "Desktop Plus v3.6.7-beta2"},
+ {"tag_name": "v3.6.7.0", "name": "Desktop Plus v3.6.7-beta2 - RC1"},
+ {"tag_name": "v3.6.6.2", "name": "Desktop Plus v3.6.6 hotfix", "prerelease": true},
+ {"tag_name": "v3.6.6.1", "name": "Desktop Plus v3.6.6"},
+ {"tag_name": "v3.6.6.0", "name": "Desktop Plus v3.6.6-beta1"},
+ {"tag_name": "v3.6.5.1", "name": "Desktop Plus v3.6.5"},
+ {"tag_name": "worktree-release", "name": "Worktree"}
+]`
+
+func releasesServer(t *testing.T) (*httptest.Server, *http.Client) {
+	return tlsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/a/b/releases":
+			if r.URL.Query().Get("per_page") != "100" || r.Header.Get("Accept") != "application/vnd.github+json" {
+				w.WriteHeader(400)
+				return
+			}
+			w.Write([]byte(releasesJSON))
+		case "/repos/a/limited/releases":
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.Header().Set("X-RateLimit-Reset", "1700000000")
+			w.WriteHeader(403)
+		case "/dl/v3.6.6.1/app.deb", "/dl/v3.6.5.1/app.deb":
+		default:
+			w.WriteHeader(404)
+		}
+	})
+}
+
+func TestReleaseVersions(t *testing.T) {
+	srv, c := releasesServer(t)
+	got, err := ReleaseVersions(context.Background(), c, srv.URL, "https://github.com/a/b", "v{version}", false)
+	if err != nil || strings.Join(got, ",") != "3.6.6.1,3.6.5.1" {
+		t.Fatalf("got %v %v", got, err)
+	}
+	got, _ = ReleaseVersions(context.Background(), c, srv.URL, "https://github.com/a/b", "v{version}", true)
+	if strings.Join(got, ",") != "3.6.7.1,3.6.7.0,3.6.6.2,3.6.6.1,3.6.6.0,3.6.5.1" {
+		t.Fatalf("prerelease allowed (drafts never): %v", got)
+	}
+	_, err = ReleaseVersions(context.Background(), c, srv.URL, "https://github.com/a/limited", "v{version}", false)
+	if err == nil || !strings.Contains(err.Error(), "rate limit") {
+		t.Fatalf("err = %v", err)
+	}
+	_, err = ReleaseVersions(context.Background(), c, srv.URL, "https://github.com/a/missing", "v{version}", false)
+	if err == nil || !strings.Contains(err.Error(), "404") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestResolveGitHubReleases(t *testing.T) {
+	srv, c := releasesServer(t)
+	p := &catalog.Package{
+		Name:    "app",
+		Version: &catalog.Version{From: "github-releases", Repo: "https://github.com/a/b", Tag: "v{version}"},
+		Source:  catalog.Source{Deb: &catalog.DebSource{URLs: []catalog.Download{{URL: srv.URL + "/dl/v{version}/app.deb"}}}},
+	}
+	v, err := (&Resolver{HTTP: c, GitHubAPI: srv.URL}).Resolve(context.Background(), p)
+	if err != nil || v != "3.6.6.1" {
+		t.Fatalf("%q %v", v, err)
 	}
 }

@@ -35,30 +35,48 @@ func TagVersions(ctx context.Context, r system.Runner, repo, pattern string, all
 	if err != nil {
 		return nil, fmt.Errorf("list tags of %s: %w", repo, err)
 	}
+	var tags []string
+	for _, line := range strings.Split(string(res.Stdout), "\n") {
+		if _, ref, ok := strings.Cut(line, "\t"); ok {
+			tags = append(tags, strings.TrimPrefix(ref, "refs/tags/"))
+		}
+	}
+	return tagsToVersions(tags, pattern, allowPre), nil
+}
+
+// tagVersion extracts the version from tag according to pattern (which
+// contains {version}). The version must be valid and start with a digit.
+func tagVersion(tag, pattern string) (string, bool) {
 	prefix, suffix, _ := strings.Cut(pattern, "{version}")
+	if !strings.HasPrefix(tag, prefix) || !strings.HasSuffix(tag, suffix) || len(tag) <= len(prefix)+len(suffix) {
+		return "", false
+	}
+	v := tag[len(prefix) : len(tag)-len(suffix)]
+	if !ValidVersion(v) || v[0] < '0' || v[0] > '9' {
+		return "", false
+	}
+	return v, true
+}
+
+// IsPrerelease reports whether s (a version, tag or release title) has a
+// prerelease marker such as rc or beta.
+func IsPrerelease(s string) bool { return preMarkers.MatchString(s) }
+
+// tagsToVersions returns the versions of the tags matching pattern, newest
+// first and without duplicates. Prereleases are dropped unless allowPre.
+func tagsToVersions(tags []string, pattern string, allowPre bool) []string {
 	seen := map[string]bool{}
 	var out []string
-	for _, line := range strings.Split(string(res.Stdout), "\n") {
-		_, ref, ok := strings.Cut(line, "\t")
-		if !ok {
-			continue
-		}
-		tag := strings.TrimPrefix(ref, "refs/tags/")
-		if !strings.HasPrefix(tag, prefix) || !strings.HasSuffix(tag, suffix) || len(tag) <= len(prefix)+len(suffix) {
-			continue
-		}
-		v := tag[len(prefix) : len(tag)-len(suffix)]
-		if !ValidVersion(v) || seen[v] || v[0] < '0' || v[0] > '9' {
-			continue
-		}
-		if !allowPre && preMarkers.MatchString(v) {
+	for _, tag := range tags {
+		v, ok := tagVersion(tag, pattern)
+		if !ok || seen[v] || (!allowPre && IsPrerelease(v)) {
 			continue
 		}
 		seen[v] = true
 		out = append(out, v)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return Compare(out[i], out[j]) > 0 })
-	return out, nil
+	return out
 }
 
 // Compare orders versions by their numeric groups ("1.1-24" is

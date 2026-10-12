@@ -14,6 +14,8 @@ import (
 type Resolver struct {
 	R    system.Runner
 	HTTP *http.Client
+	// GitHubAPI overrides the GitHub API base URL (tests); empty means GitHubAPI.
+	GitHubAPI string
 }
 
 // Resolve returns the version to install for p.
@@ -27,8 +29,18 @@ func (r *Resolver) Resolve(ctx context.Context, p *catalog.Package) (string, err
 		return v.Pin, nil
 	case "cmd":
 		return FromCmd(ctx, r.R, v.Cmd)
-	case "git-tags":
-		versions, err := TagVersions(ctx, r.R, v.Repo, v.Tag, v.Prerelease)
+	case "git-tags", "github-releases":
+		var versions []string
+		var err error
+		if v.From == "git-tags" {
+			versions, err = TagVersions(ctx, r.R, v.Repo, v.Tag, v.Prerelease)
+		} else {
+			api := r.GitHubAPI
+			if api == "" {
+				api = GitHubAPI
+			}
+			versions, err = ReleaseVersions(ctx, r.HTTP, api, v.Repo, v.Tag, v.Prerelease)
+		}
 		if err != nil {
 			return "", err
 		}

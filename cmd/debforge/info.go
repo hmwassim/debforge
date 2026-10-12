@@ -75,6 +75,8 @@ func infoText(a *App, p *catalog.Package, sp *state.Package, verbose bool) strin
 		switch v.From {
 		case "git-tags":
 			row("Versions", "tags "+v.Tag+" of "+v.Repo)
+		case "github-releases":
+			row("Versions", "GitHub releases "+v.Tag+" of "+v.Repo)
 		case "pin":
 			row("Versions", "pinned "+v.Pin)
 		case "cmd":

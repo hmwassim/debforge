@@ -164,11 +164,16 @@ type Desktop struct {
 
 // Version says how to discover the version to install.
 type Version struct {
-	// From is git-tags, cmd or pin.
+	// From is git-tags, github-releases, cmd or pin.
 	From string `yaml:"from"`
+	// Repo is the git repository (git-tags) or https://github.com/<owner>/<name>
+	// (github-releases).
 	Repo string `yaml:"repo"`
 	// Tag is the tag pattern, e.g. "v{version}" or "release-{version}".
-	Tag        string `yaml:"tag"`
+	Tag string `yaml:"tag"`
+	// Prerelease allows prereleases. Otherwise tags with a prerelease marker
+	// (rc, beta, ...) are skipped, and for github-releases also releases
+	// GitHub flags as prereleases or whose title has a marker.
 	Prerelease bool   `yaml:"prerelease"`
 	Cmd        string `yaml:"cmd"`
 	Pin        string `yaml:"pin"`

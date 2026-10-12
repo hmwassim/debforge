@@ -158,7 +158,7 @@ source:                        # at most one; none = a configuration bundle
     desktop: {name: App, categories: "Utility;", icon: "https://.../icon.png"}
 
 version:                       # required when a URL or ref uses {version}
-  from: git-tags               # git-tags | cmd | pin
+  from: git-tags               # git-tags | github-releases | cmd | pin
   repo: https://github.com/lutris/lutris
   tag: "v{version}"            # explicit pattern, e.g. "release-{version}" or "{version}"
   prerelease: false            # rc/beta/alpha tags are skipped unless true
@@ -202,6 +202,14 @@ legacy_cleanup: [/etc/old-name.conf]   # deleted on install
   - A `sha256` cannot be combined with an auto-updating `{version}` URL: use
     `version.from: pin` instead.
 - **Versions** are checked before they are substituted into URLs or passed to hooks.
+  - `git-tags` reads the repository's tags.
+  - `github-releases` reads the newest 100 GitHub releases of a
+    `https://github.com/<owner>/<name>` repo and takes the version from each release's
+    tag. Drafts are always skipped. Unless `prerelease: true`, so are releases GitHub
+    flags as prereleases and releases whose tag *or title* has an rc/beta/alpha marker.
+    Use it when a project tags betas with plain numbers and only says "beta" in the
+    release title. GitHub allows 60 unauthenticated API requests per hour.
+  - Either way, the newest version whose download exists is used.
 - **Matrices.** One file can define several similar packages with a `matrix:` list. Each
   entry's keys replace `{{key}}` placeholders; see `catalog/packages/fonts-nerd.yaml`.
 
