@@ -15,8 +15,7 @@ steps:
     builtin: upgrade
 
   - id: firmware
-    title: Firmware (from backports)
-    backports: true
+    title: Firmware
     packages: [firmware-linux, firmware-linux-nonfree, firmware-misc-nonfree, firmware-iwlwifi, firmware-sof-signed, firmware-realtek]
 
   - id: microcode-intel
@@ -133,8 +132,7 @@ steps:
       - {dest: /etc/extrepo/config.yaml, src: extrepo-config.yaml}
 
   - id: mesa
-    title: Mesa GPU drivers (from backports)
-    backports: true
+    title: Mesa GPU drivers
     packages:
       - intel-media-va-driver-non-free
       - intel-media-va-driver-non-free:i386

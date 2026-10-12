@@ -3,7 +3,7 @@
 An opinionated provisioner and small package manager for **Debian 13 (trixie), amd64**.
 
 - `debforge setup` turns a fresh Debian install into a ready desktop: repositories
-  (contrib, non-free, backports), i386 multiarch, a backports kernel, firmware and Mesa,
+  (contrib, non-free, backports), i386 multiarch, a backports kernel, firmware, Mesa,
   zram, encrypted DNS, time sync, codecs, fonts and Flatpak.
 - `debforge install <pkg>` installs software that Debian doesn't package well: apt
   packages from extrepo or vendor repositories, upstream `.deb` releases, AppImages,
@@ -72,7 +72,7 @@ Exit codes:
   any package change, so a failed download leaves the system untouched.
 - **One apt transaction.** apt packages, local `.deb` files and the removal of conflicting
   packages go into a single `apt-get install`. Backports are installed in a second
-  transaction with `-t trixie-backports`.
+  transaction as `pkg/trixie-backports`.
 - **apt never asks questions.** apt runs non-interactively:
   - `DEBIAN_FRONTEND=noninteractive`;
   - conffiles keep your local version (`--force-confold`);
@@ -81,11 +81,12 @@ Exit codes:
 
   Progress comes from apt's machine-readable status channel, not from parsing its text
   output.
-- **Backports never get mixed with stable.** When any package from a source package is
-  installed from backports, debforge pins that whole source to backports for every
-  architecture, in `/etc/apt/preferences.d/debforge-backports.pref`. The file is rewritten
-  before every install. Without it, a later stable install can pick a stable 32-bit library
-  next to its backports sibling and fail with "held broken packages".
+- **Only what is asked for comes from backports.** debforge never uses `-t
+  trixie-backports`, which prefers backports for every package in the transaction.
+  Packages are named as `pkg/trixie-backports` instead, so only they come from backports,
+  plus the dependencies they strictly need that stable can't satisfy (for the kernel:
+  `linux-base` and the versioned image, headers, modules and kbuild). Everything else stays
+  on stable. Once installed, apt keeps upgrading those packages from backports.
 - **Ctrl-C is safe.** A running apt/dpkg transaction is always allowed to finish. debforge
   then records what was installed and stops. A package interrupted after its apt step is
   marked *incomplete*, and `debforge update <pkg>` finishes it.
@@ -139,7 +140,7 @@ source:                        # at most one; none = a configuration bundle
   apt:
     packages: [firefox]
     extrepo: [mozilla]                      # enable via extrepo
-    backports: [gamescope]                  # install with -t trixie-backports
+    backports: [gamescope]                  # install as gamescope/trixie-backports
     conflicts: [firefox-esr]                # removed in the same transaction
     variants: {open: [nvidia-open], proprietary: [cuda-drivers]}
     repo:                                   # a vendor repo not in extrepo
@@ -221,8 +222,8 @@ A step can be limited to matching machines with `when:`:
 
 `debforge setup` checks every step, shows what is missing, and asks before applying it.
 `debforge doctor` runs the same checks without changing anything. Checks verify everything
-a step does. For example, the backports kernel and firmware steps are only satisfied when
-backports has nothing newer.
+a step does. For example, the backports kernel step is only satisfied when backports has
+nothing newer.
 
 Notable defaults:
 - **apt sources:** in `/etc/apt/sources.list.d/debian.sources` (deb822). A legacy
@@ -230,8 +231,10 @@ Notable defaults:
 - **DNS:** systemd-resolved with Cloudflare's malware-blocking resolver. It uses
   `DNSOverTLS=opportunistic` and `DNSSEC=allow-downgrade`, so captive portals, networks
   that block port 853, and VPN split DNS keep working.
-- **Backports:** the kernel, firmware and Mesa come from backports. PipeWire stays on
-  stable because backports has no matching i386 build.
+- **Backports:** only the kernel comes from backports, plus `nvidia-vaapi-driver` and
+  `gamescope` when those packages are installed. Firmware, Mesa and PipeWire stay on
+  stable. The sources step removes `/etc/apt/preferences.d/debforge-backports.pref`, a
+  source pin file older versions wrote.
 - **Microcode:** chosen by CPU vendor.
 
 ## Paths
@@ -243,7 +246,6 @@ Notable defaults:
 | `/var/log/debforge/` | daily logs (30 kept), including every command run |
 | `/var/cache/debforge/work/` | downloads and builds (on disk, not tmpfs) |
 | `/etc/debforge/packages.d/` | your own definitions |
-| `/etc/apt/preferences.d/debforge-backports.pref` | backports source pins (generated) |
 
 A corrupt state file is moved aside (`state.json.corrupt-<time>`) and debforge starts
 empty. It warns you, and keeps working.

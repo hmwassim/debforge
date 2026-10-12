@@ -87,9 +87,8 @@ func (a *App) loadCatalog() error {
 
 func (a *App) store() state.Store { return state.Store{Path: a.Paths.State} }
 
-// apt returns the apt wrapper; it keeps the backports source pins in sync
-// before installs (see apt.SyncBackportPins).
-func (a *App) apt() *apt.Apt { return &apt.Apt{R: a.R, PinFile: a.Paths.Root + apt.PinFile} }
+// apt returns the apt wrapper.
+func (a *App) apt() *apt.Apt { return &apt.Apt{R: a.R} }
 
 // loadStateRO loads state for read-only commands; unreadable state is a
 // warning, never fatal.

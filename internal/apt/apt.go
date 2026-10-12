@@ -29,9 +29,6 @@ type ProgressFunc func(phase string, pct float64, detail string)
 // Apt runs apt-get through a system.Runner.
 type Apt struct {
 	R system.Runner
-	// PinFile, when set, is kept in sync with SyncBackportPins before every
-	// install/upgrade and after every backports install or removal.
-	PinFile string
 }
 
 // Transaction is one apt-get install call.
@@ -40,8 +37,24 @@ type Transaction struct {
 	// Remove is removed in the same transaction (pkg- syntax), used for
 	// conflicts so nothing is removed unless the install can proceed.
 	Remove []string
-	// Target is the -t release, e.g. trixie-backports; empty for default.
-	Target string
+	// Release installs every package in Install from that release, e.g.
+	// trixie-backports; empty for the default. See WithRelease.
+	Release string
+}
+
+// WithRelease returns pkgs as pkg/release. Unlike -t, which prefers the
+// release for everything apt touches in the transaction, this takes only
+// the named packages from it, plus the dependencies they strictly need
+// that the default release cannot satisfy; everything else stays on stable.
+func WithRelease(pkgs []string, release string) []string {
+	if release == "" {
+		return pkgs
+	}
+	out := make([]string, len(pkgs))
+	for i, p := range pkgs {
+		out[i] = p + "/" + release
+	}
+	return out
 }
 
 var env = []string{
@@ -69,24 +82,11 @@ func (a *Apt) Install(ctx context.Context, t Transaction, prog ProgressFunc) err
 	if len(t.Install) == 0 && len(t.Remove) == 0 {
 		return nil
 	}
-	if err := a.SyncBackportPins(ctx); err != nil {
-		return err
-	}
-	args := baseArgs("install")
-	if t.Target != "" {
-		args = append(args[:len(args)-1], "-t", t.Target, "install")
-	}
-	args = append(args, t.Install...)
+	args := append(baseArgs("install"), WithRelease(t.Install, t.Release)...)
 	for _, r := range t.Remove {
 		args = append(args, r+"-")
 	}
-	if err := a.run(ctx, "install", args, prog); err != nil {
-		return err
-	}
-	if t.Target != "" {
-		return a.SyncBackportPins(ctx)
-	}
-	return nil
+	return a.run(ctx, "install", args, prog)
 }
 
 // Remove removes packages (not purge: conffiles stay, like apt's default).
@@ -94,17 +94,11 @@ func (a *Apt) Remove(ctx context.Context, pkgs []string, prog ProgressFunc) erro
 	if len(pkgs) == 0 {
 		return nil
 	}
-	if err := a.run(ctx, "remove", append(baseArgs("remove"), pkgs...), prog); err != nil {
-		return err
-	}
-	return a.SyncBackportPins(ctx)
+	return a.run(ctx, "remove", append(baseArgs("remove"), pkgs...), prog)
 }
 
 // FullUpgrade runs apt-get full-upgrade.
 func (a *Apt) FullUpgrade(ctx context.Context, prog ProgressFunc) error {
-	if err := a.SyncBackportPins(ctx); err != nil {
-		return err
-	}
 	return a.run(ctx, "full-upgrade", baseArgs("full-upgrade"), prog)
 }
 
@@ -142,17 +136,13 @@ func (a *Apt) PendingUpgrades(ctx context.Context) (int, error) {
 	return n, nil
 }
 
-// PendingInstall returns how many packages "apt-get install [-t target]
-// pkgs" would install or upgrade (0 means the request is satisfied).
-func (a *Apt) PendingInstall(ctx context.Context, pkgs []string, target string) (int, error) {
+// PendingInstall returns how many packages "apt-get install pkgs[/release]"
+// would install or upgrade (0 means the request is satisfied).
+func (a *Apt) PendingInstall(ctx context.Context, pkgs []string, release string) (int, error) {
 	if len(pkgs) == 0 {
 		return 0, nil
 	}
-	args := []string{"-s", "-q"}
-	if target != "" {
-		args = append(args, "-t", target)
-	}
-	args = append(append(args, "install"), pkgs...)
+	args := append([]string{"-s", "-q", "install"}, WithRelease(pkgs, release)...)
 	res, err := a.R.Run(ctx, system.Cmd{Name: "apt-get", Args: args, Env: env})
 	if err != nil {
 		return 0, fmt.Errorf("apt-get -s install: %w", err)

@@ -121,7 +121,7 @@ func (x *Exec) Install(ctx context.Context, pl *plan.Plan) (*Summary, error) {
 		return sum, err
 	}
 	if len(pl.AptBackports) > 0 {
-		btx := apt.Transaction{Install: pl.AptBackports, Target: apt.BackportsSuite}
+		btx := apt.Transaction{Install: pl.AptBackports, Release: apt.BackportsSuite}
 		if err := x.aptStep(ctx, "Installing from backports", func(prog apt.ProgressFunc) error { return x.Apt.Install(ctx, btx, prog) }); err != nil {
 			return sum, err
 		}
