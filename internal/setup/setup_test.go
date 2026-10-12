@@ -82,27 +82,12 @@ func TestSourcesBuiltin(t *testing.T) {
 	if r := v.e.Check(context.Background(), s); r.Status != OK {
 		t.Fatalf("second check: %+v", r)
 	}
-	// The backports pin file older versions wrote is removed.
-	os.MkdirAll(v.root+"/etc/apt/preferences.d", 0o755)
-	os.WriteFile(v.root+legacyPinFile, []byte("Package: src:linux\n"), 0o644)
-	if r := v.e.Check(context.Background(), s); r.Status != Needed || !strings.Contains(r.Reasons[0], "obsolete") {
-		t.Fatalf("pin check: %+v", r)
-	}
-	if _, err := v.e.Apply(context.Background(), s, false, nil); err != nil {
-		t.Fatal(err)
-	}
-	if v.read(legacyPinFile) != "<missing>" {
-		t.Fatal("pin file not removed")
-	}
-	if r := v.e.Check(context.Background(), s); r.Status != OK {
-		t.Fatalf("after pin removal: %+v", r)
-	}
 }
 
 func TestBackportsCheckUsesSimulation(t *testing.T) {
 	// A stock kernel is installed, but backports has a newer one: not OK.
 	v := newEnv(t, "linux-image-amd64\tamd64\tii \t6.12.1\n")
-	v.r.OK("apt-get -s -q install linux-image-amd64/trixie-backports", "Inst linux-image-amd64 [6.12.1] (7.2.6-1~bpo13+1)\n")
+	v.r.OK("apt-get -s -q -t trixie-backports install linux-image-amd64", "Inst linux-image-amd64 [6.12.1] (7.2.6-1~bpo13+1)\n")
 	p := profile(t, "steps:\n  - {id: kernel, title: Kernel, backports: true, packages: [linux-image-amd64]}\n", nil)
 	if r := v.e.Check(context.Background(), p.Steps[0]); r.Status != Needed || !strings.Contains(r.Reasons[0], "backports") {
 		t.Fatalf("%+v", r)

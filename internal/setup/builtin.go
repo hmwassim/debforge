@@ -3,9 +3,7 @@ package setup
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,11 +27,6 @@ Suites: trixie-security
 Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 `
-
-// legacyPinFile held the backports source pins older debforge versions
-// wrote. Pinning whole sources pulled unrelated packages (linux-libc-dev,
-// linux-sysctl-defaults) onto backports, so the sources step removes it.
-const legacyPinFile = "/etc/apt/preferences.d/debforge-backports.pref"
 
 const legacySourcesNote = "# The Debian sources are configured in /etc/apt/sources.list.d/debian.sources\n# (managed by debforge setup). The previous content of this file was saved\n# as sources.list.debforge-orig.\n"
 
@@ -77,10 +70,6 @@ func (e *Engine) builtinFiles(s *Step) []fileLike {
 
 func (e *Engine) checkBuiltin(ctx context.Context, s *Step, need func(string, ...any)) error {
 	switch s.Builtin {
-	case "sources":
-		if _, err := os.Lstat(e.Root + legacyPinFile); err == nil {
-			need("%s is obsolete and will be removed", legacyPinFile)
-		}
 	case "i386":
 		res, err := e.R.Run(ctx, system.Cmd{Name: "dpkg", Args: []string{"--print-foreign-architectures"}})
 		if err != nil {
@@ -124,9 +113,6 @@ func (e *Engine) applyBuiltin(ctx context.Context, s *Step, force bool, prog apt
 	switch s.Builtin {
 	case "sources":
 		// Files are written by the generic file handling; refresh after.
-		if err := os.Remove(e.Root + legacyPinFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return nil, err
-		}
 		return nil, nil
 	case "i386":
 		if _, err := e.R.Run(ctx, system.Cmd{Name: "dpkg", Args: []string{"--add-architecture", "i386"}}); err != nil {

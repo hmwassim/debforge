@@ -37,24 +37,8 @@ type Transaction struct {
 	// Remove is removed in the same transaction (pkg- syntax), used for
 	// conflicts so nothing is removed unless the install can proceed.
 	Remove []string
-	// Release installs every package in Install from that release, e.g.
-	// trixie-backports; empty for the default. See WithRelease.
-	Release string
-}
-
-// WithRelease returns pkgs as pkg/release. Unlike -t, which prefers the
-// release for everything apt touches in the transaction, this takes only
-// the named packages from it, plus the dependencies they strictly need
-// that the default release cannot satisfy; everything else stays on stable.
-func WithRelease(pkgs []string, release string) []string {
-	if release == "" {
-		return pkgs
-	}
-	out := make([]string, len(pkgs))
-	for i, p := range pkgs {
-		out[i] = p + "/" + release
-	}
-	return out
+	// Target is the -t release, e.g. trixie-backports; empty for default.
+	Target string
 }
 
 var env = []string{
@@ -82,7 +66,11 @@ func (a *Apt) Install(ctx context.Context, t Transaction, prog ProgressFunc) err
 	if len(t.Install) == 0 && len(t.Remove) == 0 {
 		return nil
 	}
-	args := append(baseArgs("install"), WithRelease(t.Install, t.Release)...)
+	args := baseArgs("install")
+	if t.Target != "" {
+		args = append(args[:len(args)-1], "-t", t.Target, "install")
+	}
+	args = append(args, t.Install...)
 	for _, r := range t.Remove {
 		args = append(args, r+"-")
 	}
@@ -136,13 +124,17 @@ func (a *Apt) PendingUpgrades(ctx context.Context) (int, error) {
 	return n, nil
 }
 
-// PendingInstall returns how many packages "apt-get install pkgs[/release]"
-// would install or upgrade (0 means the request is satisfied).
-func (a *Apt) PendingInstall(ctx context.Context, pkgs []string, release string) (int, error) {
+// PendingInstall returns how many packages "apt-get install [-t target]
+// pkgs" would install or upgrade (0 means the request is satisfied).
+func (a *Apt) PendingInstall(ctx context.Context, pkgs []string, target string) (int, error) {
 	if len(pkgs) == 0 {
 		return 0, nil
 	}
-	args := append([]string{"-s", "-q", "install"}, WithRelease(pkgs, release)...)
+	args := []string{"-s", "-q"}
+	if target != "" {
+		args = append(args, "-t", target)
+	}
+	args = append(append(args, "install"), pkgs...)
 	res, err := a.R.Run(ctx, system.Cmd{Name: "apt-get", Args: args, Env: env})
 	if err != nil {
 		return 0, fmt.Errorf("apt-get -s install: %w", err)

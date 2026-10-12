@@ -74,8 +74,7 @@ type Source struct {
 type AptSource struct {
 	Packages []string `yaml:"packages"`
 	Extrepo  []string `yaml:"extrepo"`
-	// Backports are installed as pkg/trixie-backports: only these packages
-	// (and dependencies stable cannot satisfy) come from backports.
+	// Backports are installed with -t trixie-backports.
 	Backports []string            `yaml:"backports"`
 	Variants  map[string][]string `yaml:"variants"`
 	// Conflicts are removed in the same apt transaction.

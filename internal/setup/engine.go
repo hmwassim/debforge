@@ -237,7 +237,7 @@ func (e *Engine) Apply(ctx context.Context, s *Step, force bool, prog apt.Progre
 		}
 		tx := apt.Transaction{Install: s.Packages}
 		if s.Backports {
-			tx.Release = apt.BackportsSuite
+			tx.Target = apt.BackportsSuite
 		}
 		if err := e.Apt.Install(ctx, tx, prog); err != nil {
 			return notes, err

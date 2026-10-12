@@ -102,17 +102,13 @@ if [ "${ITEST_SLOW:-}" = 1 ]; then
     installed ttf-mscorefonts-installer || fail "mscorefonts not installed"
     pass "debconf EULA does not hang"
 
-    # 11. a backports install takes only the named packages from backports:
-    #     their dependencies stay on stable and no pin file is written
+    # 11. packages listed under backports are installed from backports
     sed -i 's/^Suites: trixie trixie-updates$/Suites: trixie trixie-updates trixie-backports/' /etc/apt/sources.list.d/debian.sources
     apt-get update -qq >/dev/null
     debforge -y install itest-bpo </dev/null >/tmp/bpo.log 2>&1 || { tail -20 /tmp/bpo.log; fail "backports gamescope"; }
     dpkg-query -W -f '${Version}' gamescope | grep -q bpo || fail "gamescope not from backports"
-    others=$(dpkg-query -W -f '${binary:Package} ${Version}\n' | grep '~bpo' | grep -v '^gamescope ' || true)
-    [ -z "$others" ] || fail "pulled from backports besides gamescope: $others"
-    [ ! -e /etc/apt/preferences.d/debforge-backports.pref ] || fail "backports pin file written"
     [ -z "$(dpkg --audit)" ] || fail "dpkg inconsistent"
-    pass "backports installs take only the named packages"
+    pass "backports packages come from backports"
 fi
 
 echo "ALL SCENARIOS PASSED"

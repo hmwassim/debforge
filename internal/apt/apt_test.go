@@ -55,20 +55,17 @@ func TestInstallArgsAndProgress(t *testing.T) {
 	}
 }
 
-func TestBackportsRelease(t *testing.T) {
+func TestBackportsTarget(t *testing.T) {
 	r := &systemtest.Runner{}
 	r.On("apt-get", statusWriter("", 0, ""))
-	(&Apt{R: r}).Install(context.Background(), Transaction{Install: []string{"gamescope", "foo:i386"}, Release: BackportsSuite}, nil)
-	cmd := r.Commands()[0]
-	// Only the named packages come from backports: never -t, which would
-	// prefer backports for every dependency in the transaction.
-	if !strings.Contains(cmd, "install gamescope/trixie-backports foo:i386/trixie-backports") || strings.Contains(cmd, " -t ") {
-		t.Fatal(cmd)
+	(&Apt{R: r}).Install(context.Background(), Transaction{Install: []string{"gamescope"}, Target: BackportsSuite}, nil)
+	if !strings.Contains(r.Commands()[0], "-t trixie-backports install gamescope") {
+		t.Fatal(r.Commands()[0])
 	}
 }
 
-func TestPendingInstallRelease(t *testing.T) {
-	r := (&systemtest.Runner{}).OK("apt-get -s -q install gamescope/trixie-backports", "Inst gamescope [3.16.4-1] (3.16.22+ds-1~bpo13+1)\n")
+func TestPendingInstallTarget(t *testing.T) {
+	r := (&systemtest.Runner{}).OK("apt-get -s -q -t trixie-backports install gamescope", "Inst gamescope [3.16.4-1] (3.16.22+ds-1~bpo13+1)\n")
 	n, err := (&Apt{R: r}).PendingInstall(context.Background(), []string{"gamescope"}, BackportsSuite)
 	if err != nil || n != 1 {
 		t.Fatalf("n = %d err %v: %v", n, err, r.Commands())

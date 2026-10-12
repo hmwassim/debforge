@@ -72,7 +72,7 @@ Exit codes:
   any package change, so a failed download leaves the system untouched.
 - **One apt transaction.** apt packages, local `.deb` files and the removal of conflicting
   packages go into a single `apt-get install`. Backports are installed in a second
-  transaction as `pkg/trixie-backports`.
+  transaction with `-t trixie-backports`.
 - **apt never asks questions.** apt runs non-interactively:
   - `DEBIAN_FRONTEND=noninteractive`;
   - conffiles keep your local version (`--force-confold`);
@@ -81,12 +81,6 @@ Exit codes:
 
   Progress comes from apt's machine-readable status channel, not from parsing its text
   output.
-- **Only what is asked for comes from backports.** debforge never uses `-t
-  trixie-backports`, which prefers backports for every package in the transaction.
-  Packages are named as `pkg/trixie-backports` instead, so only they come from backports,
-  plus the dependencies they strictly need that stable can't satisfy (for the kernel:
-  `linux-base` and the versioned image, headers, modules and kbuild). Everything else stays
-  on stable. Once installed, apt keeps upgrading those packages from backports.
 - **Ctrl-C is safe.** A running apt/dpkg transaction is always allowed to finish. debforge
   then records what was installed and stops. A package interrupted after its apt step is
   marked *incomplete*, and `debforge update <pkg>` finishes it.
@@ -140,7 +134,7 @@ source:                        # at most one; none = a configuration bundle
   apt:
     packages: [firefox]
     extrepo: [mozilla]                      # enable via extrepo
-    backports: [gamescope]                  # install as gamescope/trixie-backports
+    backports: [gamescope]                  # install with -t trixie-backports
     conflicts: [firefox-esr]                # removed in the same transaction
     variants: {open: [nvidia-open], proprietary: [cuda-drivers]}
     repo:                                   # a vendor repo not in extrepo
@@ -241,8 +235,7 @@ Notable defaults:
   that block port 853, and VPN split DNS keep working.
 - **Backports:** only the kernel comes from backports, plus `nvidia-vaapi-driver` and
   `gamescope` when those packages are installed. Firmware, Mesa and PipeWire stay on
-  stable. The sources step removes `/etc/apt/preferences.d/debforge-backports.pref`, a
-  source pin file older versions wrote.
+  stable.
 - **Microcode:** chosen by CPU vendor.
 
 ## Paths

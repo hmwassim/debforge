@@ -1,5 +1,5 @@
 name: itest-bpo
-description: gamescope from backports (its dependencies must stay on stable)
+description: gamescope from backports
 category: utils
 source:
   apt:
