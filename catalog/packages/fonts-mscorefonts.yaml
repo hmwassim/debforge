@@ -1,0 +1,8 @@
+name: fonts-mscorefonts
+description: Microsoft core fonts (Arial, Times New Roman, Verdana...), downloaded at install time
+category: fonts
+debconf: ["ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true"]
+source:
+  apt:
+    packages: [ttf-mscorefonts-installer]
+reload: [fontconfig]

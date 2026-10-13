@@ -1,5 +1,5 @@
 name: tools-gaming
-description: Gaming tools (gamemode, MangoHud, gamescope, vkBasalt, SDL2 runtime, innoextract)
+description: Gaming tools (gamemode, MangoHud, gamescope, vkBasalt, game runtime libraries, emulators)
 category: gaming
 source:
   apt:
@@ -9,7 +9,27 @@ source:
       - libsdl2-image-2.0-0
       - libsdl2-mixer-2.0-0
       - libsdl2-net-2.0-0
+      # Libraries native and older games load at runtime.
+      - libglfw3
+      - "libglfw3:i386"
+      - libosmesa6
+      - "libosmesa6:i386"
+      - libgtk-3-0t64
+      - "libgtk-3-0t64:i386"
+      - libopenal1
+      - "libopenal1:i386"
+      - libturbojpeg0
+      - "libturbojpeg0:i386"
+      - libjpeg62-turbo
+      - "libjpeg62-turbo:i386"
+      - libgif7
+      - "libgif7:i386"
+      - ocl-icd-libopencl1
+      - "ocl-icd-libopencl1:i386"
       - scummvm
+      - dosbox
+      - timidity
+      - fluidsynth
       - innoextract
       - gamemode
       - mangohud

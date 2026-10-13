@@ -1,0 +1,19 @@
+name: tools-media
+description: Command-line media tools (encoders, image converters, ALSA and GStreamer utilities)
+category: media
+source:
+  apt:
+    packages:
+      - lame
+      - x264
+      - x265
+      - opus-tools
+      - flac
+      - webp
+      - mpg123
+      - flvmeta
+      - giflib-tools
+      - alsa-tools
+      - alsa-firmware-loaders
+      - libcanberra-pulse
+      - gstreamer1.0-tools

@@ -1,0 +1,6 @@
+name: audio-effects
+description: EasyEffects with LV2 effect plugins (equalizer, compressor, noise reduction)
+category: media
+source:
+  apt:
+    packages: [easyeffects, lsp-plugins-lv2, calf-plugins, x42-plugins, zam-plugins]

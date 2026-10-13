@@ -1,0 +1,16 @@
+name: dvd
+description: Encrypted DVD playback (libdvdcss, built from source)
+category: media
+# libdvd-pkg builds libdvdcss2 from source; its postinst only builds when
+# debconf says so, so preseed that and rebuild if libdvdcss2 is missing.
+debconf:
+  - libdvd-pkg libdvd-pkg/build boolean true
+  - libdvd-pkg libdvd-pkg/post-invoke_hook-install boolean true
+source:
+  apt:
+    packages: [libdvd-pkg]
+hooks:
+  post_install: |
+    if ! dpkg-query -W -f '${Status}' libdvdcss2 2>/dev/null | grep -q 'install ok installed'; then
+      dpkg-reconfigure -f noninteractive libdvd-pkg
+    fi

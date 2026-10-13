@@ -1,6 +1,32 @@
 name: tools-dev
-description: Development tools bundle (build systems, assemblers, debugging, Python, MinGW cross compiler)
+description: Development tools bundle (build systems, assemblers, debugging, headers, Python, MinGW cross compiler)
 category: development
 source:
   apt:
-    packages: [build-essential, git, cmake, cmake-curses-gui, meson, ninja-build, nasm, bison, flex, xsltproc, gdbserver, python3, python3-pip, python3-venv, mingw-w64]
+    packages:
+      - build-essential
+      - git
+      - pkg-config
+      - cmake
+      - cmake-curses-gui
+      - meson
+      - ninja-build
+      - nasm
+      - bison
+      - flex
+      - xsltproc
+      - gdbserver
+      - sqlite3
+      - xxhash
+      - python3
+      - python3-pip
+      - python3-venv
+      - python-is-python3
+      - mingw-w64
+      - vulkan-validationlayers
+      - libvulkan-dev
+      - "libvulkan-dev:i386"
+      - libpipewire-0.3-dev
+      - libspa-0.2-dev
+      - libxml2-dev
+      - libxslt1-dev
