@@ -1,0 +1,15 @@
+name: debforge-kernel
+description: Backports kernel built for responsiveness (1000 Hz, full preemption); unsigned, needs Secure Boot off
+category: system
+trust: upstream-tls
+version: {from: github-releases, repo: "https://github.com/hmwassim/debforge-kernel", tag: "v{version}"}
+source:
+  deb:
+    urls:
+      - url: "https://github.com/hmwassim/debforge-kernel/releases/download/v{version}/linux-image-{version}-debforge_amd64.deb"
+      # Headers let DKMS build out-of-tree modules (such as the NVIDIA driver)
+      # for this kernel.
+      - url: "https://github.com/hmwassim/debforge-kernel/releases/download/v{version}/linux-headers-{version}-debforge_amd64.deb"
+notes:
+  install: reboot and pick the debforge kernel in the boot menu if it isn't the default. It is unsigned, so it only boots with Secure Boot off.
+  remove: if you are running the debforge kernel, reboot into another kernel.
