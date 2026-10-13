@@ -163,6 +163,7 @@ trust: upstream-tls            # allows auto-updating downloads without sha256 (
 files:                         # tracked, merged, and removed with the package
   - {dest: /etc/modules-load.d/ntsync.conf, content: "ntsync\n"}
   - {dest: "~/.config/app/app.conf", src: app.conf, mode: "0600"}
+  - {dest: /etc/modprobe.d/app.conf, src: app-laptop.conf, when: {chassis: laptop}}  # laptops only
 
 hooks:                         # run with sh -eu; env: VERSION, TARGET_USER, TARGET_HOME, PKGNAME
   build: make
@@ -184,6 +185,11 @@ legacy_cleanup: [/etc/old-name.conf]   # deleted on install
 - **Hardware.** `hardware` is checked when a package is first installed, not on updates.
   - Naming a package that doesn't fit is an error. A glob or category (`@gaming`) skips
     it with a warning, as well as any package whose dependencies don't fit.
+- **Chassis.** A file with `when: {chassis: laptop}` or `when: {chassis: desktop}` is
+  only written on that kind of machine; elsewhere it is skipped and not recorded. A
+  machine is a laptop when its firmware reports a portable chassis type or it has a
+  system battery (peripheral batteries don't count). `debforge info` marks conditional
+  files and says when they are skipped here.
 - **File locations.** Files may only go under `/etc/`, `/usr/local/`, `/opt/` or `~/`.
   debforge never writes into dpkg-owned trees such as `/usr/lib`.
 - **Source builds** (`archive`, `git`) must install into `$DESTDIR`. debforge copies the
@@ -220,7 +226,14 @@ A step can be limited to matching machines with `when:`:
 - `cpu_vendor`: microcode for Intel or AMD;
 - `network_manager`: whether NetworkManager is installed;
 - `desktop`: KDE or GNOME, detected from installed packages because sudo strips
-  `XDG_CURRENT_DESKTOP`.
+  `XDG_CURRENT_DESKTOP`;
+- `chassis`: laptop or desktop, as for package files.
+
+A step's files can also carry their own `when: {chassis: ...}`.
+
+When a newer profile stops managing a file setup wrote earlier, `debforge setup` removes
+it the way removing a package does: an unmodified file is deleted (or the file it replaced
+is restored), and a file you edited is kept.
 
 `debforge setup` checks every step, shows what is missing, and asks before applying it.
 `debforge doctor` runs the same checks without changing anything. Checks verify everything
@@ -237,6 +250,8 @@ Notable defaults:
   `gamescope` when those packages are installed. Firmware, Mesa and PipeWire stay on
   stable.
 - **Microcode:** chosen by CPU vendor.
+- **Laptops:** captive portal detection for NetworkManager, and switcheroo-control so
+  apps can be launched on the dedicated GPU.
 
 ## Paths
 
