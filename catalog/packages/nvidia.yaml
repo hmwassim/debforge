@@ -10,6 +10,15 @@ source:
     variants:
       open: [nvidia-open]
       proprietary: [cuda-drivers]
+# The driver packages already ship runtime power management rules, suspend
+# support and the nouveau blacklist.
 files:
-  - {dest: /etc/udev/rules.d/80-nvidia-pm.rules, src: udev-80-nvidia-pm.rules}
-reload: [udev]
+  - {dest: /etc/modprobe.d/61-nvidia-dynamic-power.conf, src: modprobe-nvidia-dynamic-power.conf, when: {chassis: laptop}}
+hooks:
+  # The nvidia module is loaded from the initramfs, which needs the option too.
+  post_install: |
+    if [ -f /etc/modprobe.d/61-nvidia-dynamic-power.conf ]; then
+      update-initramfs -u
+    fi
+notes:
+  install: reboot to load the driver with its new options.

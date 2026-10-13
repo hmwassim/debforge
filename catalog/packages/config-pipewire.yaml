@@ -1,26 +1,21 @@
 name: config-pipewire
-description: Low-latency audio (PipeWire, WirePlumber, HDA power, RT limits)
+description: Audio tuning (PipeWire sample rates, Wine latency, HDMI priority, real-time limits)
 category: system
 requires: [pipewire, wireplumber]
 files:
-  - {dest: /etc/security/limits.d/20-audio.conf, src: 20-audio.conf}
-  - {dest: /etc/udev/rules.d/99-audio-latency.rules, src: udev-99-audio-latency.rules}
-  - {dest: /etc/udev/rules.d/20-audio-pm.rules, src: udev-20-audio-pm.rules}
-  - {dest: /usr/local/lib/debforge/audio-pm-ctl, src: audio-pm-ctl, mode: "0755"}
-  - {dest: "~/.config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf", src: 51-disable-suspend.conf}
+  - {dest: /etc/modprobe.d/60-snd-hda-power.conf, src: modprobe-snd-hda-power.conf, when: {chassis: desktop}}
+  - {dest: "~/.config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf", src: 51-disable-suspend.conf, when: {chassis: desktop}}
   - {dest: "~/.config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf", src: 52-deprioritize-hdmi.conf}
   - {dest: "~/.config/pipewire/pipewire.conf.d/10-clock.conf", src: 10-clock.conf}
-  - {dest: "~/.config/pipewire/pipewire-pulse.conf.d/10-pulse.conf", src: 10-pulse.conf}
   - {dest: "~/.config/pipewire/pipewire-pulse.conf.d/10-wine-audio.conf", src: 10-wine-audio.conf}
-reload: [udev]
 hooks:
-  # The RT limits and timer/latency device permissions are granted to the
-  # audio group; takes effect at the next login. The user services are
-  # enabled through the user's own systemd manager (--machine user@), which
-  # sudo can't reach with a plain --user.
+  # The pipewire group gets real-time scheduling limits from PipeWire's own
+  # limits.d file; they apply at the next login. The HDA option applies when
+  # the driver loads, so it is also set on the running driver when present.
   post_install: |
-    usermod -aG audio "$TARGET_USER"
-    systemctl --user --machine "$TARGET_USER@" enable pipewire pipewire-pulse wireplumber \
-      || echo "could not enable the PipeWire user services; log in as $TARGET_USER and run: systemctl --user enable pipewire pipewire-pulse wireplumber" >&2
+    usermod -aG pipewire "$TARGET_USER"
+    if [ -f /etc/modprobe.d/60-snd-hda-power.conf ] && [ -w /sys/module/snd_hda_intel/parameters/power_save ]; then
+      echo 0 > /sys/module/snd_hda_intel/parameters/power_save
+    fi
 notes:
-  install: log out and back in so the audio group's real-time limits apply.
+  install: log out and back in so the pipewire group's real-time limits apply.

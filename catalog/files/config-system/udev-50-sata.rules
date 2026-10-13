@@ -1,5 +1,5 @@
-# Storage: keep SATA links at full power (CachyOS 50-sata.rules). Costs a
-# little idle power on laptops in exchange for no link wake-up latency.
+# Storage: keep SATA links at full power. Desktops only: it removes link
+# wake-up latency at the cost of a little idle power.
 ACTION=="add|change", SUBSYSTEM=="scsi_host", KERNEL=="host*", \
     ATTR{link_power_management_supported}=="1", \
     ATTR{link_power_management_policy}=="*", \
