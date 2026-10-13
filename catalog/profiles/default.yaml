@@ -3,7 +3,7 @@
 # tracked with the same 3-way merge as package files.
 steps:
   - id: sources
-    title: Debian repositories (contrib, non-free, backports)
+    title: Package repositories (contrib, non-free, backports)
     builtin: sources
 
   - id: i386
@@ -16,7 +16,7 @@ steps:
 
   - id: firmware
     title: Firmware
-    packages: [firmware-linux, firmware-linux-nonfree, firmware-misc-nonfree, firmware-iwlwifi, firmware-sof-signed, firmware-realtek]
+    packages: [firmware-linux, firmware-linux-nonfree, firmware-misc-nonfree, firmware-intel-graphics, firmware-iwlwifi, firmware-sof-signed, firmware-realtek]
 
   - id: microcode-intel
     title: Intel CPU microcode
@@ -28,6 +28,7 @@ steps:
     when: {cpu_vendor: amd}
     packages: [amd64-microcode]
 
+  # Build tools and headers are in the tools-dev package.
   - id: devtools
     title: Core tools
     packages:
@@ -36,40 +37,29 @@ steps:
       - wget
       - unzip
       - p7zip-full
-      - gzip
       - gnupg
-      - build-essential
-      - pkg-config
-      - cmake
-      - nvme-cli
-      - smartmontools
+      - jq
+      - vim
+      - tree
       - pciutils
       - usbutils
-      - cabextract
-      - zenity
-      - jq
       - lm-sensors
-      - ddcutil
-      - hunspell-en-us
-      - hunspell-fr
-      - hwloc
-      - tree
+      - smartmontools
+      - nvme-cli
       - inxi
+      - ddcutil
       - gdisk
-      - bcache-tools
       - inotify-tools
       - bind9-dnsutils
-      - vim
-      - sqlite3
-      - lz4
-      - xxhash
-      - brotli
       - libarchive-tools
+      - lz4
+      - brotli
       - attr
       - rfkill
       - ncal
       - libnotify-bin
-      - python-is-python3
+      - hunspell-en-us
+      - hunspell-fr
 
   - id: kernel
     title: Kernel (from backports)
@@ -81,9 +71,8 @@ steps:
     packages: [systemd-zram-generator]
     files:
       - {dest: /etc/systemd/zram-generator.conf, src: zram-generator.conf}
-      - {dest: /etc/udev/rules.d/97-zram.rules, src: udev-97-zram.rules}
       - {dest: /etc/sysctl.d/98-debforge-zram.conf, src: sysctl-98-zram.conf}
-    reload: [sysctl, udev]
+    reload: [sysctl]
     # A zram device in use can't be reconfigured: never restart it. Swap being
     # listed in /proc/swaps is the truth; if it isn't, start the swap unit
     # (which pulls in systemd-zram-setup@zram0.service), as zram-generator
@@ -115,7 +104,7 @@ steps:
     commands:
       - check: test "$(readlink /etc/resolv.conf)" = /run/systemd/resolve/stub-resolv.conf
         apply: ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-    verify: resolvectl query debian.org >/dev/null
+    verify: resolvectl query one.one.one.one >/dev/null
 
   - id: resolved-networkmanager
     title: NetworkManager uses systemd-resolved
@@ -124,6 +113,21 @@ steps:
       - {dest: /etc/NetworkManager/conf.d/10-dns.conf, src: nm-10-dns.conf}
     services:
       - {name: NetworkManager.service, reload_on_change: true}
+
+  # Login pages of hotel and airport Wi-Fi only open when NetworkManager
+  # checks connectivity, which matters more with encrypted DNS.
+  - id: connectivity
+    title: Captive portal detection
+    when: {chassis: laptop, network_manager: true}
+    # The package reloads NetworkManager itself.
+    packages: [network-manager-config-connectivity-debian]
+
+  - id: gpu-switching
+    title: GPU switching (launch apps on the dedicated GPU)
+    when: {chassis: laptop}
+    packages: [switcheroo-control]
+    services:
+      - {name: switcheroo-control.service, enable: true, start: true}
 
   - id: extrepo
     title: extrepo (third-party repositories)
@@ -147,12 +151,13 @@ steps:
       - libglx-mesa0:i386
       - libgl1-mesa-dri:i386
       - vulkan-tools
-      - vulkan-validationlayers
       - vainfo
       - vdpauinfo
 
   # PipeWire stays on stable: backports has no matching i386 build, and
-  # the 64-bit and 32-bit packages must have the same version.
+  # the 64-bit and 32-bit packages must have the same version. Effects,
+  # media tools and game runtime libraries are separate packages
+  # (audio-effects, tools-media, tools-gaming).
   - id: multimedia
     title: Multimedia stack (PipeWire, codecs, players)
     packages:
@@ -162,38 +167,16 @@ steps:
       - pipewire-pulse
       - pipewire-alsa
       - pipewire-jack
-      - pipewire-bin
-      - pipewire-doc
-      - pipewire-tests
       - pipewire-v4l2
-      - pipewire-libcamera
-      - pipewire-audio-client-libraries
-      - libpipewire-0.3-0t64
+      - wireplumber
       - libpipewire-0.3-0t64:i386
-      - libpipewire-0.3-common
-      - libpipewire-0.3-dev
-      - libpipewire-0.3-modules
-      - libpipewire-0.3-modules-x11
       - libspa-0.2-bluetooth
       - libspa-0.2-jack
-      - libspa-0.2-dev
-      - libspa-0.2-libcamera
-      - libspa-0.2-modules
       - libspa-0.2-modules:i386
-      - wireplumber
-      - rtkit
-      - alsa-utils
-      - alsa-tools
-      - alsa-firmware-loaders
       - libasound2-plugins
       - libasound2-plugins:i386
-      - libasound2t64
-      - libcanberra-pulse
-      - easyeffects
-      - lsp-plugins-lv2
-      - calf-plugins
-      - x42-plugins
-      - zam-plugins
+      - rtkit
+      - alsa-utils
       - gstreamer1.0-pipewire
       - ffmpeg
       - gstreamer1.0-libav
@@ -206,88 +189,34 @@ steps:
       - gstreamer1.0-plugins-ugly:i386
       - gstreamer1.0-vaapi
       - gstreamer1.0-alsa
-      - gstreamer1.0-tools
       - mpv
       - vlc
-      - mpg123
-      - lame
-      - x264
-      - x265
-      - opus-tools
-      - flvmeta
-      - libgif7
-      - libgif7:i386
-      - giflib-tools
-      - libglfw3
-      - libglfw3:i386
-      - libosmesa6
-      - libosmesa6:i386
-      - libvulkan-dev
-      - libvulkan-dev:i386
-      - libgtk-3-0t64
-      - libgtk-3-0t64:i386
-      - libopenal1
-      - libopenal1:i386
-      - libturbojpeg0
-      - libturbojpeg0:i386
-      - libjpeg62-turbo
-      - libjpeg62-turbo:i386
-      - ocl-icd-libopencl1
-      - ocl-icd-libopencl1:i386
-      - libxslt1-dev
-      - libxml2-dev
-      - timidity
-      - fluidsynth
-      - dosbox
-      - flac
-      - webp
       - libheif-plugin-ffmpegdec
       - libheif-plugin-jpegdec
       - libheif-plugin-jpegenc
       - libheif-plugin-rav1e
 
-  # libdvd-pkg builds libdvdcss2 from source; its postinst only builds when
-  # debconf says so, so preseed that and rebuild if libdvdcss2 is missing.
-  - id: dvd
-    title: Encrypted DVD playback (libdvdcss)
-    debconf:
-      - libdvd-pkg libdvd-pkg/build boolean true
-      - libdvd-pkg libdvd-pkg/post-invoke_hook-install boolean true
-    packages: [libdvd-pkg]
-    commands:
-      - check: dpkg-query -W -f '${Status}' libdvdcss2 2>/dev/null | grep -q 'install ok installed'
-        apply: dpkg-reconfigure -f noninteractive libdvd-pkg
-
+  # local.conf maps the common families to croscore (Arimo, Tinos,
+  # Cousine) and Arabic to Noto Sans Arabic (in fonts-noto-core). The
+  # Microsoft core fonts are the fonts-mscorefonts package.
   - id: fonts
     title: Fonts
-    debconf:
-      - ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true
     packages:
-      - fonts-liberation
-      - fonts-liberation2
       - fonts-croscore
-      - fonts-cantarell
-      - fonts-inter
-      - fonts-inter-variable
-      - fonts-noto
       - fonts-noto-core
-      - fonts-noto-hinted
       - fonts-noto-ui-core
-      - fonts-noto-unhinted
-      - fonts-noto-cjk
-      - fonts-noto-cjk-extra
-      - fonts-noto-color-emoji
-      - fonts-noto-extra
       - fonts-noto-mono
-      - fonts-noto-ui-extra
-      - ttf-mscorefonts-installer
+      - fonts-noto-cjk
+      - fonts-noto-color-emoji
+      - fonts-liberation2
+      - fonts-inter
     files:
       - {dest: /etc/fonts/local.conf, src: fonts-local.conf}
     reload: [fontconfig]
 
   - id: desktop
     title: Desktop tools, VPN plugins and Flatpak
-    packages: [eza, starship, papirus-icon-theme, fastfetch, bat, ripgrep, fzf, flatpak, xdg-desktop-portal, network-manager-openvpn, network-manager-openconnect]
+    packages: [fastfetch, papirus-icon-theme, flatpak, xdg-desktop-portal, network-manager-openvpn, network-manager-openconnect]
     commands:
       - check: flatpak remotes --system --columns=name | grep -qx flathub
         apply: flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
@@ -301,7 +230,3 @@ steps:
     title: GNOME Flatpak integration
     when: {desktop: gnome}
     packages: [gnome-software-plugin-flatpak, xdg-desktop-portal-gnome]
-
-  - id: bashrc
-    title: ~/.bashrc loads ~/.config/bashrc.d
-    builtin: bashrc

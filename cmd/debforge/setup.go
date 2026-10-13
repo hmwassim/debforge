@@ -174,6 +174,9 @@ func cmdDoctor(a *App, inv *invocation) error {
 		check := a.UI.Wait("Checking " + step.Title)
 		r := eng.Check(a.Ctx, step)
 		check.Clear()
+		if step.Internal() && r.Status == setup.NotApplicable {
+			continue
+		}
 		a.UI.Print(a.describe(r))
 		if r.Status == setup.Needed || r.Status == setup.Failed {
 			bad++

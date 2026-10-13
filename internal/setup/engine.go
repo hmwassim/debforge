@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hmwassim/debforge/internal/apt"
+	"github.com/hmwassim/debforge/internal/catalog"
 	"github.com/hmwassim/debforge/internal/files"
 	"github.com/hmwassim/debforge/internal/state"
 	"github.com/hmwassim/debforge/internal/system"
@@ -18,11 +19,12 @@ type Facts struct {
 	CPUVendor      string // intel, amd or ""
 	NetworkManager bool
 	Desktop        string // kde, gnome or ""
+	Chassis        string // laptop or desktop
 }
 
 // DetectFacts inspects the machine. root prefixes /proc ("" in production).
 func DetectFacts(root string, snap *system.Snapshot) Facts {
-	f := Facts{NetworkManager: snap.Installed("network-manager")}
+	f := Facts{NetworkManager: snap.Installed("network-manager"), Chassis: system.DetectChassis(root)}
 	if b, err := os.ReadFile(root + "/proc/cpuinfo"); err == nil {
 		switch {
 		case strings.Contains(string(b), "GenuineIntel"):
@@ -55,6 +57,9 @@ func (s *Step) Applies(f Facts) bool {
 		return false
 	}
 	if w.Desktop != "" && w.Desktop != f.Desktop {
+		return false
+	}
+	if w.Chassis != "" && w.Chassis != f.Chassis {
 		return false
 	}
 	return true
@@ -145,6 +150,19 @@ func (e *Engine) Check(ctx context.Context, s *Step) Result {
 			return fail(err)
 		}
 	}
+	if s.profile != nil {
+		stale, err := e.retired(s.profile)
+		if err != nil {
+			return fail(err)
+		}
+		if len(stale) == 0 {
+			r.Status = NotApplicable
+		}
+		for _, p := range stale {
+			need("%s is no longer managed and will be removed", p)
+		}
+		return r
+	}
 	var missing []string
 	for _, p := range s.Packages {
 		if !e.Snap.Installed(p) {
@@ -216,6 +234,9 @@ func (e *Engine) unitIs(ctx context.Context, verb, unit, want string) bool {
 // Apply brings a step into the desired state. force replaces
 // user-modified files (with backup).
 func (e *Engine) Apply(ctx context.Context, s *Step, force bool, prog apt.ProgressFunc) (notes []string, err error) {
+	if s.profile != nil {
+		return e.retire(ctx, s.profile)
+	}
 	if s.Builtin != "" {
 		n, err := e.applyBuiltin(ctx, s, force, prog)
 		notes = append(notes, n...)
@@ -381,8 +402,11 @@ func (g genFile) mode() os.FileMode { return 0o644 }
 
 func (e *Engine) allFiles(s *Step) []fileLike {
 	var out []fileLike
+	m := catalog.Machine{Chassis: e.Facts.Chassis}
 	for _, f := range s.Files {
-		out = append(out, catalogFile{f.Dest, f.Data(), f.FileMode()})
+		if f.Applies(m) {
+			out = append(out, catalogFile{f.Dest, f.Data(), f.FileMode()})
+		}
 	}
 	return append(out, e.builtinFiles(s)...)
 }

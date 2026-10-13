@@ -1,9 +1,35 @@
 name: config-bash
 description: Bash aliases, fzf, readline and starship configuration
 category: desktop
-requires: [eza, bat, fzf, starship]
+requires: [eza, bat, fzf, starship, ripgrep]
 files:
   - {dest: "~/.config/bashrc.d/00-readline.sh", src: 00-readline.sh}
   - {dest: "~/.config/bashrc.d/10-aliases.sh", src: 10-aliases.sh}
   - {dest: "~/.config/bashrc.d/90-fzf.sh", src: 90-fzf.sh}
   - {dest: "~/.config/bashrc.d/99-starship.sh", src: 99-starship.sh}
+hooks:
+  # ~/.bashrc gets a marked block that loads ~/.config/bashrc.d/*.sh. It is
+  # edited as the user, so a symlinked ~/.bashrc can't redirect a root write.
+  # 'debforge remove --self' also removes the block.
+  post_install: |
+    runuser -u "$TARGET_USER" -- sh -eu -c '
+    rc="$1"
+    grep -qxF "# >>> debforge bashrc.d loader >>>" "$rc" 2>/dev/null && exit 0
+    [ ! -s "$rc" ] || printf "\n" >>"$rc"
+    cat >>"$rc" <<"EOF"
+    # >>> debforge bashrc.d loader >>>
+    if [ -d "$HOME/.config/bashrc.d" ]; then
+        for file in "$HOME/.config/bashrc.d"/*.sh; do
+            [ -f "$file" ] && . "$file"
+        done
+    fi
+    # <<< debforge bashrc.d loader <<<
+    EOF
+    ' sh "$TARGET_HOME/.bashrc"
+  pre_remove: |
+    if [ -f "$TARGET_HOME/.bashrc" ]; then
+      runuser -u "$TARGET_USER" -- sed -i \
+        '/^# >>> debforge bashrc.d loader >>>$/,/^# <<< debforge bashrc.d loader <<<$/d' "$TARGET_HOME/.bashrc"
+    fi
+notes:
+  install: open a new terminal to load the configuration.

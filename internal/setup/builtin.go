@@ -1,15 +1,12 @@
 package setup
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/apt"
-	"github.com/hmwassim/debforge/internal/files"
 	"github.com/hmwassim/debforge/internal/system"
 )
 
@@ -29,18 +26,6 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 `
 
 const legacySourcesNote = "# The Debian sources are configured in /etc/apt/sources.list.d/debian.sources\n# (managed by debforge setup). The previous content of this file was saved\n# as sources.list.debforge-orig.\n"
-
-const (
-	bashrcStart = "# >>> debforge bashrc.d loader >>>"
-	bashrcEnd   = "# <<< debforge bashrc.d loader <<<"
-	bashrcBlock = bashrcStart + `
-if [ -d "$HOME/.config/bashrc.d" ]; then
-    for file in "$HOME/.config/bashrc.d"/*.sh; do
-        [ -f "$file" ] && . "$file"
-    done
-fi
-` + bashrcEnd + "\n"
-)
 
 // hasActiveDeb reports whether a one-line-style sources file still has
 // enabled entries.
@@ -86,25 +71,6 @@ func (e *Engine) checkBuiltin(ctx context.Context, s *Step, need func(string, ..
 		if n > 0 {
 			need("%d package(s) can be upgraded", n)
 		}
-	case "bashrc":
-		if e.User == nil {
-			return system.ErrNoTargetUser
-		}
-		home := files.Spec{Home: e.User.Home, UID: e.User.UID, GID: e.User.GID}
-		dir := home
-		dir.Path = filepath.Join(e.User.Home, ".config/bashrc.d")
-		if fi, err := os.Lstat(e.Root + dir.Path); err != nil || !fi.IsDir() {
-			need("~/.config/bashrc.d does not exist")
-		}
-		rc := home
-		rc.Path = filepath.Join(e.User.Home, ".bashrc")
-		b, _, err := e.Files.Read(rc)
-		if err != nil {
-			return err
-		}
-		if !bytes.Contains(b, []byte(bashrcBlock)) {
-			need("~/.bashrc does not load ~/.config/bashrc.d")
-		}
 	}
 	return nil
 }
@@ -122,55 +88,84 @@ func (e *Engine) applyBuiltin(ctx context.Context, s *Step, force bool, prog apt
 		return warns, err
 	case "upgrade":
 		return nil, e.Apt.FullUpgrade(ctx, prog)
-	case "bashrc":
-		if e.User == nil {
-			return nil, system.ErrNoTargetUser
-		}
-		base := files.Spec{Home: e.User.Home, UID: e.User.UID, GID: e.User.GID, Mode: 0o644}
-		dir := base
-		dir.Path = filepath.Join(e.User.Home, ".config/bashrc.d")
-		if err := e.Files.EnsureDir(dir); err != nil {
-			return nil, fmt.Errorf("create ~/.config/bashrc.d: %w", err)
-		}
-		rc := base
-		rc.Path = filepath.Join(e.User.Home, ".bashrc")
-		cur, _, err := e.Files.Read(rc)
-		if err != nil {
-			return nil, err
-		}
-		rc.Data = withBashrcBlock(cur)
-		if bytes.Equal(rc.Data, cur) {
-			return nil, nil
-		}
-		return nil, e.Files.Write(rc)
 	}
 	return nil, nil
 }
 
-// withBashrcBlock returns content with exactly one up-to-date loader block,
-// replacing a well-formed existing block in place and removing stray
-// markers otherwise.
-func withBashrcBlock(cur []byte) []byte {
-	s := string(cur)
-	start := strings.Index(s, bashrcStart)
-	end := strings.Index(s, bashrcEnd)
-	if start >= 0 && end > start && strings.Count(s, bashrcStart) == 1 && strings.Count(s, bashrcEnd) == 1 {
-		endLine := end + len(bashrcEnd)
-		if endLine < len(s) && s[endLine] == '\n' {
-			endLine++
-		}
-		return []byte(s[:start] + bashrcBlock + s[endLine:])
-	}
-	var kept []string
-	for _, l := range strings.Split(s, "\n") {
-		if strings.TrimSpace(l) == bashrcStart || strings.TrimSpace(l) == bashrcEnd {
+// retired returns the recorded setup files that no applicable step
+// manages any more, sorted.
+func (e *Engine) retired(p *Profile) ([]string, error) {
+	wanted := map[string]bool{}
+	for _, s := range p.Steps {
+		if s.profile != nil || !s.Applies(e.Facts) {
 			continue
 		}
-		kept = append(kept, l)
+		for _, f := range e.allFiles(s) {
+			if strings.HasPrefix(f.dest(), "~/") && e.User == nil {
+				// Home files can't be located; keep every home record.
+				return nil, nil
+			}
+			spec, err := e.spec(f)
+			if err != nil {
+				return nil, err
+			}
+			wanted[spec.Path] = true
+		}
 	}
-	out := strings.TrimRight(strings.Join(kept, "\n"), "\n")
-	if out != "" {
-		out += "\n\n"
+	var out []string
+	for path := range e.State.Setup.Files {
+		if !wanted[path] {
+			out = append(out, path)
+		}
 	}
-	return []byte(out + bashrcBlock)
+	sort.Strings(out)
+	return out, nil
+}
+
+// retireReloads maps where a removed file lived to the trigger that makes
+// the removal take effect.
+var retireReloads = map[string]string{
+	"/etc/udev/":           "udev",
+	"/etc/sysctl.d/":       "sysctl",
+	"/etc/systemd/":        "systemd",
+	"/etc/modules-load.d/": "modules",
+	"/etc/fonts/":          "fontconfig",
+	"/etc/tmpfiles.d/":     "tmpfiles",
+}
+
+// retire removes retired files the way removing a package does: unmodified
+// files are deleted (or the file they replaced is restored), files the user
+// edited are kept.
+func (e *Engine) retire(ctx context.Context, p *Profile) ([]string, error) {
+	stale, err := e.retired(p)
+	if err != nil {
+		return nil, err
+	}
+	var notes []string
+	reload := map[string]bool{}
+	home := ""
+	if e.User != nil {
+		home = e.User.Home
+	}
+	for _, path := range stale {
+		out, err := e.Files.RemoveRecord(path, e.State.Setup.Files[path], home)
+		if err != nil {
+			return notes, err
+		}
+		delete(e.State.Setup.Files, path)
+		switch out.Action {
+		case "kept":
+			notes = append(notes, path+" is no longer managed but was modified by you; left in place")
+		case "deleted", "restored":
+			for prefix, r := range retireReloads {
+				if strings.HasPrefix(path, prefix) {
+					reload[r] = true
+				}
+			}
+		}
+	}
+	for _, err := range system.Reload(ctx, e.R, reload) {
+		notes = append(notes, err.Error())
+	}
+	return notes, nil
 }

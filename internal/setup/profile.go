@@ -26,7 +26,7 @@ type Profile struct {
 type Step struct {
 	ID    string `yaml:"id"`
 	Title string `yaml:"title"`
-	// Builtin is one of sources, i386, upgrade, bashrc.
+	// Builtin is one of sources, i386, upgrade.
 	Builtin   string         `yaml:"builtin"`
 	When      *When          `yaml:"when"`
 	Packages  []string       `yaml:"packages"`
@@ -39,7 +39,18 @@ type Step struct {
 	Verify string   `yaml:"verify"`
 	Reload []string `yaml:"reload"`
 	Notes  Notes    `yaml:"notes"`
+
+	// profile is set on the retired step, which compares the recorded
+	// files against everything the other steps still manage.
+	profile *Profile
 }
+
+// Internal reports whether s is added by debforge rather than the profile.
+func (s *Step) Internal() bool { return s.profile != nil }
+
+// retiredID is the step Load appends to every profile: it removes files
+// setup wrote earlier that no step manages any more.
+const retiredID = "retired"
 
 // Notes are shown to the user after Apply.
 type Notes struct {
@@ -52,6 +63,7 @@ type When struct {
 	CPUVendor      string `yaml:"cpu_vendor"`      // intel or amd
 	NetworkManager *bool  `yaml:"network_manager"` // NetworkManager installed
 	Desktop        string `yaml:"desktop"`         // kde or gnome
+	Chassis        string `yaml:"chassis"`         // laptop or desktop
 }
 
 // Service is a systemd unit the step manages.
@@ -73,7 +85,7 @@ type Command struct {
 
 var (
 	idRe     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
-	builtins = []string{"sources", "i386", "upgrade", "bashrc"}
+	builtins = []string{"sources", "i386", "upgrade"}
 	unitRe   = regexp.MustCompile(`^[A-Za-z0-9@._-]+\.(service|socket|timer)$`)
 )
 
@@ -109,8 +121,16 @@ func Load(fsys fs.FS, name string) (*Profile, error) {
 		if s.When != nil && s.When.Desktop != "" && s.When.Desktop != "kde" && s.When.Desktop != "gnome" {
 			bad("when.desktop must be kde or gnome")
 		}
+		if s.When != nil && s.When.Chassis != "" {
+			if err := catalog.CheckWhen(&catalog.When{Chassis: s.When.Chassis}); err != nil {
+				bad("%v", err)
+			}
+		}
 		for _, f := range s.Files {
 			if err := catalog.CheckDest(f.Dest); err != nil {
+				bad("file %s: %v", f.Dest, err)
+			}
+			if err := catalog.CheckWhen(f.When); err != nil {
 				bad("file %s: %v", f.Dest, err)
 			}
 		}
@@ -136,8 +156,12 @@ func Load(fsys fs.FS, name string) (*Profile, error) {
 	if len(p.Steps) == 0 {
 		errs = append(errs, errors.New("profile has no steps"))
 	}
+	if seen[retiredID] {
+		errs = append(errs, fmt.Errorf("step id %q is reserved", retiredID))
+	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("setup profile %q is invalid:\n%w", name, err)
 	}
+	p.Steps = append(p.Steps, &Step{ID: retiredID, Title: "Files setup no longer manages", profile: p})
 	return p, nil
 }

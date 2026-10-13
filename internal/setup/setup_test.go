@@ -109,6 +109,34 @@ func TestWhen(t *testing.T) {
 	}
 }
 
+func TestWhenChassis(t *testing.T) {
+	p := profile(t, `steps:
+  - id: a
+    title: A
+    when: {chassis: laptop}
+    packages: [x]
+  - id: b
+    title: B
+    files:
+      - {dest: /etc/both, content: "1\n"}
+      - {dest: /etc/desk, content: "2\n", when: {chassis: desktop}}
+`, nil)
+	if p.Steps[0].Applies(Facts{Chassis: "desktop"}) || !p.Steps[0].Applies(Facts{Chassis: "laptop"}) {
+		t.Fatal("step chassis not honoured")
+	}
+	v := newEnv(t, "")
+	v.e.Facts = Facts{Chassis: "laptop"}
+	if _, err := v.e.Apply(context.Background(), p.Steps[1], false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if v.read("/etc/both") != "1\n" || v.read("/etc/desk") != "<missing>" {
+		t.Fatal("file chassis not honoured")
+	}
+	if r := v.e.Check(context.Background(), p.Steps[1]); r.Status != OK {
+		t.Fatalf("skipped file must not be reported: %+v", r)
+	}
+}
+
 func TestDetectFacts(t *testing.T) {
 	root := t.TempDir()
 	os.MkdirAll(root+"/proc", 0o755)
@@ -182,38 +210,6 @@ func TestUserModifiedNotOverwritten(t *testing.T) {
 	}
 }
 
-func TestBashrc(t *testing.T) {
-	v := newEnv(t, "")
-	os.WriteFile(v.root+"/home/alice/.bashrc", []byte("alias ll='ls -l'\n"), 0o644)
-	p := profile(t, "steps:\n  - {id: bashrc, title: B, builtin: bashrc}\n", nil)
-	s := p.Steps[0]
-	if r := v.e.Check(context.Background(), s); r.Status != Needed {
-		t.Fatalf("%+v", r)
-	}
-	for i := 0; i < 2; i++ {
-		if _, err := v.e.Apply(context.Background(), s, false, nil); err != nil {
-			t.Fatal(err)
-		}
-	}
-	rc := v.read("/home/alice/.bashrc")
-	if strings.Count(rc, bashrcStart) != 1 || !strings.HasPrefix(rc, "alias ll") {
-		t.Fatalf("bashrc:\n%s", rc)
-	}
-	if fi, err := os.Stat(v.root + "/home/alice/.config/bashrc.d"); err != nil || !fi.IsDir() {
-		t.Fatal("bashrc.d not created")
-	}
-	if r := v.e.Check(context.Background(), s); r.Status != OK {
-		t.Fatalf("%+v", r)
-	}
-}
-
-func TestBashrcRepairsBrokenMarkers(t *testing.T) {
-	got := string(withBashrcBlock([]byte("x\n" + bashrcStart + "\nold\n")))
-	if strings.Count(got, bashrcStart) != 1 || strings.Count(got, bashrcEnd) != 1 {
-		t.Fatalf("%q", got)
-	}
-}
-
 func TestProfileValidation(t *testing.T) {
 	bad := map[string]string{
 		"dup id":       "steps:\n  - {id: a, title: A}\n  - {id: a, title: B}\n",
@@ -222,6 +218,8 @@ func TestProfileValidation(t *testing.T) {
 		"bad dest":     "steps:\n  - {id: a, title: A, files: [{dest: /usr/lib/x, content: y}]}\n",
 		"bad unit":     "steps:\n  - {id: a, title: A, services: [{name: \"x; rm\"}]}\n",
 		"missing file": "steps:\n  - {id: a, title: A, files: [{dest: /etc/x, src: nope}]}\n",
+		"bad chassis":  "steps:\n  - {id: a, title: A, when: {chassis: tower}}\n",
+		"file chassis": "steps:\n  - {id: a, title: A, files: [{dest: /etc/x, content: y, when: {chassis: tower}}]}\n",
 	}
 	for name, y := range bad {
 		if _, err := Load(fstest.MapFS{"profiles/p.yaml": {Data: []byte(y)}}, "p"); err == nil {
@@ -240,5 +238,62 @@ func TestStepChangedNote(t *testing.T) {
 	notes, _ = v.e.Apply(context.Background(), p.Steps[0], false, nil)
 	if len(notes) != 0 {
 		t.Fatalf("unchanged step must not repeat the note: %v", notes)
+	}
+}
+
+func TestRetiredFilesRemoved(t *testing.T) {
+	old := profile(t, `steps:
+  - id: a
+    title: A
+    files:
+      - {dest: /etc/keep.conf, content: "k\n"}
+      - {dest: /etc/udev/rules.d/90-old.rules, content: "o\n"}
+      - {dest: /etc/edited.conf, content: "e\n"}
+`, nil)
+	v := newEnv(t, "")
+	v.r.On("udevadm", func(system.Cmd) (system.Result, error) { return system.Result{}, nil })
+	if _, err := v.e.Apply(context.Background(), old.Steps[0], false, nil); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(v.root+"/etc/edited.conf", []byte("mine\n"), 0o644)
+
+	cur := profile(t, `steps:
+  - id: a
+    title: A
+    files:
+      - {dest: /etc/keep.conf, content: "k\n"}
+`, nil)
+	ret := cur.Steps[len(cur.Steps)-1]
+	if !ret.Internal() {
+		t.Fatal("the retired step must be appended")
+	}
+	r := v.e.Check(context.Background(), ret)
+	if r.Status != Needed || len(r.Reasons) != 2 {
+		t.Fatalf("check: %+v", r)
+	}
+	notes, err := v.e.Apply(context.Background(), ret, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.read("/etc/udev/rules.d/90-old.rules") != "<missing>" || v.read("/etc/keep.conf") != "k\n" {
+		t.Fatal("wrong files removed")
+	}
+	if v.read("/etc/edited.conf") != "mine\n" || len(notes) != 1 {
+		t.Fatalf("edited file must be kept with a note: %v", notes)
+	}
+	if !v.r.Ran("udevadm control --reload") {
+		t.Fatalf("udev not reloaded: %v", v.r.Commands())
+	}
+	if len(v.e.State.Setup.Files) != 1 {
+		t.Fatalf("records: %v", v.e.State.Setup.Files)
+	}
+	if r := v.e.Check(context.Background(), ret); r.Status != NotApplicable {
+		t.Fatalf("nothing left to retire: %+v", r)
+	}
+}
+
+func TestRetiredIDReserved(t *testing.T) {
+	if _, err := Load(fstest.MapFS{"profiles/p.yaml": {Data: []byte("steps:\n  - {id: retired, title: R}\n")}}, "p"); err == nil {
+		t.Fatal("retired must be reserved")
 	}
 }
