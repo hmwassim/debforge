@@ -86,12 +86,21 @@ func infoText(a *App, p *catalog.Package, sp *state.Package, verbose bool) strin
 	if p.Trust == "upstream-tls" {
 		row("Integrity", "upstream HTTPS only (auto-updating, no checksum)")
 	}
+	m := a.machine()
 	for i, f := range p.Files {
 		k := ""
 		if i == 0 {
 			k = "Files"
 		}
-		fmt.Fprintf(&b, "%-13s %s\n", k+map[bool]string{true: ":", false: " "}[k != ""], f.Dest)
+		dest := f.Dest
+		if f.When != nil {
+			cond := f.When.Chassis + " only"
+			if !f.Applies(m) {
+				cond += ", skipped on this " + m.Chassis
+			}
+			dest += " " + a.UI.Dim("("+cond+")")
+		}
+		fmt.Fprintf(&b, "%-13s %s\n", k+map[bool]string{true: ":", false: " "}[k != ""], dest)
 		if verbose {
 			for _, l := range strings.Split(strings.TrimRight(string(f.Data()), "\n"), "\n") {
 				fmt.Fprintf(&b, "%13s   %s\n", "", a.UI.Dim(l))

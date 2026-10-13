@@ -446,7 +446,7 @@ func (x *Exec) finish(ctx context.Context, it *plan.Item, p *prepared, sum *Summ
 		}
 	}
 
-	for _, f := range it.Pkg.Files {
+	for _, f := range it.Defs {
 		spec := plan.FileSpec(f, x.User)
 		out, err := x.Files.Apply(spec, prevOf(spec.Path), x.Force)
 		if err != nil {

@@ -158,6 +158,16 @@ source:
   appimage:
     url: "https://e.com/{version}/a.AppImage"
     bin: a`,
+		"bad chassis": `
+name: d
+description: x
+category: utils
+files: [{dest: /etc/x, content: y, when: {chassis: tower}}]`,
+		"empty when": `
+name: d
+description: x
+category: utils
+files: [{dest: /etc/x, content: y, when: {}}]`,
 		"bin traversal": `
 name: d
 description: x
@@ -181,6 +191,8 @@ source:
 		"bin traversal":   "plain command name",
 		"releases repo":   "github.com/<owner>/<name>",
 		"releases tag":    "must contain {version}",
+		"bad chassis":     "when.chassis must be",
+		"empty when":      "when.chassis must be",
 	}
 	for name, doc := range cases {
 		_, _, err := load(t, map[string]string{"packages/d.yaml": doc})
@@ -290,5 +302,34 @@ func TestGitHubRepo(t *testing.T) {
 		if _, err := GitHubRepo(bad); err == nil {
 			t.Errorf("%s should be rejected", bad)
 		}
+	}
+}
+
+func TestFilesFor(t *testing.T) {
+	c, _, err := load(t, map[string]string{"packages/d.yaml": `
+name: d
+description: x
+category: system
+files:
+  - {dest: /etc/both, content: a}
+  - {dest: /etc/desk, content: b, when: {chassis: desktop}}
+  - {dest: /etc/lap, content: c, when: {chassis: laptop}}
+`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _ := c.Get("d")
+	dests := func(m Machine) string {
+		var out []string
+		for _, f := range p.FilesFor(m) {
+			out = append(out, f.Dest)
+		}
+		return strings.Join(out, " ")
+	}
+	if got := dests(Machine{Chassis: ChassisDesktop}); got != "/etc/both /etc/desk" {
+		t.Errorf("desktop: %s", got)
+	}
+	if got := dests(Machine{Chassis: ChassisLaptop}); got != "/etc/both /etc/lap" {
+		t.Errorf("laptop: %s", got)
 	}
 }

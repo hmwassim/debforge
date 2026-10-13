@@ -60,6 +60,11 @@ type App struct {
 	Version    string
 }
 
+// machine returns the facts conditional files are matched against.
+func (a *App) machine() catalog.Machine {
+	return catalog.Machine{Chassis: system.DetectChassis(a.Paths.Root)}
+}
+
 func (a *App) loadCatalog() error {
 	if a.Catalog != nil {
 		return nil
@@ -160,7 +165,7 @@ func (a *App) begin(force bool) (*session, error) {
 	ext := &apt.Extrepo{R: a.R, SourcesDir: a.Paths.Sources}
 	s.env = &plan.Env{
 		Cat: a.Catalog, State: st, Snap: s.snap, Versions: versions, Files: a.Files, User: s.user,
-		HasHardware: a.Hardware, ExtrepoEnabled: ext.Enabled,
+		HasHardware: a.Hardware, ExtrepoEnabled: ext.Enabled, Machine: a.machine(),
 	}
 	s.exec = &execute.Exec{
 		R: a.R, Apt: a.apt(), Extrepo: ext, Files: a.Files, HTTP: httpc, UI: a.UI, Log: a.Log,

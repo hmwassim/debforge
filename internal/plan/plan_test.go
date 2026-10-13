@@ -310,7 +310,7 @@ func TestResolveCycle(t *testing.T) {
 
 func TestUpdateForeignArchOnlyIsNotMissing(t *testing.T) {
 	// libwine only exists as i386 here, the way wine32 and steam-libs-i386
-	// do in Debian; apt installs it as libwine:i386 when asked for libwine.
+	// do in the archive; apt installs it as libwine:i386 when asked for libwine.
 	e := env(t, state.New(), "wine\tamd64\tii \t1\nlibwine\ti386\tii \t1\n")
 	installed(e, "wine", "", true, "wine", "libwine")
 	e.State.Packages["wine"].Files = map[string]state.File{}
@@ -335,5 +335,39 @@ func TestResolveProgress(t *testing.T) {
 	// Only lutris has an upstream version; wine is an apt package.
 	if strings.Join(calls, ",") != " 0/1,lutris 1/1" {
 		t.Fatalf("progress calls = %q", calls)
+	}
+}
+
+func TestConditionalFilesFollowMachine(t *testing.T) {
+	m := fstest.MapFS{"packages/tune.yaml": &fstest.MapFile{Data: []byte(`
+name: tune
+description: x
+category: system
+files:
+  - {dest: /etc/both.conf, content: a}
+  - {dest: /etc/desk.conf, content: b, when: {chassis: desktop}}
+  - {dest: "~/.config/lap.conf", content: c, when: {chassis: laptop}}
+`)}}
+	cat, _, err := catalog.Load(catalog.Layer{Name: "t", FS: m, PkgDir: "packages", FilesDir: "files"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := env(t, state.New(), "")
+	e.Cat, e.User = cat, nil
+	e.Machine = catalog.Machine{Chassis: catalog.ChassisDesktop}
+	p, err := e.Install(context.Background(), []string{"tune"}, Options{})
+	if err != nil {
+		t.Fatalf("desktop needs no target user for a laptop-only home file: %v", err)
+	}
+	var got []string
+	for _, f := range p.Items[0].Files {
+		got = append(got, f.Path)
+	}
+	if strings.Join(got, " ") != "/etc/both.conf /etc/desk.conf" || len(p.Items[0].Defs) != 2 {
+		t.Fatalf("desktop files: %v", got)
+	}
+	e.Machine = catalog.Machine{Chassis: catalog.ChassisLaptop}
+	if _, err := e.Install(context.Background(), []string{"tune"}, Options{}); err == nil {
+		t.Fatal("laptop writes a home file and needs the target user")
 	}
 }

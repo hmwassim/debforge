@@ -49,7 +49,9 @@ type Item struct {
 	// package brings that were not already on the system (or that other
 	// debforge packages also claim).
 	AptRecord []string
-	Files     []FileChange
+	// Defs are the package's files that apply on this machine.
+	Defs  []catalog.File
+	Files []FileChange
 }
 
 // Plan is the full set of changes.
@@ -89,6 +91,8 @@ type Env struct {
 	User           *system.User // nil when no target user is known
 	HasHardware    func(*catalog.Hardware) bool
 	ExtrepoEnabled func(string) bool
+	// Machine decides which conditional package files apply.
+	Machine catalog.Machine
 	// Progress, if set, is called as upstream versions are resolved:
 	// first with done=0, then once per package.
 	Progress func(name string, done, total int)
@@ -270,7 +274,7 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 				return nil, fmt.Errorf("%s has no variant %q (have %s)", p.Name, it.Variant, variantNames(p))
 			}
 		}
-		if hasUserFiles(p) && e.User == nil {
+		if hasUserFiles(p.FilesFor(e.Machine)) && e.User == nil {
 			return nil, fmt.Errorf("%s writes files into your home directory, but the target user is unknown (%v)", p.Name, system.ErrNoTargetUser)
 		}
 
@@ -400,7 +404,8 @@ func FileSpec(f catalog.File, u *system.User) files.Spec {
 }
 
 func (e *Env) filesFor(it *Item, old *state.Package, force bool) error {
-	for _, f := range it.Pkg.Files {
+	it.Defs = it.Pkg.FilesFor(e.Machine)
+	for _, f := range it.Defs {
 		spec := FileSpec(f, e.User)
 		var rec *state.File
 		if old != nil {
@@ -568,8 +573,8 @@ func (e *Env) removalOrder(removing map[string]string, depends func(string) []st
 	return out
 }
 
-func hasUserFiles(p *catalog.Package) bool {
-	for _, f := range p.Files {
+func hasUserFiles(fl []catalog.File) bool {
+	for _, f := range fl {
 		if f.User() {
 			return true
 		}

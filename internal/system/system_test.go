@@ -3,7 +3,9 @@ package system_test
 import (
 	"context"
 	"errors"
+	"os"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -136,5 +138,40 @@ func TestTargetUser(t *testing.T) {
 	}
 	if got := u.ExpandHome("~/.config/x"); got != "/home/alice/.config/x" {
 		t.Fatalf("ExpandHome = %q", got)
+	}
+}
+
+func TestDetectChassis(t *testing.T) {
+	write := func(root, p, v string) {
+		os.MkdirAll(filepath.Dir(root+p), 0o755)
+		os.WriteFile(root+p, []byte(v+"\n"), 0o644)
+	}
+	cases := []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{"nothing", nil, "desktop"},
+		{"desktop type", map[string]string{"/sys/class/dmi/id/chassis_type": "3"}, "desktop"},
+		{"notebook type", map[string]string{"/sys/class/dmi/id/chassis_type": "10"}, "laptop"},
+		{"convertible type", map[string]string{"/sys/class/dmi/id/chassis_type": "31"}, "laptop"},
+		{"system battery", map[string]string{
+			"/sys/class/dmi/id/chassis_type":    "3",
+			"/sys/class/power_supply/BAT0/type": "Battery",
+		}, "laptop"},
+		{"mouse battery", map[string]string{
+			"/sys/class/power_supply/hidpp_battery_0/type":  "Battery",
+			"/sys/class/power_supply/hidpp_battery_0/scope": "Device",
+			"/sys/class/power_supply/AC/type":               "Mains",
+		}, "desktop"},
+	}
+	for _, c := range cases {
+		root := t.TempDir()
+		for p, v := range c.files {
+			write(root, p, v)
+		}
+		if got := system.DetectChassis(root); got != c.want {
+			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
+		}
 	}
 }

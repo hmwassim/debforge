@@ -228,6 +228,9 @@ func validatePackage(p *Package) []string {
 		if err := checkDest(f.Dest); err != nil {
 			bad("file %s: %v", f.Dest, err)
 		}
+		if err := CheckWhen(f.When); err != nil {
+			bad("file %s: %v", f.Dest, err)
+		}
 	}
 	for _, l := range p.LegacyCleanup {
 		if err := checkDest(l); err != nil {
@@ -293,6 +296,17 @@ func checkDest(d string) error {
 		if seg == ".." {
 			return fmt.Errorf("path contains a .. segment")
 		}
+	}
+	return nil
+}
+
+// CheckWhen validates a file condition.
+func CheckWhen(w *When) error {
+	if w == nil {
+		return nil
+	}
+	if w.Chassis != ChassisLaptop && w.Chassis != ChassisDesktop {
+		return fmt.Errorf("when.chassis must be %s or %s", ChassisLaptop, ChassisDesktop)
 	}
 	return nil
 }

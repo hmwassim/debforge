@@ -185,10 +185,37 @@ type File struct {
 	Src     string `yaml:"src"`
 	Content string `yaml:"content"`
 	Mode    string `yaml:"mode"`
+	// When limits the file to matching machines; nil means every machine.
+	When *When `yaml:"when"`
 
 	data []byte
 	mode os.FileMode
 }
+
+// Chassis values a When can name.
+const (
+	ChassisLaptop  = "laptop"
+	ChassisDesktop = "desktop"
+)
+
+// When is a machine condition.
+type When struct {
+	// Chassis is laptop or desktop.
+	Chassis string `yaml:"chassis"`
+}
+
+// Machine holds the facts a When is evaluated against.
+type Machine struct {
+	Chassis string
+}
+
+// Matches reports whether m satisfies w. A nil When matches every machine.
+func (w *When) Matches(m Machine) bool {
+	return w == nil || w.Chassis == "" || w.Chassis == m.Chassis
+}
+
+// Applies reports whether the file is installed on m.
+func (f File) Applies(m Machine) bool { return f.When.Matches(m) }
 
 // Data returns the resolved file content.
 func (f File) Data() []byte { return f.data }
@@ -212,6 +239,17 @@ type Hooks struct {
 	PostInstall string `yaml:"post_install"`
 	PreRemove   string `yaml:"pre_remove"`
 	PostRemove  string `yaml:"post_remove"`
+}
+
+// FilesFor returns the package's files that apply on m.
+func (p *Package) FilesFor(m Machine) []File {
+	var out []File
+	for _, f := range p.Files {
+		if f.Applies(m) {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 // Kind returns the package kind derived from Source.

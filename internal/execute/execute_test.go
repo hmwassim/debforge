@@ -296,3 +296,24 @@ func TestNotesShown(t *testing.T) {
 		t.Fatalf("remove notes: %v %v", sum, err)
 	}
 }
+
+func TestConditionalFilesSkipped(t *testing.T) {
+	h := newHarness(t, map[string]string{"packages/tune.yaml": `
+name: tune
+description: x
+category: system
+files:
+  - {dest: /etc/both.conf, content: a}
+  - {dest: /etc/lap.conf, content: b, when: {chassis: laptop}}
+`})
+	h.env.Machine = catalog.Machine{Chassis: catalog.ChassisDesktop}
+	if _, err := h.install("tune"); err != nil {
+		t.Fatal(err)
+	}
+	if h.read("/etc/both.conf") != "a" || h.read("/etc/lap.conf") != "<missing>" {
+		t.Fatal("conditional file not honoured")
+	}
+	if sp := h.x.State.Packages["tune"]; len(sp.Files) != 1 {
+		t.Fatalf("manifest: %v", sp.Files)
+	}
+}
