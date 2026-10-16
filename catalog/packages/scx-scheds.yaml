@@ -2,8 +2,14 @@ name: scx-scheds
 description: sched_ext scheduler collection
 category: system
 trust: upstream-tls
-version: {from: git-tags, repo: "https://github.com/hmwassim/scx-bundler", tag: "v{version}"}
+version:
+  from: cmd
+  # scx-bundler releases are tagged with scx's version, and scx-loader can lag
+  # behind, so read this package's version from the latest release's assets.
+  cmd: >-
+    curl -fsSL https://api.github.com/repos/hmwassim/scx-bundler/releases/latest
+    | sed -n 's/.*"name": *"scx-scheds_\([^"]*\)_amd64\.deb".*/\1/p' | head -n 1
 source:
   deb:
     urls:
-      - url: "https://github.com/hmwassim/scx-bundler/releases/download/v{version}/scx-scheds_{version}_amd64.deb"
+      - url: "https://github.com/hmwassim/scx-bundler/releases/latest/download/scx-scheds_{version}_amd64.deb"
