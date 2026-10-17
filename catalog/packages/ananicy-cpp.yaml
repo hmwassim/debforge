@@ -1,0 +1,42 @@
+name: ananicy-cpp
+description: Ananicy-Cpp process priority daemon (games, Wine/Proton, compositor and audio ahead of background work)
+category: gaming
+depends: [ananicy-rules]
+requires: [cmake, ninja-build, g++, pkg-config, clang, llvm, bpftool, libbpf-dev, libelf-dev, zlib1g-dev, libpcre2-dev, libsystemd-dev, libspdlog-dev, libfmt-dev, nlohmann-json3-dev]
+version: {from: git-tags, repo: "https://gitlab.com/ananicy-cpp/ananicy-cpp.git", tag: "v{version}"}
+source:
+  git: {repo: "https://gitlab.com/ananicy-cpp/ananicy-cpp.git", ref: "v{version}"}
+reload: [systemd]
+hooks:
+  # The BPF backend, as Arch and CachyOS build it. The default netlink backend
+  # names Wine processes by their Windows path (S:\...\Game.exe), so no .exe
+  # rule ever matches; only the BPF event handler strips it.
+  build: |
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local -DENABLE_SYSTEMD=ON \
+      -DUSE_EXTERNAL_JSON=ON -DUSE_EXTERNAL_SPDLOG=ON -DUSE_EXTERNAL_FMTLIB=ON \
+      -DUSE_BPF_PROC_IMPL=ON -DBPF_BUILD_LIBBPF=OFF -DENABLE_REGEX_SUPPORT=ON \
+      -DVERSION="$VERSION"
+    cmake --build build --target ananicy-cpp
+  # BPF events miss a process that forks and then execs (wineserver is one):
+  # the fork is seen under the parent's name and the exec is dropped as the
+  # same pid. --manual-scanning rescans /proc every check_freq seconds;
+  # processes without a rule are left alone.
+  install: |
+    DESTDIR="$DESTDIR" cmake --install build --component Runtime
+    unit="$DESTDIR/usr/local/lib/systemd/system/ananicy-cpp.service"
+    sed -i 's:^ExecStart=/usr/local/bin/ananicy-cpp start$:ExecStart=/usr/local/bin/ananicy-cpp --manual-scanning start:' "$unit"
+    grep -q -- '--manual-scanning start$' "$unit"
+  post_install: |
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload
+      systemctl enable --quiet ananicy-cpp.service
+      systemctl restart ananicy-cpp.service
+    fi
+  pre_remove: |
+    if [ -d /run/systemd/system ]; then
+      systemctl disable --now --quiet ananicy-cpp.service 2>/dev/null || true
+    fi
+notes:
+  install: restart running games and launchers so their priorities apply from the start.
+  remove: priorities already set stay until those processes restart.
