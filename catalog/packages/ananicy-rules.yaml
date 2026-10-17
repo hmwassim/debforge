@@ -1,0 +1,18 @@
+name: ananicy-rules
+description: CachyOS rules for ananicy-cpp (13k+ games, Wine/Proton, launchers, desktop, background tasks)
+category: gaming
+version: {from: git-tags, repo: "https://github.com/CachyOS/ananicy-rules", tag: "{version}"}
+source:
+  git: {repo: "https://github.com/CachyOS/ananicy-rules.git", ref: "{version}"}
+# Rules are replaced on every update; your own go in 99-local.rules, which is
+# tracked and keeps your edits.
+files:
+  - {dest: /etc/ananicy.d/99-local.rules, src: 99-local.rules}
+hooks:
+  install: |
+    install -d "$DESTDIR/etc/ananicy.d"
+    cp -r ananicy.conf 00-types.types 00-cgroups.cgroups 00-default "$DESTDIR/etc/ananicy.d/"
+  post_install: |
+    if [ -d /run/systemd/system ]; then
+      systemctl try-restart ananicy-cpp.service 2>/dev/null || true
+    fi

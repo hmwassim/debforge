@@ -1,0 +1,15 @@
+# Managed by debforge (ananicy-rules). Your own ananicy-cpp rules: this file
+# keeps your edits when the rules are updated.
+#
+# One rule per line. "name" is the process name as ps shows it; for Wine and
+# Proton games it is the .exe file name, and it is case-sensitive.
+# Types are defined in /etc/ananicy.d/00-types.types, for example:
+#   Game           nice -5
+#   LowLatency_RT  nice -12
+#   BG_CPUIO       nice 16, idle I/O and CPU scheduling
+#
+# Examples:
+#   { "name": "SOTTR.exe", "type": "Game" }
+#   { "name": "MyGame.x86_64", "type": "Game" }
+#
+# Apply changes with: sudo systemctl restart ananicy-cpp
