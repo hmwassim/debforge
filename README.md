@@ -243,9 +243,10 @@ nothing newer.
 Notable defaults:
 - **apt sources:** in `/etc/apt/sources.list.d/debian.sources` (deb822). A legacy
   `sources.list` that still has active entries is backed up and replaced with a comment.
-- **DNS:** systemd-resolved with Cloudflare's malware-blocking resolver. It uses
-  `DNSOverTLS=opportunistic` and `DNSSEC=allow-downgrade`, so captive portals, networks
-  that block port 853, and VPN split DNS keep working.
+- **DNS:** systemd-resolved sends all queries to Cloudflare's malware-blocking resolver
+  (`Domains=~.`), with `DNSSEC=allow-downgrade`. Desktops use `DNSOverTLS=yes`; laptops
+  use `opportunistic`, so captive portals and networks that block port 853 keep working.
+  VPN split DNS keeps working.
 - **Backports:** only the kernel comes from backports, plus `nvidia-vaapi-driver` and
   `gamescope` when those packages are installed. Firmware, Mesa and PipeWire stay on
   stable.

@@ -95,10 +95,11 @@ steps:
         apply: timedatectl set-ntp true
 
   - id: resolved
-    title: Encrypted DNS (systemd-resolved, opportunistic DNS-over-TLS)
+    title: Encrypted DNS (systemd-resolved, DNS-over-TLS)
     packages: [systemd-resolved]
     files:
-      - {dest: /etc/systemd/resolved.conf.d/99-dot.conf, src: resolved-99-dot.conf}
+      - {dest: /etc/systemd/resolved.conf.d/99-dot.conf, src: resolved-99-dot.conf, when: {chassis: desktop}}
+      - {dest: /etc/systemd/resolved.conf.d/99-dot.conf, src: resolved-99-dot-laptop.conf, when: {chassis: laptop}}
     services:
       - {name: systemd-resolved.service, enable: true, start: true, restart_on_change: true}
     commands:
