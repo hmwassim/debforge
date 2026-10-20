@@ -44,7 +44,7 @@ type Package struct {
 	// Notes are shown to the user after the package is installed or removed.
 	Notes Notes `yaml:"notes"`
 	// Trust "upstream-tls" allows unpinned downloads of auto-updating
-	// packages (HTTPS only, no checksum).
+	// packages (HTTPS, plus GitHub's published sha256 for release assets).
 	Trust string `yaml:"trust"`
 	// Matrix expands one file into several packages; each entry's keys are
 	// substituted for {{key}} throughout the document.

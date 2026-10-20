@@ -43,6 +43,8 @@ type Exec struct {
 	User    *system.User
 	WorkDir string
 	Now     func() time.Time
+	// GitHubAPI overrides the GitHub API base URL (tests); empty means fetch.GitHubAPI.
+	GitHubAPI string
 	// Force replaces user-modified files (with backup).
 	Force bool
 }
@@ -286,6 +288,23 @@ func (x *Exec) writeRepos(ctx context.Context, pl *plan.Plan, prep map[string]*p
 	return changed, nil
 }
 
+// githubSHA256 returns the sha256 GitHub publishes for a release asset, so
+// downloads without a pinned checksum are verified too. If GitHub can't be
+// asked, the download relies on HTTPS alone, as it would without a digest.
+func (x *Exec) githubSHA256(ctx context.Context, url string) string {
+	api := x.GitHubAPI
+	if api == "" {
+		api = fetch.GitHubAPI
+	}
+	sum, err := fetch.AssetSHA256(ctx, x.HTTP, api, url)
+	if err != nil {
+		x.UI.Warn("no checksum for %s, relying on HTTPS: %v", path.Base(url), err)
+		x.Log.Printf("checksum lookup for %s: %v", url, err)
+		return ""
+	}
+	return sum
+}
+
 // fetch downloads or clones the payload of non-apt items.
 func (x *Exec) fetch(ctx context.Context, it *plan.Item) (*prepared, error) {
 	p := &prepared{}
@@ -300,6 +319,9 @@ func (x *Exec) fetch(ctx context.Context, it *plan.Item) (*prepared, error) {
 	}
 	dl := func(url, sha, dest string) error {
 		url = fetch.Expand(url, it.Version)
+		if sha == "" {
+			sha = x.githubSHA256(ctx, url)
+		}
 		prog := x.UI.Start("Downloading " + path.Base(url))
 		err := fetch.Download(ctx, x.HTTP, url, dest, sha, func(done, total int64) {
 			pct := -1.0

@@ -199,7 +199,9 @@ legacy_cleanup: [/etc/old-name.conf]   # deleted on install
 - **Downloads** must be HTTPS. Redirects to plain HTTP are refused.
   - A download needs a `sha256`.
   - The exception is a package that auto-updates (`version.from` is `git-tags` or `cmd`)
-    and explicitly declares `trust: upstream-tls`.
+    and explicitly declares `trust: upstream-tls`. If such a download is a GitHub
+    release asset, it is checked against the sha256 GitHub publishes for it; when GitHub
+    can't be reached, HTTPS alone is relied on, with a warning.
   - A `sha256` cannot be combined with an auto-updating `{version}` URL: use
     `version.from: pin` instead.
 - **Versions** are checked before they are substituted into URLs or passed to hooks.

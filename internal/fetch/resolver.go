@@ -54,6 +54,12 @@ func (r *Resolver) Resolve(ctx context.Context, p *catalog.Package) (string, err
 	return "", fmt.Errorf("unknown version source %q", v.From)
 }
 
+// HasGitHubDigest reports whether p downloads a GitHub release asset, which
+// is checked against the sha256 GitHub publishes when the release has one.
+func HasGitHubDigest(p *catalog.Package) bool {
+	return releaseAsset.MatchString(firstVersionedURL(p))
+}
+
 func firstVersionedURL(p *catalog.Package) string {
 	var urls []string
 	switch p.Kind() {

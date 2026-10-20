@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/hmwassim/debforge/internal/catalog"
+	"github.com/hmwassim/debforge/internal/fetch"
 	"github.com/hmwassim/debforge/internal/state"
 )
 
@@ -84,7 +85,11 @@ func infoText(a *App, p *catalog.Package, sp *state.Package, verbose bool) strin
 		}
 	}
 	if p.Trust == "upstream-tls" {
-		row("Integrity", "upstream HTTPS only (auto-updating, no checksum)")
+		if fetch.HasGitHubDigest(p) {
+			row("Integrity", "upstream HTTPS, and GitHub's sha256 when the release publishes one (auto-updating)")
+		} else {
+			row("Integrity", "upstream HTTPS only (auto-updating, no checksum)")
+		}
 	}
 	m := a.machine()
 	for i, f := range p.Files {

@@ -195,3 +195,47 @@ func TestResolveGitHubReleases(t *testing.T) {
 		t.Fatalf("%q %v", v, err)
 	}
 }
+
+func TestAssetSHA256(t *testing.T) {
+	const sum = "862a717502f0b9601f23e849a4b4dfe3d69aed7e7ca262cf1bdc4a553f8de7ec"
+	calls := 0
+	srv, c := tlsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		switch r.URL.Path {
+		case "/repos/a/b/releases/tags/v1.0", "/repos/a/b/releases/tags/v1.0+fix":
+			w.Write([]byte(`{"tag_name":"v1.0","assets":[
+				{"name":"app.AppImage","digest":"sha256:` + sum + `"},
+				{"name":"old.AppImage","digest":null},
+				{"name":"bad.AppImage","digest":"sha256:xyz"},
+				{"name":"my app.AppImage","digest":"sha256:` + sum + `"}]}`))
+		case "/repos/a/limited/releases/tags/v1.0":
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.WriteHeader(403)
+		default:
+			w.WriteHeader(404)
+		}
+	})
+	get := func(u string) (string, error) { return AssetSHA256(context.Background(), c, srv.URL, u) }
+	for u, want := range map[string]string{
+		"https://github.com/a/b/releases/download/v1.0/app.AppImage":       sum,
+		"https://github.com/a/b/releases/download/v1.0/my%20app.AppImage":  sum,
+		"https://github.com/a/b/releases/download/v1.0%2Bfix/app.AppImage": sum,
+		"https://github.com/a/b/releases/download/v1.0/old.AppImage":       "",
+		"https://github.com/a/b/releases/download/v1.0/bad.AppImage":       "",
+		"https://github.com/a/b/releases/download/v1.0/unknown.AppImage":   "",
+	} {
+		if got, err := get(u); err != nil || got != want {
+			t.Errorf("%s: got %q %v, want %q", u, got, err, want)
+		}
+	}
+	before := calls
+	if got, err := get("https://example.com/a/b/releases/download/v1.0/app.AppImage"); got != "" || err != nil || calls != before {
+		t.Errorf("non-GitHub URL: got %q %v, %d requests", got, err, calls-before)
+	}
+	if _, err := get("https://github.com/a/missing/releases/download/v1.0/x"); err == nil || !strings.Contains(err.Error(), "404") {
+		t.Errorf("missing release: err = %v", err)
+	}
+	if _, err := get("https://github.com/a/limited/releases/download/v1.0/x"); err == nil || !strings.Contains(err.Error(), "rate limit") {
+		t.Errorf("rate limit: err = %v", err)
+	}
+}
