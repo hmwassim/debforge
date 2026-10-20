@@ -84,10 +84,10 @@ steps:
     backports: true
     packages: [linux-image-amd64, linux-headers-amd64]
 
-  # Wine and Proton use ntsync when /dev/ntsync exists; the driver has no
+  # Proton and Wine 11+ use ntsync when /dev/ntsync exists; the driver has no
   # module alias, so nothing else loads it. Stock trixie kernels lack it.
   - id: ntsync
-    title: ntsync driver (Wine and Proton)
+    title: ntsync driver (Proton, Wine 11+)
     files:
       - {dest: /etc/modules-load.d/ntsync.conf, content: "ntsync\n"}
     commands:
