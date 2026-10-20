@@ -15,8 +15,8 @@ files:
 reload: [systemd, sysctl, tmpfiles, udev]
 hooks:
   # system.conf.d (timeouts) needs a manager re-exec, not a reload;
-  # user.conf.d applies at the next login. The pcspkr blacklist applies
-  # after a reboot.
+  # user.conf.d applies at the next login. The pcspkr blacklist and rtkit's
+  # log level apply after a reboot.
   post_install: |
     systemctl daemon-reexec
     systemctl restart systemd-journald
