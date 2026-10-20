@@ -14,9 +14,27 @@ steps:
     title: System upgrade
     builtin: upgrade
 
+  # From backports to match the kernel, for common desktop and laptop hardware;
+  # firmware-sof-signed is not in backports and stays on stable.
   - id: firmware
-    title: Firmware
-    packages: [firmware-linux, firmware-linux-nonfree, firmware-misc-nonfree, firmware-intel-graphics, firmware-iwlwifi, firmware-sof-signed, firmware-realtek]
+    title: Firmware (from backports)
+    backports: true
+    packages:
+      - firmware-linux
+      - firmware-linux-nonfree
+      - firmware-misc-nonfree
+      - firmware-amd-graphics
+      - firmware-intel-graphics
+      - firmware-intel-misc
+      - firmware-intel-sound
+      - firmware-nvidia-graphics
+      - firmware-iwlwifi
+      - firmware-realtek
+      - firmware-mediatek
+      - firmware-atheros
+      - firmware-brcm80211
+      - firmware-cirrus
+      - firmware-sof-signed
 
   - id: microcode-intel
     title: Intel CPU microcode
@@ -155,21 +173,30 @@ steps:
     files:
       - {dest: /etc/extrepo/config.yaml, src: extrepo-config.yaml}
 
+  # Newer drivers for current GPUs; backports builds both architectures at
+  # the same version. The desktop loads Mesa on NVIDIA systems too.
   - id: mesa
-    title: Mesa GPU drivers
+    title: Mesa GPU drivers (from backports)
+    backports: true
     packages:
-      - intel-media-va-driver-non-free
-      - intel-media-va-driver-non-free:i386
       - mesa-va-drivers
       - mesa-va-drivers:i386
       - mesa-vulkan-drivers
       - mesa-vulkan-drivers:i386
+      - libglx-mesa0
+      - libglx-mesa0:i386
+      - libgl1-mesa-dri
+      - libgl1-mesa-dri:i386
+
+  - id: graphics
+    title: Video acceleration and Vulkan
+    packages:
+      - intel-media-va-driver-non-free
+      - intel-media-va-driver-non-free:i386
       - libva2
       - libva2:i386
       - libvulkan1
       - libvulkan1:i386
-      - libglx-mesa0:i386
-      - libgl1-mesa-dri:i386
       - vulkan-tools
       - vainfo
       - vdpauinfo
