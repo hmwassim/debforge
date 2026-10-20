@@ -43,21 +43,25 @@ func flagWords(c *command) []string {
 	return out
 }
 
-// takesPackages reports whether a command completes package names.
-func takesPackages(name string) bool {
+// packageList returns the list command whose output completes a command's
+// package arguments: installed packages for remove and update, the whole
+// catalog for install and info, nothing for other commands.
+func packageList(name string) string {
 	switch name {
-	case "install", "remove", "update", "info":
-		return true
+	case "install", "info":
+		return "debforge list --names"
+	case "remove", "update":
+		return "debforge list --installed --names"
 	}
-	return false
+	return ""
 }
 
 func bashCompletion(cmds []*command) string {
 	var cases strings.Builder
 	for _, c := range cmds {
 		pk := ""
-		if takesPackages(c.name) {
-			pk = ` $(debforge list --names 2>/dev/null)`
+		if l := packageList(c.name); l != "" {
+			pk = " $(" + l + " 2>/dev/null)"
 		}
 		fmt.Fprintf(&cases, "    %s) COMPREPLY=($(compgen -W \"%s%s\" -- \"$cur\")) ;;\n", c.name, strings.Join(flagWords(c), " "), pk)
 	}
@@ -83,8 +87,8 @@ func zshCompletion(cmds []*command) string {
 	b.WriteString("  )\n  if (( CURRENT == 2 )); then\n    _describe command cmds\n    return\n  fi\n  case $words[2] in\n")
 	for _, c := range cmds {
 		pk := ""
-		if takesPackages(c.name) {
-			pk = ` ${(f)"$(debforge list --names 2>/dev/null)"}`
+		if l := packageList(c.name); l != "" {
+			pk = ` ${(f)"$(` + l + ` 2>/dev/null)"}`
 		}
 		fmt.Fprintf(&b, "    %s) compadd -- %s%s ;;\n", c.name, strings.Join(flagWords(c), " "), pk)
 	}
@@ -100,8 +104,8 @@ func fishCompletion(cmds []*command) string {
 		for _, f := range flagWords(c) {
 			fmt.Fprintf(&b, "complete -c debforge -n '__fish_seen_subcommand_from %s' -l %s\n", c.name, strings.TrimPrefix(f, "--"))
 		}
-		if takesPackages(c.name) {
-			fmt.Fprintf(&b, "complete -c debforge -n '__fish_seen_subcommand_from %s' -a '(debforge list --names 2>/dev/null)'\n", c.name)
+		if l := packageList(c.name); l != "" {
+			fmt.Fprintf(&b, "complete -c debforge -n '__fish_seen_subcommand_from %s' -a '(%s 2>/dev/null)'\n", c.name, l)
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")

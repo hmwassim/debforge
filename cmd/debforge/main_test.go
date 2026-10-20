@@ -310,5 +310,9 @@ func TestCompletionScripts(t *testing.T) {
 				t.Errorf("%s completion lacks %s", sh, c.name)
 			}
 		}
+		if !strings.Contains(ta.out.String(), "debforge list --installed --names") ||
+			!strings.Contains(ta.out.String(), "debforge list --names") {
+			t.Errorf("%s completion does not separate installed from catalog packages", sh)
+		}
 	}
 }
