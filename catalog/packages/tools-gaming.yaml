@@ -40,3 +40,9 @@ source:
       - schedtool
       - power-profiles-daemon
     backports: [gamescope]
+hooks:
+  # gamemode's polkit rule only lets the gamemode group change the CPU
+  # governor; Debian never applies the package's sysusers.d file.
+  post_install: |
+    systemd-sysusers gamemode.conf
+    usermod -aG gamemode "$TARGET_USER"
