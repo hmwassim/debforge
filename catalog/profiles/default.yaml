@@ -187,6 +187,14 @@ steps:
       - libglx-mesa0:i386
       - libgl1-mesa-dri
       - libgl1-mesa-dri:i386
+    # Mesa's libraries require each other's exact version, so any Mesa
+    # library a later package pulls in must come from backports too.
+    files:
+      - dest: /etc/apt/preferences.d/debforge-mesa.pref
+        content: |
+          Package: src:mesa:any
+          Pin: release n=trixie-backports
+          Pin-Priority: 500
 
   - id: graphics
     title: Video acceleration and Vulkan
@@ -264,11 +272,17 @@ steps:
     reload: [fontconfig]
 
   - id: desktop
-    title: Desktop tools, VPN plugins and Flatpak
-    packages: [fastfetch, papirus-icon-theme, flatpak, xdg-desktop-portal, network-manager-openvpn, network-manager-openconnect]
+    title: Desktop tools and Flatpak
+    packages: [fastfetch, papirus-icon-theme, flatpak, xdg-desktop-portal]
     commands:
       - check: flatpak remotes --system --columns=name | grep -qx flathub
         apply: flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+  # Only where NetworkManager runs: the plugins would pull it in otherwise.
+  - id: vpn
+    title: VPN plugins for NetworkManager
+    when: {network_manager: true}
+    packages: [network-manager-openvpn, network-manager-openconnect]
 
   - id: desktop-kde
     title: KDE Flatpak integration

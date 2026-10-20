@@ -251,7 +251,8 @@ Notable defaults:
   (`Domains=~.`), with `DNSSEC=allow-downgrade`. Desktops use `DNSOverTLS=yes`; laptops
   use `opportunistic`, so captive portals and networks that block port 853 keep working.
   VPN split DNS keeps working.
-- **Backports:** the kernel, firmware and Mesa come from backports, plus
+- **Backports:** the kernel, firmware and Mesa come from backports (Mesa is pinned
+  there, so Mesa libraries other packages pull in later match), plus
   `nvidia-vaapi-driver` and `gamescope` when those packages are installed. PipeWire stays
   on stable: backports has no matching i386 build. Out-of-tree kernel modules you add
   yourself (DKMS packages such as `zfs-dkms`) may need their backports version to build
