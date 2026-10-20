@@ -93,6 +93,15 @@ steps:
     notes:
       changed: zram settings changed; they take effect after the next reboot.
 
+  # The desktop's power profiles drive tuned through tuned-ppd, which
+  # replaces power-profiles-daemon; Performance = throughput-performance.
+  - id: tuned
+    title: Power profiles (tuned)
+    packages: [tuned, tuned-ppd]
+    services:
+      - {name: tuned.service, enable: true, start: true}
+      - {name: tuned-ppd.service, enable: true, start: true}
+
   - id: timesyncd
     title: Network time sync
     packages: [systemd-timesyncd]

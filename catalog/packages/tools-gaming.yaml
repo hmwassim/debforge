@@ -38,7 +38,6 @@ source:
       - goverlay
       - vkbasalt
       - schedtool
-      - power-profiles-daemon
     backports: [gamescope]
 hooks:
   # gamemode's polkit rule only lets the gamemode group change the CPU
