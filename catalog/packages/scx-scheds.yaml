@@ -1,6 +1,8 @@
 name: scx-scheds
-description: sched_ext scheduler collection
+description: sched_ext scheduler collection (needs the debforge kernel)
 category: system
+# On Linux 7.2, schedulers only load with debforge-kernel's BTF fix (in 7.3).
+depends: [debforge-kernel]
 trust: upstream-tls
 version:
   from: cmd
@@ -13,3 +15,5 @@ source:
   deb:
     urls:
       - url: "https://github.com/hmwassim/scx-bundler/releases/latest/download/scx-scheds_{version}_amd64.deb"
+notes:
+  install: schedulers only load on the debforge kernel; reboot into it if it isn't running.
