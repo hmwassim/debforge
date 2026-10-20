@@ -66,6 +66,16 @@ steps:
     backports: true
     packages: [linux-image-amd64, linux-headers-amd64]
 
+  # Wine and Proton use ntsync when /dev/ntsync exists; the driver has no
+  # module alias, so nothing else loads it. Stock trixie kernels lack it.
+  - id: ntsync
+    title: ntsync driver (Wine and Proton)
+    files:
+      - {dest: /etc/modules-load.d/ntsync.conf, content: "ntsync\n"}
+    commands:
+      - check: test -e /dev/ntsync || ! /usr/sbin/modinfo ntsync >/dev/null 2>&1
+        apply: modprobe ntsync
+
   - id: zram
     title: zram swap
     packages: [systemd-zram-generator]

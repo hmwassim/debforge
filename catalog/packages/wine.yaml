@@ -1,12 +1,10 @@
 name: wine
-description: Wine Windows compatibility layer (with ntsync on the backports kernel)
+description: Wine Windows compatibility layer
 category: gaming
 source:
   apt:
     packages: [wine, wine32, wine64, libwine, "libwine:i386", fonts-wine, "wine32-preloader:i386", wine64-preloader, wine-binfmt, q4wine, winbind]
 files:
-  - {dest: /etc/modules-load.d/10-ntsync.conf, content: "ntsync\n"}
-  - {dest: /etc/udev/rules.d/99-ntsync.rules, content: "KERNEL==\"ntsync\", MODE=\"0644\"\n"}
   - dest: /etc/fonts/conf.d/30-win32-aliases.conf
     content: |
       <?xml version="1.0"?>
@@ -28,4 +26,4 @@ files:
           <default><family>sans-serif</family></default>
         </alias>
       </fontconfig>
-reload: [udev, fontconfig, modules]
+reload: [fontconfig]

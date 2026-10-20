@@ -4,7 +4,7 @@ An opinionated provisioner and small package manager for **Debian 13 (trixie), a
 
 - `debforge setup` turns a fresh Debian install into a ready desktop: repositories
   (contrib, non-free, backports), i386 multiarch, a backports kernel, firmware, Mesa,
-  zram, encrypted DNS, time sync, codecs, fonts and Flatpak.
+  zram, ntsync, encrypted DNS, time sync, codecs, fonts and Flatpak.
 - `debforge install <pkg>` installs software that Debian doesn't package well: apt
   packages from extrepo or vendor repositories, upstream `.deb` releases, AppImages,
   source builds and configuration bundles. Each one is described by a small YAML file.
