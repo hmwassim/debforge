@@ -87,7 +87,7 @@ func TestSourcesBuiltin(t *testing.T) {
 func TestBackportsCheckUsesSimulation(t *testing.T) {
 	// A stock kernel is installed, but backports has a newer one: not OK.
 	v := newEnv(t, "linux-image-amd64\tamd64\tii \t6.12.1\n")
-	v.r.OK("apt-get -s -q -t trixie-backports install linux-image-amd64", "Inst linux-image-amd64 [6.12.1] (7.2.6-1~bpo13+1)\n")
+	v.r.OK("apt-get -s -q -t trixie-backports -o APT::Get::Upgrade-By-Source-Package=false install linux-image-amd64", "Inst linux-image-amd64 [6.12.1] (7.2.6-1~bpo13+1)\n")
 	p := profile(t, "steps:\n  - {id: kernel, title: Kernel, backports: true, packages: [linux-image-amd64]}\n", nil)
 	if r := v.e.Check(context.Background(), p.Steps[0]); r.Status != Needed || !strings.Contains(r.Reasons[0], "backports") {
 		t.Fatalf("%+v", r)

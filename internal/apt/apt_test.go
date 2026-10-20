@@ -59,13 +59,13 @@ func TestBackportsTarget(t *testing.T) {
 	r := &systemtest.Runner{}
 	r.On("apt-get", statusWriter("", 0, ""))
 	(&Apt{R: r}).Install(context.Background(), Transaction{Install: []string{"gamescope"}, Target: BackportsSuite}, nil)
-	if !strings.Contains(r.Commands()[0], "-t trixie-backports install gamescope") {
+	if !strings.Contains(r.Commands()[0], "-t trixie-backports -o APT::Get::Upgrade-By-Source-Package=false install gamescope") {
 		t.Fatal(r.Commands()[0])
 	}
 }
 
 func TestPendingInstallTarget(t *testing.T) {
-	r := (&systemtest.Runner{}).OK("apt-get -s -q -t trixie-backports install gamescope", "Inst gamescope [3.16.4-1] (3.16.22+ds-1~bpo13+1)\n")
+	r := (&systemtest.Runner{}).OK("apt-get -s -q -t trixie-backports -o APT::Get::Upgrade-By-Source-Package=false install gamescope", "Inst gamescope [3.16.4-1] (3.16.22+ds-1~bpo13+1)\n")
 	n, err := (&Apt{R: r}).PendingInstall(context.Background(), []string{"gamescope"}, BackportsSuite)
 	if err != nil || n != 1 {
 		t.Fatalf("n = %d err %v: %v", n, err, r.Commands())

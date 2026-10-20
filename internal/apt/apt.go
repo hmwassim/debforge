@@ -22,6 +22,12 @@ import (
 // BackportsSuite is the default backports target release.
 const BackportsSuite = "trixie-backports"
 
+// targetArgs selects a release for the listed packages only: apt would
+// otherwise also upgrade installed packages built from the same source.
+func targetArgs(target string) []string {
+	return []string{"-t", target, "-o", "APT::Get::Upgrade-By-Source-Package=false"}
+}
+
 // ProgressFunc receives progress updates. phase is "download" or
 // "install"; pct is 0-100.
 type ProgressFunc func(phase string, pct float64, detail string)
@@ -68,7 +74,7 @@ func (a *Apt) Install(ctx context.Context, t Transaction, prog ProgressFunc) err
 	}
 	args := baseArgs("install")
 	if t.Target != "" {
-		args = append(args[:len(args)-1], "-t", t.Target, "install")
+		args = append(append(args[:len(args)-1], targetArgs(t.Target)...), "install")
 	}
 	args = append(args, t.Install...)
 	for _, r := range t.Remove {
@@ -132,7 +138,7 @@ func (a *Apt) PendingInstall(ctx context.Context, pkgs []string, target string) 
 	}
 	args := []string{"-s", "-q"}
 	if target != "" {
-		args = append(args, "-t", target)
+		args = append(args, targetArgs(target)...)
 	}
 	args = append(append(args, "install"), pkgs...)
 	res, err := a.R.Run(ctx, system.Cmd{Name: "apt-get", Args: args, Env: env})

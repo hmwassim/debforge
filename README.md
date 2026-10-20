@@ -73,7 +73,8 @@ Exit codes:
   any package change, so a failed download leaves the system untouched.
 - **One apt transaction.** apt packages, local `.deb` files and the removal of conflicting
   packages go into a single `apt-get install`. Backports are installed in a second
-  transaction with `-t trixie-backports`.
+  transaction with `-t trixie-backports`, which only moves the listed packages: other
+  installed packages built from the same source stay where they are.
 - **apt never asks questions.** apt runs non-interactively:
   - `DEBIAN_FRONTEND=noninteractive`;
   - conffiles keep your local version (`--force-confold`);
