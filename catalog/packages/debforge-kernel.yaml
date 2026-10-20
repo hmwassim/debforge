@@ -1,5 +1,5 @@
 name: debforge-kernel
-description: Backports kernel built for responsiveness (1000 Hz, full preemption); unsigned, needs Secure Boot off
+description: Backports kernel built for responsiveness (1000 Hz, lazy preemption); unsigned, needs Secure Boot off
 category: system
 trust: upstream-tls
 version: {from: github-releases, repo: "https://github.com/hmwassim/debforge-kernel", tag: "v{version}"}
