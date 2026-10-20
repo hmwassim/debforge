@@ -1,0 +1,59 @@
+name: fonts-ms
+description: Microsoft fonts (your Windows fonts, or the core fonts), with Arabic drawn by Vazirmatn
+category: fonts
+requires: [libharfbuzz-bin, xdg-user-dirs, fonts-croscore, fonts-crosextra-carlito, fonts-vazirmatn-variable]
+debconf: ["ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true"]
+source:
+  apt:
+    packages: [ttf-mscorefonts-installer]
+files:
+  - {dest: /etc/fonts/conf.d/20-debforge-fonts-ms.conf, src: 20-debforge-fonts-ms.conf}
+reload: [fontconfig]
+hooks:
+  # Copies the Windows fonts from Downloads/fonts-ms to /usr/local/share/fonts.
+  post_install: |
+    dest=/usr/local/share/fonts/fonts-ms
+    as_user() { runuser -u "$TARGET_USER" -- env HOME="$TARGET_HOME" "$@" </dev/null; }
+    dl=$(as_user xdg-user-dir DOWNLOAD)
+    [ "$dl" != "$TARGET_HOME" ] || dl="$TARGET_HOME/Downloads"
+    src="$dl/fonts-ms"
+    # No folder: fonts installed earlier stay; otherwise the core fonts are used.
+    if [ ! -d "$src" ] || [ -L "$src" ]; then
+      exit 0
+    fi
+    if [ "$(stat -c %U "$src")" != "$TARGET_USER" ]; then
+      echo "$src is not owned by $TARGET_USER" >&2
+      exit 1
+    fi
+    install -d -m755 "$(dirname "$dest")"
+    tmp=$(mktemp -d "$(dirname "$dest")/.fonts-ms.XXXXXX")
+    trap 'rm -rf "$tmp"' EXIT
+    chmod 755 "$tmp"
+    # Files are read and parsed as the user; only regular font files are taken.
+    as_user find "$src" -type f \( -iname '*.ttf' -o -iname '*.ttc' -o -iname '*.otf' \) >"$tmp/.list"
+    while IFS= read -r f; do
+      name=$(basename "$f")
+      as_user cat "$f" >"$tmp/$name"
+      fam=$(as_user fc-query -f '%{family}\n' "$tmp/$name" 2>/dev/null) || { rm -f "$tmp/$name"; continue; }
+      # Arabic in these is much smaller than their Latin: Vazirmatn draws it instead.
+      if printf '%s\n' "$fam" | grep -qE '^(Arial|Times New Roman|Courier New|Calibri|Microsoft Sans Serif)(,|$)' &&
+        as_user fc-query -f '%{lang}\n' "$tmp/$name" | tr '|' '\n' | grep -qx ar; then
+        as_user sh -c 'hb-subset "$@" -o /dev/stdout | cat' sh "$tmp/$name" \
+          --unicodes='*' --unicodes-=600-6FF,750-77F,870-8FF,FB50-FDFF,FE70-FEFF --layout-features='*' \
+          --name-IDs='*' --name-languages='*' --notdef-outline --glyph-names --retain-gids --passthrough-tables \
+          >"$tmp/.stripped"
+        mv "$tmp/.stripped" "$tmp/$name"
+      fi
+    done <"$tmp/.list"
+    rm -f "$tmp/.list"
+    if [ -z "$(ls -A "$tmp")" ]; then
+      echo "no fonts found in $src" >&2
+      exit 1
+    fi
+    chmod 644 "$tmp"/*
+    rm -rf "$dest"
+    mv "$tmp" "$dest"
+    trap - EXIT
+  post_remove: rm -rf /usr/local/share/fonts/fonts-ms
+notes:
+  install: "Windows fonts are taken from Downloads/fonts-ms (copy C:\\Windows\\Fonts there; the folder is left in place). Added later? Run 'debforge update -f fonts-ms'. Without them, the core fonts are used, with Arimo, Tinos and Cousine for Arial, Times New Roman and Courier New."

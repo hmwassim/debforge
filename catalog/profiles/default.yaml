@@ -243,12 +243,14 @@ steps:
       - libheif-plugin-jpegenc
       - libheif-plugin-rav1e
 
-  # local.conf: generic families use croscore; Vazirmatn draws Arabic after
-  # fonts that lack it. The Microsoft core fonts are fonts-mscorefonts.
+  # local.conf: generic families use croscore, Noto for other scripts and
+  # Vazirmatn for Arabic. Microsoft fonts are the fonts-ms package.
   - id: fonts
     title: Fonts
     packages:
       - fonts-croscore
+      - fonts-crosextra-carlito
+      - fonts-crosextra-caladea
       - fonts-noto-core
       - fonts-noto-ui-core
       - fonts-noto-mono
