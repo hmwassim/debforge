@@ -1,4 +1,4 @@
-# Rotational disks use BFQ, which keeps the desktop responsive while a disk
-# is busy. SSDs and NVMe keep the kernel's default (mq-deadline and none).
-ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", \
-    ATTR{queue/scheduler}="bfq"
+# SATA/USB disks and SD/eMMC use BFQ, which keeps the desktop responsive while
+# a disk is busy. NVMe keeps "none". bfq loads on demand.
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", \
+    KERNEL=="sd*[!0-9]|mmcblk*[0-9]", ATTR{queue/scheduler}="bfq"

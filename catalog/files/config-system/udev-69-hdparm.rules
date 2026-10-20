@@ -1,5 +1,5 @@
-# Power tuning for internal rotational HDDs: -B 254 sets the highest APM
-# level that still allows standby, which stops aggressive head parking
+# Power tuning for internal rotational HDDs: -B 254 is the highest APM level
+# (best performance, no APM spin-down), which stops aggressive head parking
 # (constant load/unload cycles); -S 0 disables the spin-down timer.
 #
 # Two pitfalls this rule avoids:

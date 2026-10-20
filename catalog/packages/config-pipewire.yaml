@@ -1,21 +1,14 @@
 name: config-pipewire
-description: Audio tuning (PipeWire sample rates, Wine latency, HDMI priority, real-time limits)
+description: Audio tuning (outputs stay awake, Wine latency, real-time limits)
 category: system
 requires: [pipewire, wireplumber]
 files:
-  - {dest: /etc/modprobe.d/60-snd-hda-power.conf, src: modprobe-snd-hda-power.conf, when: {chassis: desktop}}
   - {dest: "~/.config/wireplumber/wireplumber.conf.d/51-disable-suspend.conf", src: 51-disable-suspend.conf, when: {chassis: desktop}}
-  - {dest: "~/.config/wireplumber/wireplumber.conf.d/52-deprioritize-hdmi.conf", src: 52-deprioritize-hdmi.conf}
-  - {dest: "~/.config/pipewire/pipewire.conf.d/10-clock.conf", src: 10-clock.conf}
   - {dest: "~/.config/pipewire/pipewire-pulse.conf.d/10-wine-audio.conf", src: 10-wine-audio.conf}
 hooks:
   # The pipewire group gets real-time scheduling limits from PipeWire's own
-  # limits.d file; they apply at the next login. The HDA option applies when
-  # the driver loads, so it is also set on the running driver when present.
+  # limits.d file; they apply at the next login.
   post_install: |
     usermod -aG pipewire "$TARGET_USER"
-    if [ -f /etc/modprobe.d/60-snd-hda-power.conf ] && [ -w /sys/module/snd_hda_intel/parameters/power_save ]; then
-      echo 0 > /sys/module/snd_hda_intel/parameters/power_save
-    fi
 notes:
   install: log out and back in so the pipewire group's real-time limits apply.

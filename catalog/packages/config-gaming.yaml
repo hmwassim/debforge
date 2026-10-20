@@ -1,5 +1,5 @@
 name: config-gaming
-description: Gaming tuning (split-lock mitigation off, memory map limit, CPU power readout)
+description: Gaming tuning (split-lock mitigation off, CPU power readout)
 category: gaming
 files:
   - {dest: /etc/sysctl.d/99-debforge-gaming.conf, src: 99-debforge-gaming.conf}
@@ -13,4 +13,4 @@ notes:
   install: the CPU power readout (MangoHud, powertop) is readable by members of the video group.
   # The kernel's built-in default can't be read back at runtime, so it is
   # not guessed: it returns at boot.
-  remove: split-lock mitigation and the memory map limit return to their defaults after a reboot.
+  remove: split-lock mitigation returns to its default after a reboot.

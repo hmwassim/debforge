@@ -6,6 +6,13 @@ requires: [cmake, ninja-build, g++, pkg-config, clang, llvm, bpftool, libbpf-dev
 version: {from: git-tags, repo: "https://gitlab.com/ananicy-cpp/ananicy-cpp.git", tag: "v{version}"}
 source:
   git: {repo: "https://gitlab.com/ananicy-cpp/ananicy-cpp.git", ref: "v{version}"}
+# ananicy-cpp owns process priorities; GameMode stops changing them too.
+files:
+  - dest: /etc/gamemode.ini
+    content: |
+      [general]
+      renice=0
+      ioprio=off
 reload: [systemd]
 hooks:
   # The BPF backend, as Arch and CachyOS build it. The default netlink backend

@@ -216,9 +216,8 @@ steps:
       - libheif-plugin-jpegenc
       - libheif-plugin-rav1e
 
-  # local.conf maps the common families to croscore (Arimo, Tinos,
-  # Cousine) and Arabic to Noto Sans Arabic (in fonts-noto-core). The
-  # Microsoft core fonts are the fonts-mscorefonts package.
+  # local.conf: generic families use croscore; Vazirmatn draws Arabic after
+  # fonts that lack it. The Microsoft core fonts are fonts-mscorefonts.
   - id: fonts
     title: Fonts
     packages:
@@ -230,6 +229,7 @@ steps:
       - fonts-noto-color-emoji
       - fonts-liberation2
       - fonts-inter
+      - fonts-vazirmatn-variable
     files:
       - {dest: /etc/fonts/local.conf, src: fonts-local.conf}
     reload: [fontconfig]
