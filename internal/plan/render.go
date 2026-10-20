@@ -81,6 +81,12 @@ func (p *Plan) Render(s Styler, home string) string {
 	if len(p.AptBackports) > 0 {
 		sys = append(sys, "apt install from backports: "+strings.Join(p.AptBackports, " "))
 	}
+	if len(p.AptReinstall) > 0 {
+		sys = append(sys, "apt reinstall: "+strings.Join(p.AptReinstall, " "))
+	}
+	if len(p.AptReinstallBackports) > 0 {
+		sys = append(sys, "apt reinstall from backports: "+strings.Join(p.AptReinstallBackports, " "))
+	}
 	if len(p.AptConflicts) > 0 {
 		sys = append(sys, s.Yellow("apt remove (conflicts): "+strings.Join(p.AptConflicts, " ")))
 	}

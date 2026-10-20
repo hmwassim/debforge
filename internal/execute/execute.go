@@ -150,6 +150,26 @@ func (x *Exec) Install(ctx context.Context, pl *plan.Plan) (*Summary, error) {
 		return sum, err
 	}
 
+	// apt skips packages already at the same version; -f reinstalls them.
+	// A failure here leaves the packages marked incomplete.
+	rtx := apt.Transaction{Install: append([]string(nil), pl.AptReinstall...), Reinstall: true}
+	for _, it := range pl.Items {
+		if it.Forced {
+			rtx.Install = append(rtx.Install, prep[it.Name].debs...)
+		}
+	}
+	if len(rtx.Install) > 0 {
+		if err := x.aptStep(ctx, "Reinstalling packages", func(prog apt.ProgressFunc) error { return x.Apt.Install(ctx, rtx, prog) }); err != nil {
+			return sum, err
+		}
+	}
+	if len(pl.AptReinstallBackports) > 0 {
+		btx := apt.Transaction{Install: pl.AptReinstallBackports, Target: apt.BackportsSuite, Reinstall: true}
+		if err := x.aptStep(ctx, "Reinstalling from backports", func(prog apt.ProgressFunc) error { return x.Apt.Install(ctx, btx, prog) }); err != nil {
+			return sum, err
+		}
+	}
+
 	reloads := map[string]bool{}
 	for _, it := range pl.Items {
 		if err := ctx.Err(); err != nil {

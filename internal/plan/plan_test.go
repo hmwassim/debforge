@@ -371,3 +371,19 @@ files:
 		t.Fatal("laptop writes a home file and needs the target user")
 	}
 }
+
+func TestForceReinstallsOwnPackagesOnly(t *testing.T) {
+	e := env(t, state.New(), "wine\tamd64\tii \t1\nlibwine\tamd64\tii \t1\npython3-gi\tall\tii \t1\nlutris\tall\tii \t0.5.19\n")
+	installed(e, "wine", "", false, "wine", "libwine")
+	installed(e, "lutris", "0.5.19", true)
+	e.State.Packages["lutris"].Debs = []string{"lutris"}
+	// A deb package: its .deb is reinstalled, its requires are not.
+	p, err := e.Install(context.Background(), []string{"lutris"}, Options{Force: true})
+	if err != nil || names(p) != "reinstall:lutris" || !p.Items[0].Forced || len(p.AptReinstall) != 0 {
+		t.Fatalf("%s %+v %v", names(p), p.AptReinstall, err)
+	}
+	p, _ = e.Install(context.Background(), []string{"wine"}, Options{Force: true})
+	if got := strings.Join(p.AptReinstall, " "); got != "wine libwine" {
+		t.Fatalf("AptReinstall = %q", got)
+	}
+}

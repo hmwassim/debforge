@@ -42,6 +42,8 @@ type Item struct {
 	Version    string
 	OldVersion string
 	Variant    string
+	// Forced is set by -f: apt reinstalls the package's own packages.
+	Forced bool
 	// Apt lists for installs.
 	Apt       []string
 	Backports []string
@@ -61,7 +63,11 @@ type Plan struct {
 	AptInstall   []string
 	AptBackports []string
 	AptConflicts []string
-	Extrepos     []string
+	// AptReinstall lists forced packages' apt payload, reinstalled even at
+	// the same version (with -t backports for AptReinstallBackports).
+	AptReinstall          []string
+	AptReinstallBackports []string
+	Extrepos              []string
 	// Repos lists packages whose own apt repository will be configured.
 	Repos   []string
 	Debconf []string
@@ -297,7 +303,7 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 				it.Reason = "dependency of " + strings.Join(dependents[p.Name], ", ")
 			}
 		case o.Force && requested[p.Name]:
-			it.Op, it.Reason = OpReinstall, "forced"
+			it.Op, it.Reason, it.Forced = OpReinstall, "forced", true
 		case old.Incomplete:
 			it.Op, it.Reason = OpReinstall, "previous install did not finish"
 		case it.Version != "" && it.Version != old.Version:
@@ -335,6 +341,8 @@ func (e *Env) build(ctx context.Context, names []string, o Options, update bool)
 	pl.AptInstall = uniq(pl.AptInstall)
 	pl.AptBackports = uniq(pl.AptBackports)
 	pl.AptConflicts = uniq(pl.AptConflicts)
+	pl.AptReinstall = uniq(pl.AptReinstall)
+	pl.AptReinstallBackports = uniq(pl.AptReinstallBackports)
 	pl.Extrepos = uniq(pl.Extrepos)
 	return pl, nil
 }
@@ -391,6 +399,10 @@ func (e *Env) aptFor(pl *Plan, it *Item, old *state.Package) {
 	}
 	pl.AptInstall = append(pl.AptInstall, it.Apt...)
 	pl.AptBackports = append(pl.AptBackports, it.Backports...)
+	if it.Forced {
+		pl.AptReinstall = append(pl.AptReinstall, aptPayload(p, it.Variant)...)
+		pl.AptReinstallBackports = append(pl.AptReinstallBackports, it.Backports...)
+	}
 }
 
 // FileSpec builds the files.Spec for a catalog file.

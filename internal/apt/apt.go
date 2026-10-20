@@ -45,6 +45,8 @@ type Transaction struct {
 	Remove []string
 	// Target is the -t release, e.g. trixie-backports; empty for default.
 	Target string
+	// Reinstall also reinstalls packages already at the candidate version.
+	Reinstall bool
 }
 
 var env = []string{
@@ -73,6 +75,9 @@ func (a *Apt) Install(ctx context.Context, t Transaction, prog ProgressFunc) err
 		return nil
 	}
 	args := baseArgs("install")
+	if t.Reinstall {
+		args = append(args[:len(args)-1], "--reinstall", "install")
+	}
 	if t.Target != "" {
 		args = append(append(args[:len(args)-1], targetArgs(t.Target)...), "install")
 	}

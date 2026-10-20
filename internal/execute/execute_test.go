@@ -317,3 +317,24 @@ files:
 		t.Fatalf("manifest: %v", sp.Files)
 	}
 }
+
+func TestForceReinstalls(t *testing.T) {
+	h := newHarness(t, map[string]string{"packages/wine.yaml": wineDef})
+	if _, err := h.install("wine"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(h.r.Commands(), "\n"), "--reinstall") {
+		t.Fatal("reinstalled without -f")
+	}
+	pl, err := h.env.Install(context.Background(), []string{"wine"}, plan.Options{Force: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.x.Install(context.Background(), pl); err != nil {
+		t.Fatal(err)
+	}
+	cmds := h.r.Commands()
+	if last := cmds[len(cmds)-1]; !strings.Contains(last, "--reinstall install wine") {
+		t.Fatalf("calls: %v", cmds)
+	}
+}

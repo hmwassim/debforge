@@ -162,3 +162,12 @@ func TestRealExecRunnerFd3(t *testing.T) {
 		t.Fatalf("got %q err %v", got, err)
 	}
 }
+
+func TestReinstall(t *testing.T) {
+	r := &systemtest.Runner{}
+	r.On("apt-get", statusWriter("", 0, ""))
+	(&Apt{R: r}).Install(context.Background(), Transaction{Install: []string{"./x.deb"}, Reinstall: true}, nil)
+	if !strings.Contains(r.Commands()[0], "--reinstall install ./x.deb") {
+		t.Fatal(r.Commands()[0])
+	}
+}
