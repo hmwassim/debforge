@@ -12,13 +12,13 @@ source:
       proprietary: [cuda-drivers]
 # The driver packages already ship runtime power management rules, suspend
 # support and the nouveau blacklist.
+# The initramfs hook loads the driver early: loaded late, it can lose the
+# race with the display manager, whose X server then hangs while probing.
 files:
+  - {dest: /etc/initramfs-tools/hooks/debforge-nvidia, src: initramfs-hook-nvidia, mode: "0755"}
   - {dest: /etc/modprobe.d/61-nvidia-dynamic-power.conf, src: modprobe-nvidia-dynamic-power.conf, when: {chassis: laptop}}
 hooks:
-  # The nvidia module is loaded from the initramfs, which needs the option too.
-  post_install: |
-    if [ -f /etc/modprobe.d/61-nvidia-dynamic-power.conf ]; then
-      update-initramfs -u
-    fi
+  post_install: update-initramfs -u -k all
+  post_remove: update-initramfs -u -k all
 notes:
   install: reboot to load the driver with its new options.
